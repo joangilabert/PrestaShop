@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter\Admin;
@@ -58,7 +38,7 @@ class UrlGenerator implements UrlGeneratorInterface
      * Constructor.
      *
      * @param LegacyContext $legacyContext
-     * @param Router
+     * @param Router $router
      */
     public function __construct(LegacyContext $legacyContext, Router $router)
     {
@@ -67,16 +47,20 @@ class UrlGenerator implements UrlGeneratorInterface
     }
 
     /**
-     * {@inheritdoc}
+     * @param string $name
+     * @param array $parameters
+     * @param int $referenceType
+     *
+     * @return string
      */
-    public function generate($name, $parameters = array(), $referenceType = self::ABSOLUTE_PATH)
+    public function generate($name, $parameters = [], $referenceType = self::ABSOLUTE_PATH): string
     {
         // By default, consider given parameters in legacy format (no mapping if route not found).
         $legacyController = $name;
         $legacyParameters = $parameters;
 
         // resolve route & legacy mapping
-        list($legacyController, $legacyParameters) = $this->getLegacyOptions($name, $parameters);
+        [$legacyController, $legacyParameters] = $this->getLegacyOptions($name, $parameters);
 
         return $this->legacyContext->getAdminLink($legacyController, true, $legacyParameters);
     }
@@ -89,9 +73,9 @@ class UrlGenerator implements UrlGeneratorInterface
      * @param string $routeName
      * @param string[] $parameters The route parameters to convert
      *
-     * @return array[] An array with: the legacy controller name, then the parameters array
+     * @return array{0: string, 1: array<string>} An array with: the legacy controller name, then the parameters array
      */
-    final public function getLegacyOptions($routeName, $parameters = array())
+    final public function getLegacyOptions($routeName, $parameters = [])
     {
         $legacyController = $routeName;
         $legacyParameters = $parameters;
@@ -109,7 +93,7 @@ class UrlGenerator implements UrlGeneratorInterface
             }
         }
 
-        return array($legacyController, $legacyParameters);
+        return [$legacyController, $legacyParameters];
     }
 
     /**
@@ -123,7 +107,7 @@ class UrlGenerator implements UrlGeneratorInterface
     /**
      * {@inheritdoc}
      */
-    public function getContext()
+    public function getContext(): RequestContext
     {
         throw new LogicException('Cannot use this UrlGeneratorInterface implementation with a Symfony context. Please call AdminUrlGeneratorFactory::forLegacy() to reach the right instance.');
     }

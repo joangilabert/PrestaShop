@@ -1,35 +1,13 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter;
 
 use Db;
-use PrestaShop\PrestaShop\Adapter\Configuration as ConfigurationAdapter;
 use PrestaShop\PrestaShop\Adapter\Shop\Context as ShopAdapter;
-use PrestaShopBundle\Service\DataProvider\StockInterface;
 use StockAvailable;
 
 /**
@@ -37,14 +15,16 @@ use StockAvailable;
  *
  * This class will provide data from DB / ORM about Product stocks.
  */
-class StockManager implements StockInterface
+class StockManager
 {
+    private $cachedStockContext = [];
+
     /**
      * Gets available stock for a given product / combination / shop.
      *
      * @param object $product
-     * @param null $id_product_attribute
-     * @param null $id_shop
+     * @param int|null $id_product_attribute
+     * @param int|null $id_shop
      *
      * @return StockAvailable
      */
@@ -84,16 +64,23 @@ class StockManager implements StockInterface
      * Returns True if Stocks are managed by a module (or by legacy ASM).
      *
      * @return bool True if Stocks are managed by a module (or by legacy ASM)
+     *
+     * @deprecated Since 9.0 and will be removed in 10.0
      */
     public function isAsmGloballyActivated()
     {
-        return (bool) (new ConfigurationAdapter())->get('PS_ADVANCED_STOCK_MANAGEMENT');
+        @trigger_error(sprintf(
+            '%s is deprecated since 9.0 and will be removed in 10.0.',
+            __METHOD__
+        ), E_USER_DEPRECATED);
+
+        return false;
     }
 
     /**
-     * @param $shopId
-     * @param $errorState
-     * @param $cancellationState
+     * @param int $shopId
+     * @param int $errorState
+     * @param int $cancellationState
      * @param int|null $idProduct
      * @param int|null $idOrder
      *
@@ -103,11 +90,25 @@ class StockManager implements StockInterface
     {
         $this->updateReservedProductQuantity($shopId, $errorState, $cancellationState, $idProduct, $idOrder);
 
-        $updatePhysicalQuantityQuery = '
-            UPDATE {table_prefix}stock_available sa
+        $updatePhysicalQuantityQuery = 'UPDATE {table_prefix}stock_available sa';
+
+        if ($idOrder) {
+            $updatePhysicalQuantityQuery .= '
+                INNER JOIN (
+                    SELECT product_id
+                    FROM {table_prefix}order_detail
+                    WHERE id_order = ' . (int) $idOrder . '
+                ) od
+                ON sa.id_product = od.product_id
+            ';
+        }
+
+        $stockContext = $this->getStockContext((int) $shopId);
+
+        $updatePhysicalQuantityQuery .= '
             SET sa.physical_quantity = sa.quantity + sa.reserved_quantity
-            WHERE sa.id_shop = ' . (int) $shopId . '
-        ';
+            WHERE sa.id_shop = ' . (int) $stockContext['shopId'] . ' AND sa.id_shop_group = ' . (int) $stockContext['shopGroupId']
+        ;
 
         if ($idProduct) {
             $updatePhysicalQuantityQuery .= ' AND sa.id_product = ' . (int) $idProduct;
@@ -119,9 +120,9 @@ class StockManager implements StockInterface
     }
 
     /**
-     * @param $shopId
-     * @param $errorState
-     * @param $cancellationState
+     * @param int $shopId
+     * @param int $errorState
+     * @param int $cancellationState
      * @param int|null $idProduct
      * @param int|null $idOrder
      *
@@ -129,14 +130,37 @@ class StockManager implements StockInterface
      */
     private function updateReservedProductQuantity($shopId, $errorState, $cancellationState, $idProduct = null, $idOrder = null)
     {
-        $updateReservedQuantityQuery = '
-            UPDATE {table_prefix}stock_available sa
+        $updateReservedQuantityQuery = 'UPDATE {table_prefix}stock_available sa';
+
+        if ($idOrder) {
+            $updateReservedQuantityQuery .= '
+                INNER JOIN (
+                    SELECT product_id
+                    FROM {table_prefix}order_detail
+                    WHERE id_order = :order_id
+                ) od2
+                ON sa.id_product = od2.product_id
+            ';
+        }
+
+        $stockContext = $this->getStockContext((int) $shopId);
+
+        $orderScopeCondition = $stockContext['shopGroupId'] > 0
+            ? 'o.id_shop_group = :stock_shop_group_id'
+            : 'o.id_shop = :stock_shop_id';
+
+        // WHY: product_quantity and product_quantity_refunded are UNSIGNED, so an over-refunded order
+        // line (refunded > ordered) makes the subtraction underflow and MySQL aborts the whole update
+        // with "BIGINT UNSIGNED value is out of range", which prevented orders from being processed.
+        // Clamp each line to >= 0 (such a line reserves nothing) by casting to SIGNED before subtracting.
+        // @see https://github.com/PrestaShop/PrestaShop/issues/37338
+        $updateReservedQuantityQuery .= '
             SET sa.reserved_quantity = (
-                SELECT SUM(od.product_quantity - od.product_quantity_refunded)
+                SELECT SUM(GREATEST(CAST(od.product_quantity AS SIGNED) - CAST(od.product_quantity_refunded AS SIGNED), 0))
                 FROM {table_prefix}orders o
                 INNER JOIN {table_prefix}order_detail od ON od.id_order = o.id_order
                 INNER JOIN {table_prefix}order_state os ON os.id_order_state = o.current_state
-                WHERE o.id_shop = :shop_id AND
+                WHERE ' . $orderScopeCondition . ' AND
                 os.shipped != 1 AND (
                     o.valid = 1 OR (
                         os.id_order_state != :error_state AND
@@ -146,15 +170,18 @@ class StockManager implements StockInterface
                 sa.id_product_attribute = od.product_attribute_id
                 GROUP BY od.product_id, od.product_attribute_id
             )
-            WHERE sa.id_shop = :shop_id
+            WHERE
+                sa.id_shop = :stock_shop_id AND 
+                sa.id_shop_group = :stock_shop_group_id 
         ';
 
-        $strParams = array(
+        $strParams = [
             '{table_prefix}' => _DB_PREFIX_,
-            ':shop_id' => (int) $shopId,
+            ':stock_shop_id' => (int) $stockContext['shopId'],
+            ':stock_shop_group_id' => (int) $stockContext['shopGroupId'],
             ':error_state' => (int) $errorState,
             ':cancellation_state' => (int) $cancellationState,
-        );
+        ];
 
         if ($idProduct) {
             $updateReservedQuantityQuery .= ' AND sa.id_product = :product_id';
@@ -162,7 +189,6 @@ class StockManager implements StockInterface
         }
 
         if ($idOrder) {
-            $updateReservedQuantityQuery .= ' AND sa.id_product IN (SELECT product_id FROM {table_prefix}order_detail WHERE id_order = :order_id)';
             $strParams[':order_id'] = (int) $idOrder;
         }
 
@@ -172,9 +198,37 @@ class StockManager implements StockInterface
     }
 
     /**
+     * Returns the stock context for the given shop.
+     *
+     * Note: when stock is shared at shop group level (share_stock = true),
+     * PrestaShop uses id_shop = 0 as a “virtual shop id” to read/write the shared stock
+     * in stock_available.
+     *
+     * @return array{shopGroupId:int, shopId:int} shopId is 0 when stock is shared, otherwise it's the given $shopId
+     */
+    private function getStockContext(int $shopId)
+    {
+        if (isset($this->cachedStockContext[$shopId])) {
+            return $this->cachedStockContext[$shopId];
+        }
+
+        $shopAdapter = new ShopAdapter();
+        $shopGroup = $shopAdapter->ShopGroup((int) $shopAdapter->getGroupFromShop((int) $shopId));
+
+        return $this->cachedStockContext[$shopId] = [
+            // When stock is shared at group level, we scope the stock to the shop group.
+            // Otherwise we use 0 as a sentinel value meaning "not group-scoped".
+            'shopGroupId' => $shopGroup->share_stock ? $shopGroup->id : 0,
+            // When stock is shared at group level, PrestaShop uses id_shop = 0 to store/read the shared stock.
+            // Otherwise the stock is scoped to the current shop id.
+            'shopId' => $shopGroup->share_stock ? 0 : $shopId,
+        ];
+    }
+
+    /**
      * Instance a new StockAvailable.
      *
-     * @param null $stockAvailableId
+     * @param bool|int|null $stockAvailableId
      *
      * @return StockAvailable
      */
@@ -190,9 +244,9 @@ class StockManager implements StockInterface
     /**
      * Use legacy getStockAvailableIdByProductId.
      *
-     * @param $productId
-     * @param null $productAttributeId
-     * @param null $shopId
+     * @param int $productId
+     * @param int|null $productAttributeId
+     * @param int|null $shopId
      *
      * @return bool|int
      */
@@ -207,7 +261,7 @@ class StockManager implements StockInterface
      * @param int $productId
      * @param int $shopId Optional : gets context if null @see Context::getContext()
      *
-     * @return bool : depends on stock @see $depends_on_stock
+     * @return bool True if product is orderable when out of stock
      */
     public function outOfStock($productId, $shopId = null)
     {

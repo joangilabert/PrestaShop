@@ -1,35 +1,48 @@
 <?php
-
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Translation;
 
 use Symfony\Component\Translation\DataCollectorTranslator as BaseTranslator;
+use Symfony\Component\Translation\Loader\LoaderInterface;
 
-class DataCollectorTranslator extends BaseTranslator
+/**
+ * This is the decorator of the framework DataCollectorTranslator service, it is required mostly
+ * for the PrestaShopTranslatorTrait that handles fallback on legacy translation system when useful.
+ *
+ * We need to explicitly implement some method even if they are just proxies because the TranslatorLanguageLoader
+ * checks their presence before calling them.
+ */
+class DataCollectorTranslator extends BaseTranslator implements TranslatorInterface
 {
     use PrestaShopTranslatorTrait;
+
+    public function addLoader(string $format, LoaderInterface $loader)
+    {
+        return $this->__call('addLoader', [$format, $loader]);
+    }
+
+    public function addResource(string $format, mixed $resource, string $locale, ?string $domain = null)
+    {
+        return $this->__call('addResource', [$format, $resource, $locale, $domain]);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function isLanguageLoaded($locale)
+    {
+        return $this->__call('isLanguageLoaded', [$locale]);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function clearLanguage($locale)
+    {
+        return $this->__call('clearLanguage', [$locale]);
+    }
 }

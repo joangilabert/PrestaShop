@@ -1,27 +1,8 @@
 <?php
+
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 /**
@@ -71,7 +52,16 @@ class ReleaseCreator
      *
      * @var array
      */
-    protected $filesRemoveList = ['.DS_Store', '.gitignore', '.gitmodules', '.travis.yml'];
+    protected $filesRemoveList = [
+        '.php-cs-fixer.dist.php',
+        '.DS_Store',
+        '.gitignore',
+        '.gitmodules',
+        '.travis.yml',
+        'package-lock.json',
+        '.babelrc',
+        'postcss.config.js',
+    ];
 
     /**
      * Folders to remove.
@@ -86,15 +76,12 @@ class ReleaseCreator
      * @var array
      */
     protected $patternsRemoveList = [
-        'tests$',
         'tools/contrib$',
         'travis\-scripts$',
         'CONTRIBUTING\.md$',
         'composer\.json$',
         'diff\-hooks\.php',
-        '((?<!_dev\/)package\.json)$',
         '(.*)?\.composer$',
-        '(.*)?\.git(.*)?$',
         '.*\.map$',
         '.*\.psd$',
         '.*\.md$',
@@ -111,15 +98,46 @@ class ReleaseCreator
         'app/cache/..*$',
         '\.t9n\.yml$',
         '\.scrutinizer\.yml$',
-        'admin\-dev/(.*/)?webpack\.config\.js$',
-        'admin\-dev/(.*/)?package\.json$',
-        'admin\-dev/(.*/)?bower\.json$',
-        'admin\-dev/(.*/)?config\.rb$',
-        'admin\-dev/themes/default/sass$',
-        'admin\-dev/themes/new\-theme/js$',
-        'admin\-dev/themes/new\-theme/scss$',
+        'admin/(.*/)?webpack\.config\.js$',
+        'admin/(.*/)?package\.json$',
+        'admin/(.*/)?bower\.json$',
+        'admin/(.*/)?config\.rb$',
+        'admin/themes/default/sass$',
+        //'admin/themes/new\-theme/js$',
+        'admin/themes/new\-theme/scss$',
         'themes/_core$',
         'themes/classic/_dev',
+        'themes/hummingbird/\.storybook$',
+        'themes/hummingbird/docker$',
+        'themes/hummingbird/docs$',
+        'themes/hummingbird/src$',
+        'themes/hummingbird/stories$',
+        'themes/hummingbird/types$',
+        'themes/hummingbird/vendor$',
+        'themes/hummingbird/webpack$',
+        'themes/hummingbird/\.aider\.conf\.yml$',
+        'themes/hummingbird/\.antigravityrules$',
+        'themes/hummingbird/\.cursorrules$',
+        'themes/hummingbird/\.editorconfig$',
+        'themes/hummingbird/\.eslintignore$',
+        'themes/hummingbird/\.eslintrc\.js$',
+        'themes/hummingbird/\.nvmrc$',
+        'themes/hummingbird/\.gitignore$',
+        'themes/hummingbird/\.opencoderules$',
+        'themes/hummingbird/\.prettierrc\.js$',
+        'themes/hummingbird/\.stylelintignore$',
+        'themes/hummingbird/\.stylelintrc$',
+        'themes/hummingbird/\.windsurfrules$',
+        'themes/hummingbird/babel\.config\.js$',
+        'themes/hummingbird/CLAUDE\.md$',
+        'themes/hummingbird/composer\.lock$',
+        'themes/hummingbird/CONTEXT\.md$',
+        'themes/hummingbird/jest\.config\.js$',
+        'themes/hummingbird/package\-lock\.json$',
+        'themes/hummingbird/package\.json$',
+        'themes/hummingbird/postcss\.config\.js$',
+        'themes/hummingbird/tsconfig\.json$',
+        'themes/hummingbird/webpack\.config\.js$',
         'themes/webpack\.config\.js$',
         'themes/package\.json$',
         'vendor\/[a-zA-Z0-0_-]+\/[a-zA-Z0-0_-]+\/[Tt]ests?$',
@@ -129,6 +147,20 @@ class ReleaseCreator
         'tools/build$',
         'tools/foreignkeyGenerator$',
         '.*node_modules.*',
+        '\.eslintignore$',
+        '\.eslintrc\.js$',
+        '\.php_cs\.dist$',
+        'tools/assets$',
+        '\.webpack$',
+        'rector\.php',
+        '^(?!.*vendor).*phpstan.*\.neon',
+        '\.header-stamp.*',
+        // Filter AI tools (MD files are alredy filtered via a generic rule above)
+        '\.ai.*',
+        '\.claude.*',
+        '\.cursor.*',
+        '\.windsurf.*',
+        '\.github/copilot-instructions\.md$',
     ];
 
     /**
@@ -189,14 +221,23 @@ class ReleaseCreator
     protected $destinationDir;
 
     /**
+     * Distribution type for app/metadata.json (e.g. open_source). When set, metadata file is generated.
+     *
+     * @var string
+     */
+    protected $distribution = '';
+
+    /**
      * Set the release wanted version, and some options.
      *
-     * @param string $version
+     * @param string|null $version
      * @param bool $useInstaller
      * @param bool $useZip
      * @param string $destinationDir
+     * @param bool $keepTests
+     * @param string $distribution Distribution type for app/metadata.json (e.g. open_source). When set, metadata file is generated.
      */
-    public function __construct($version = null, $useInstaller = true, $useZip = true, $destinationDir = '')
+    public function __construct(?string $version = null, bool $useInstaller = true, bool $useZip = true, string $destinationDir = '', bool $keepTests = false, string $distribution = '')
     {
         $this->consoleWriter = new ConsoleWriter();
         $tmpDir = sys_get_temp_dir();
@@ -209,6 +250,14 @@ class ReleaseCreator
         $this->projectPath = realpath(__DIR__ . '/../../..');
         $this->version = $version ? $version : $this->getCurrentVersion();
         $this->zipFileName = "prestashop_$this->version.zip";
+        // Keep files for tests (tests, git and docker folders)
+        if (!$keepTests) {
+            $this->patternsRemoveList[] = 'tests(\-legacy)?$';
+            $this->patternsRemoveList[] = '(.*)?\.git(.*)?$';
+            $this->patternsRemoveList[] = '.docker';
+            $this->patternsRemoveList[] = 'docker-compose\.yml$';
+            $this->patternsRemoveList[] = '((?<!_dev\/)package\.json)$';
+        }
 
         if (empty($this->version)) {
             throw new Exception('Version is not provided and cannot be found in project.');
@@ -220,6 +269,7 @@ class ReleaseCreator
             $destinationDir = "{$this->projectPath}/$releasesDir/$reference";
         }
         $this->destinationDir = $destinationDir;
+        $this->distribution = $distribution;
         $this->consoleWriter->displayText(
             "--- Destination dir used will be '{$this->destinationDir}'{$this->lineSeparator}",
             ConsoleWriter::COLOR_GREEN
@@ -237,9 +287,9 @@ class ReleaseCreator
                 "--- Release will be zipped.{$this->lineSeparator}",
                 ConsoleWriter::COLOR_GREEN
             );
-        } elseif ($this->useInstaller) {
+        } else {
             $this->consoleWriter->displayText(
-                "--- Release will have the installer.{$this->lineSeparator}",
+                "--- Release will be a folder without installer.{$this->lineSeparator}",
                 ConsoleWriter::COLOR_GREEN
             );
         }
@@ -265,7 +315,10 @@ class ReleaseCreator
             ->setFilesConstants()
             ->setupShopVersion()
             ->generateLicensesFile()
+            ->generateCachedirFiles()
             ->runComposerInstall()
+            ->runBuildAssets()
+            ->generateMetadataFile()
             ->createPackage();
         $endTime = date('H:i:s');
         $this->consoleWriter->displayText(
@@ -338,8 +391,8 @@ class ReleaseCreator
     {
         $configDefinesPath = $this->tempProjectPath . '/config/defines.inc.php';
         $configDefinesContent = file_get_contents($configDefinesPath);
-        $configDefinesNewContent = preg_replace('/(.*(define).*)_PS_MODE_DEV_(.*);/Ui', 'define(\'_PS_MODE_DEV_\', false);', $configDefinesContent);
-        $configDefinesNewContent = preg_replace('/(.*)_PS_DISPLAY_COMPATIBILITY_WARNING_(.*);/Ui', 'define(\'_PS_DISPLAY_COMPATIBILITY_WARNING_\', false);', $configDefinesNewContent);
+        $configDefinesNewContent = preg_replace('/(.*(define).*)["\']_PS_MODE_DEV_["\'](.*);/Ui', 'define(\'_PS_MODE_DEV_\', false);', $configDefinesContent);
+        $configDefinesNewContent = preg_replace('/(.*)["\']_PS_DISPLAY_COMPATIBILITY_WARNING_["\'](.*);/Ui', 'define(\'_PS_DISPLAY_COMPATIBILITY_WARNING_\', false);', $configDefinesNewContent);
 
         if (!file_put_contents($configDefinesPath, $configDefinesNewContent)) {
             throw new BuildException("Unable to update contents of '$configDefinesPath'");
@@ -350,22 +403,13 @@ class ReleaseCreator
 
     /**
      * Get the current version in the project
-     * 
+     *
      * @return string PrestaShop version
      */
     protected function getCurrentVersion()
     {
-        $kernelFile = $this->projectPath.'/app/AppKernel.php';
-        $matches = [];
-
-        $kernelFileContent = file_get_contents($kernelFile);
-        $kernelFileContent = preg_match(
-            '~const VERSION = \'(.*)\';~',
-            $kernelFileContent,
-            $matches
-        );
-
-        return $matches[1];
+        require_once $this->projectPath . '/src/Core/Version.php';
+        return \PrestaShop\PrestaShop\Core\Version::VERSION;
     }
 
     /**
@@ -376,33 +420,33 @@ class ReleaseCreator
      */
     protected function setupShopVersion()
     {
-        $kernelFile = $this->tempProjectPath.'/app/AppKernel.php';
+        $kernelFile = $this->tempProjectPath . '/app/AppKernel.php';
         $version = new Version($this->version);
 
         $kernelFileContent = file_get_contents($kernelFile);
         $kernelFileContent = preg_replace(
             '~const VERSION = \'(.*)\';~',
-            "const VERSION = '".$version->getVersion()."';",
+            "const VERSION = '" . $version->getVersion() . "';",
             $kernelFileContent
         );
         $kernelFileContent = preg_replace(
             '~const MAJOR_VERSION_STRING = \'(.*)\';~',
-            "const MAJOR_VERSION_STRING = '".$version->getMajorVersionString()."';",
+            "const MAJOR_VERSION_STRING = '" . $version->getMajorVersionString() . "';",
             $kernelFileContent
         );
         $kernelFileContent = preg_replace(
             '~const MAJOR_VERSION = (.*);~',
-            "const MAJOR_VERSION = ".$version->getMajorVersion().";",
+            "const MAJOR_VERSION = " . $version->getMajorVersion() . ";",
             $kernelFileContent
         );
         $kernelFileContent = preg_replace(
             '~const MINOR_VERSION = (.*);~',
-            "const MINOR_VERSION = ".$version->getMinorVersion().";",
+            "const MINOR_VERSION = " . $version->getMinorVersion() . ";",
             $kernelFileContent
         );
         $kernelFileContent = preg_replace(
             '~const RELEASE_VERSION = (.*);~',
-            "const RELEASE_VERSION = ".$version->getReleaseVersion().";",
+            "const RELEASE_VERSION = " . $version->getReleaseVersion() . ";",
             $kernelFileContent
         );
 
@@ -421,7 +465,7 @@ class ReleaseCreator
      */
     protected function setInstallDevConfigurationConstants()
     {
-        $configPath = $this->tempProjectPath.'/install-dev/data/xml/configuration.xml';
+        $configPath = $this->tempProjectPath . '/install-dev/data/xml/configuration.xml';
 
         if (file_exists($configPath)) {
             $configPathContent = file_get_contents($configPath);
@@ -470,13 +514,78 @@ class ReleaseCreator
         $iterator = new \RecursiveIteratorIterator($directory);
         $regex = new \RegexIterator($iterator, '/^.*\/.*license(\.txt)?$/i', \RecursiveRegexIterator::GET_MATCH);
 
-        foreach($regex as $file => $value) {
+        foreach ($regex as $file => $value) {
             $content .= file_get_contents($file) . "\r\n\r\n";
         }
 
         if (!file_put_contents($this->tempProjectPath . '/LICENSES', $content)) {
             throw new BuildException('Unable to create LICENSES file.');
         }
+        $this->consoleWriter->displayText(" DONE{$this->lineSeparator}", ConsoleWriter::COLOR_GREEN);
+
+        return $this;
+    }
+
+    /**
+     * Generate CACHEDIR.TAG files in some locations. This file is used in many applications
+     * to exclude directories from backups.
+     *
+     * @return $this
+     * @throws BuildException
+     */
+    protected function generateCachedirFiles()
+    {
+        $this->consoleWriter->displayText("Generating CACHEDIR.TAG files...", ConsoleWriter::COLOR_YELLOW);
+
+        // Prepare content of the file with the signature
+        $fileContent = 'Signature: 8a477f597d28d172789f06886806bc55
+# This file is a cache directory tag created by PrestaShop.
+# For information about cache directory tags, see:
+#	http://www.brynosaurus.com/cachedir/';
+
+        // Specify locations we want to create this file in
+        $fileLocations = [
+            '/img/tmp/',
+            '/var/cache/',
+        ];
+
+        foreach ($fileLocations as $fileLocation) {
+            $filePath = $this->tempProjectPath . $fileLocation . 'CACHEDIR.TAG';
+            if (!file_put_contents($filePath, $fileContent)) {
+                throw new BuildException('Unable to create ' . $filePath);
+            }
+        }
+        $this->consoleWriter->displayText(" DONE{$this->lineSeparator}", ConsoleWriter::COLOR_GREEN);
+
+        return $this;
+    }
+
+    /**
+     * Generate app/metadata.json when --distribution is set (e.g. for official OS builds from CI).
+     *
+     * @return $this
+     * @throws BuildException
+     */
+    protected function generateMetadataFile()
+    {
+        if ($this->distribution === '') {
+            return $this;
+        }
+
+        $this->consoleWriter->displayText('Generating app/metadata.json...', ConsoleWriter::COLOR_YELLOW);
+
+        $metadataPath = $this->tempProjectPath . '/app/metadata.json';
+        $metadata = [
+            'distribution' => $this->distribution,
+            'distributionVersion' => $this->version,
+            'buildDate' => date('Y-m-d H:i:s'),
+        ];
+
+        $jsonContent = json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if (file_put_contents($metadataPath, $jsonContent) === false) {
+            throw new BuildException("Unable to write metadata file '{$metadataPath}'");
+        }
+
         $this->consoleWriter->displayText(" DONE{$this->lineSeparator}", ConsoleWriter::COLOR_GREEN);
 
         return $this;
@@ -492,12 +601,47 @@ class ReleaseCreator
     {
         $this->consoleWriter->displayText("Running composer install...", ConsoleWriter::COLOR_YELLOW);
         $argProjectPath = escapeshellarg($this->tempProjectPath);
-        $command = "cd {$argProjectPath} && export SYMFONY_ENV=prod && composer install --no-dev --optimize-autoloader --classmap-authoritative --no-interaction 2>&1";
+        $autoloaderSuffix = md5($this->version);
+        $command = "cd {$argProjectPath} \
+            && export SYMFONY_ENV=prod \
+            && composer config autoloader-suffix {$autoloaderSuffix} \
+            && composer install --no-dev --optimize-autoloader --no-interaction 2>&1";
         exec($command, $output, $returnCode);
+        if (!empty($output)) {
+            $logPath = __DIR__ . '/../../../var/logs/composer-install.log';
+            file_put_contents($logPath, implode(PHP_EOL, $output));
+        }
 
-        if ($returnCode != 0) {
+        if ($returnCode !== 0) {
             throw new BuildException('Unable to run composer install.');
         }
+
+        $this->consoleWriter->displayText(" DONE{$this->lineSeparator}", ConsoleWriter::COLOR_GREEN);
+
+        return $this;
+    }
+
+    /**
+     * Build assets.
+     *
+     * @return $this
+     * @throws BuildException
+     */
+    protected function runBuildAssets()
+    {
+        $this->consoleWriter->displayText("Running build assets...", ConsoleWriter::COLOR_YELLOW);
+        $argProjectPath = escapeshellarg($this->tempProjectPath);
+        $command = "cd {$argProjectPath} && make assets 2>&1";
+        exec($command, $output, $returnCode);
+        if (!empty($output)) {
+            $logPath = __DIR__ . '/../../../var/logs/build-assets.log';
+            file_put_contents($logPath, implode(PHP_EOL, $output));
+        }
+
+        if ($returnCode !== 0) {
+            throw new BuildException('Unable to build assets.');
+        }
+
         $this->consoleWriter->displayText(" DONE{$this->lineSeparator}", ConsoleWriter::COLOR_GREEN);
 
         return $this;
@@ -642,7 +786,7 @@ class ReleaseCreator
 
                 // Remove files.
                 foreach ($filesRemoveList as $file_to_remove) {
-                    if ($folder.'/'.$file_to_remove == $value) {
+                    if ($folder . '/' . $file_to_remove == $value) {
                         unset($filesList[$key]);
                         exec("rm -f {$argValue}");
 
@@ -652,7 +796,7 @@ class ReleaseCreator
 
                 // Remove folders.
                 foreach ($foldersRemoveList as $folder_to_remove) {
-                    if ($folder.'/'.$folder_to_remove == $value) {
+                    if ($folder . '/' . $folder_to_remove == $value) {
                         unset($filesList[$key]);
                         exec("rm -rf {$argValue}");
 
@@ -662,7 +806,7 @@ class ReleaseCreator
 
                 // Pattern to remove.
                 foreach ($patternsRemoveList as $pattern_to_remove) {
-                    if (preg_match('#'.$pattern_to_remove.'#', $value) == 1) {
+                    if (preg_match('#' . $pattern_to_remove . '#', $value) == 1) {
                         unset($filesList[$key]);
                         exec("rm -rf {$argValue}");
 
@@ -674,7 +818,7 @@ class ReleaseCreator
 
                 // Remove folders.
                 foreach ($foldersRemoveList as $folder_to_remove) {
-                    if ($folder.'/'.$folder_to_remove == $key) {
+                    if ($folder . '/' . $folder_to_remove == $key) {
                         unset($filesList[$key]);
                         exec("rm -rf {$argKey}");
 
@@ -684,7 +828,7 @@ class ReleaseCreator
 
                 // Pattern to remove.
                 foreach ($patternsRemoveList as $pattern_to_remove) {
-                    if (preg_match('#'.$pattern_to_remove.'#', $key) == 1) {
+                    if (preg_match('#' . $pattern_to_remove . '#', $key) == 1) {
                         unset($filesList[$key]);
                         exec("rm -rf {$argKey}");
 
@@ -714,7 +858,7 @@ class ReleaseCreator
         $argInstallerZipFilename = escapeshellarg($installerZipFilename);
         $argProjectPath = escapeshellarg($this->projectPath);
         $cmd = "cd {$argTempProjectPath} \
-            && zip -rq {$argInstallerZipFilename} . \
+            && zip --symlinks -rq {$argInstallerZipFilename} . \
             && cd -";
         exec($cmd);
 
@@ -771,6 +915,8 @@ class ReleaseCreator
         );
         exec("rm -rf {$argTempProjectPath}");
         $this->consoleWriter->displayText(" DONE{$this->lineSeparator}", ConsoleWriter::COLOR_GREEN);
+
+        return $this;
     }
 
     /**
@@ -812,14 +958,20 @@ class ReleaseCreator
 
         foreach ($files as $key => $value) {
             if (is_numeric($key)) {
-                $md5 = md5_file($value);
                 $count = substr_count($value, DIRECTORY_SEPARATOR) - $subCount + 1;
-                $file_name = str_replace($this->tempProjectPath, null, $value);
+                $file_name = str_replace($this->tempProjectPath, '', $value);
                 $file_name = pathinfo($file_name, PATHINFO_BASENAME);
-                $content .= str_repeat("\t", $count) . "<md5file name=\"$file_name\">$md5</md5file>" . PHP_EOL;
+
+                if (is_link($value)) {
+                    $linkTarget = readlink($value);
+                    $content .= str_repeat("\t", $count) . "<link name=\"$file_name\">$linkTarget</link>" . PHP_EOL;
+                } else {
+                    $md5 = md5_file($value);
+                    $content .= str_repeat("\t", $count) . "<md5file name=\"$file_name\">$md5</md5file>" . PHP_EOL;
+                }
             } else {
                 $count = substr_count($key, DIRECTORY_SEPARATOR) - $subCount + 1;
-                $dir_name = str_replace($this->tempProjectPath, null, $key);
+                $dir_name = str_replace($this->tempProjectPath, '', $key);
                 $dir_name = pathinfo($dir_name, PATHINFO_BASENAME);
                 $content .= str_repeat("\t", $count) . "<dir name=\"$dir_name\">" . PHP_EOL;
                 $content .= $this->generateXMLDirectoryChecksum($value);

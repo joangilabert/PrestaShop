@@ -1,37 +1,17 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Entity\Repository;
 
-use Doctrine\DBAL\Driver\Connection;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManager;
+use PDO;
 use PrestaShop\PrestaShop\Adapter\Configuration;
 use PrestaShop\PrestaShop\Adapter\ImageManager;
 use PrestaShop\PrestaShop\Adapter\LegacyContext as ContextAdapter;
-use PrestaShop\PrestaShop\Adapter\Product\ProductDataProvider;
 use PrestaShop\PrestaShop\Adapter\StockManager;
 use PrestaShop\PrestaShop\Core\Stock\StockManager as StockManagerCore;
 use PrestaShopBundle\Api\QueryParamsCollection;
@@ -39,6 +19,7 @@ use PrestaShopBundle\Api\Stock\Movement;
 use PrestaShopBundle\Api\Stock\MovementsCollection;
 use PrestaShopBundle\Entity\ProductIdentity;
 use PrestaShopBundle\Exception\ProductNotFoundException;
+use Product;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class StockRepository extends StockManagementRepository
@@ -51,12 +32,12 @@ class StockRepository extends StockManagementRepository
     /**
      * @var array
      */
-    private $orderStates = array();
+    private $orderStates = [];
 
     /**
      * @var array
      */
-    private $totalCombinations = array();
+    private $totalCombinations = [];
 
     /**
      * StockRepository constructor.
@@ -67,7 +48,7 @@ class StockRepository extends StockManagementRepository
      * @param ContextAdapter $contextAdapter
      * @param ImageManager $imageManager
      * @param StockManager $stockManager
-     * @param $tablePrefix
+     * @param string $tablePrefix
      */
     public function __construct(
         ContainerInterface $container,
@@ -120,7 +101,7 @@ class StockRepository extends StockManagementRepository
         $delta = $movement->getDelta();
 
         if ($productIdentity->getProductId() && $delta !== 0) {
-            $product = (new ProductDataProvider())->getProduct($productIdentity->getProductId());
+            $product = new Product($productIdentity->getProductId());
 
             if ($product->id) {
                 $configurationAdapter = new Configuration();
@@ -129,11 +110,11 @@ class StockRepository extends StockManagementRepository
                     $product,
                     $productIdentity->getCombinationId(),
                     $delta,
-                    $this->contextAdapter->getContext()->shop->id,
+                    $this->getCurrentShop()->id,
                     true,
-                    array(
+                    [
                         'id_stock_mvt_reason' => ($delta >= 1 ? $configurationAdapter->get('PS_STOCK_MVT_INC_EMPLOYEE_EDITION') : $configurationAdapter->get('PS_STOCK_MVT_DEC_EMPLOYEE_EDITION')),
-                    )
+                    ]
                 );
             }
 
@@ -151,7 +132,7 @@ class StockRepository extends StockManagementRepository
     private function syncAllStock($idProduct)
     {
         (new StockManager())->updatePhysicalProductQuantity(
-            $this->contextAdapter->getContext()->shop->id,
+            $this->getCurrentShop()->id,
             $this->orderStates['error'],
             $this->orderStates['cancellation'],
             (int) $idProduct
@@ -173,19 +154,13 @@ class StockRepository extends StockManagementRepository
         $statement = $this->connection->prepare($query);
         $this->bindStockManagementValues($statement, null, $productIdentity);
 
-        $statement->execute();
-        $rows = $statement->fetchAll();
-        $statement->closeCursor();
+        $result = $statement->executeQuery();
+        $rows = $result->fetchAllAssociative();
+        $result->free();
         $this->foundRows = $this->getFoundRows();
 
         if (count($rows) === 0) {
-            throw new ProductNotFoundException(
-                sprintf(
-                    'Product with id %d and combination id %d can not be found',
-                    $productIdentity->getProductId(),
-                    $productIdentity->getCombinationId()
-                )
-            );
+            throw new ProductNotFoundException(sprintf('Product with id %d and combination id %d can not be found', $productIdentity->getProductId(), $productIdentity->getCombinationId()));
         }
 
         $rows = $this->addAdditionalData($rows);
@@ -201,7 +176,7 @@ class StockRepository extends StockManagementRepository
     public function getData(QueryParamsCollection $queryParams)
     {
         $this->stockManager->updatePhysicalProductQuantity(
-            $this->shopId,
+            $this->getContextualShopId(),
             $this->orderStates['error'],
             $this->orderStates['cancellation']
         );
@@ -210,8 +185,8 @@ class StockRepository extends StockManagementRepository
     }
 
     /**
-     * @param $offset int
-     * @param $limit int
+     * @param int $offset
+     * @param int $limit
      * @param QueryParamsCollection $queryParams
      *
      * @return array
@@ -236,32 +211,43 @@ class StockRepository extends StockManagementRepository
         $having = '',
         $orderByClause = null
     ) {
-        if (is_null($orderByClause)) {
+        if (null === $orderByClause) {
             $orderByClause = $this->orderByProductIds();
         }
 
         $combinationNameQuery = $this->getCombinationNameSubquery();
+        $attributeNameQuery = $this->getAttributeNameSubquery();
 
         return str_replace(
-            array(
+            [
                 '{and_where}',
                 '{having}',
                 '{order_by}',
                 '{table_prefix}',
                 '{combination_name}',
-            ),
-            array(
+                '{attribute_name}',
+            ],
+            [
                 $andWhereClause,
                 $having,
                 $orderByClause,
                 $this->tablePrefix,
                 $combinationNameQuery,
-            ),
+                $attributeNameQuery,
+            ],
             'SELECT SQL_CALC_FOUND_ROWS
           p.id_product                                                                      AS product_id,
           COALESCE(pa.id_product_attribute, 0)                                              AS combination_id,
           IF(COALESCE(p.reference, "") = "", "N/A", p.reference)                            AS product_reference,
+          IF(COALESCE(p.ean13, "") = "", "N/A", p.ean13)                                    AS product_ean13,
+          IF(COALESCE(p.isbn, "") = "", "N/A", p.isbn)                                      AS product_isbn,
+          IF(COALESCE(p.upc, "") = "", "N/A", p.upc)                                        AS product_upc,
+          IF(COALESCE(p.mpn, "") = "", "N/A", p.mpn)                                        AS product_mpn,
           IF(COALESCE(pa.reference, "") = "", "N/A", pa.reference)                          AS combination_reference,
+          IF(COALESCE(pa.ean13, "") = "", "N/A", pa.ean13)                                  AS combination_ean13,
+          IF(COALESCE(pa.isbn, "") = "", "N/A", pa.isbn)                                    AS combination_isbn,
+          IF(COALESCE(pa.upc, "") = "", "N/A", pa.upc)                                      AS combination_upc,
+          IF(COALESCE(pa.mpn, "") = "", "N/A", pa.mpn)                                      AS combination_mpn,
           pl.name                                                                           AS product_name,
           p.id_supplier                                                                     AS supplier_id,
           COALESCE(s.name, "N/A")                                                           AS supplier_name,
@@ -275,10 +261,11 @@ class StockRepository extends StockManagementRepository
                       "N/A"))                                                               AS product_low_stock_threshold,
           IF(COALESCE(pa.id_product_attribute, 0) > 0, IF(sa.quantity <= pas.low_stock_threshold, 1, 0),
              IF(sa.quantity <= ps.low_stock_threshold, 1, 0))                               AS product_low_stock_alert,
-          {combination_name}
+          {combination_name},
+          {attribute_name}
         FROM {table_prefix}product p
           LEFT JOIN {table_prefix}product_attribute pa ON (p.id_product = pa.id_product)
-          LEFT JOIN {table_prefix}product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = :language_id)
+          LEFT JOIN {table_prefix}product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = :language_id AND pl.id_shop = :shop_id)
           INNER JOIN {table_prefix}product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = :shop_id)
           LEFT JOIN {table_prefix}stock_available sa
             ON (p.id_product = sa.id_product AND sa.id_shop = :stock_shop_id AND sa.id_shop_group = :stock_group_id AND
@@ -290,7 +277,7 @@ class StockRepository extends StockManagementRepository
           LEFT JOIN {table_prefix}product_attribute_combination pac ON (pac.id_product_attribute = pa.id_product_attribute)
           LEFT JOIN {table_prefix}product_attribute_shop pas
             ON (pas.id_product = pa.id_product AND pas.id_product_attribute = pa.id_product_attribute AND
-                pas.id_shop = :shop_id)                     
+                pas.id_shop = :shop_id)
         WHERE
           p.state = :state
           {and_where}
@@ -326,9 +313,8 @@ class StockRepository extends StockManagementRepository
      */
     protected function addAdditionalData(array $rows)
     {
-        $rows = $this->addCombinationsAndFeatures($rows);
-        $rows = $this->addImageThumbnailPaths($rows);
-        $rows = $this->addEditProductLink($rows);
+        $rows = parent::addAdditionalData($rows);
+        $rows = $this->addStockApiUrls($rows);
 
         return $rows;
     }
@@ -361,33 +347,33 @@ class StockRepository extends StockManagementRepository
                         FROM ' . $this->tablePrefix . 'product_attribute pa
                         WHERE id_product=:id_product';
             $statement = $this->connection->prepare($query);
-            $statement->bindValue('id_product', (int) $row['product_id'], \PDO::PARAM_INT);
-            $statement->execute();
-            $this->totalCombinations[$row['product_id']] = $statement->fetchColumn(0);
-            $statement->closeCursor();
+            $statement->bindValue('id_product', (int) $row['product_id'], PDO::PARAM_INT);
+            $result = $statement->executeQuery();
+            $this->totalCombinations[$row['product_id']] = $result->fetchOne();
+            $result->free();
         }
 
         return $this->totalCombinations[$row['product_id']];
     }
 
-    private function addEditProductLink(array $rows)
+    private function addStockApiUrls(array $rows)
     {
         $router = $this->container->get('router');
 
         foreach ($rows as &$row) {
-            $row['combinations_product_url'] = $router->generate('api_stock_list_product_combinations', array(
+            $row['combinations_product_url'] = $router->generate('api_stock_list_product_combinations', [
                 'productId' => $row['product_id'],
-            ));
+            ]);
 
             if (!empty($row['combination_id'])) {
-                $row['edit_url'] = $router->generate('api_stock_edit_product_combination', array(
+                $row['edit_url'] = $router->generate('api_stock_edit_product_combination', [
                     'productId' => $row['product_id'],
                     'combinationId' => $row['combination_id'],
-                ));
+                ]);
             } else {
-                $row['edit_url'] = $router->generate('api_stock_edit_product', array(
+                $row['edit_url'] = $router->generate('api_stock_edit_product', [
                     'productId' => $row['product_id'],
-                ));
+                ]);
             }
         }
 

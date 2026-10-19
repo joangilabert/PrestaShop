@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Controller\Api;
@@ -29,6 +9,7 @@ namespace PrestaShopBundle\Controller\Api;
 use PrestaShopBundle\Api\QueryStockMovementParamsCollection;
 use PrestaShopBundle\Entity\Repository\StockMovementRepository;
 use PrestaShopBundle\Exception\InvalidPaginationParamsException;
+use PrestaShopBundle\Security\Attribute\AdminSecurity;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -50,6 +31,7 @@ class StockMovementController extends ApiController
      *
      * @return JsonResponse
      */
+    #[AdminSecurity("is_granted('read', request.get('_legacy_controller'))")]
     public function listMovementsAction(Request $request)
     {
         try {
@@ -61,7 +43,7 @@ class StockMovementController extends ApiController
         $stockMovement = $this->stockMovementRepository->getData($queryParamsCollection);
         $totalPages = $this->stockMovementRepository->countPages($queryParamsCollection);
 
-        return $this->jsonResponse($stockMovement, $request, $queryParamsCollection, 200, array('Total-Pages' => $totalPages));
+        return $this->jsonResponse($stockMovement, $request, $queryParamsCollection, 200, ['Total-Pages' => $totalPages]);
     }
 
     /**
@@ -69,6 +51,7 @@ class StockMovementController extends ApiController
      *
      * @return JsonResponse
      */
+    #[AdminSecurity("is_granted('read', request.get('_legacy_controller'))")]
     public function listMovementsEmployeesAction(Request $request)
     {
         return $this->jsonResponse($this->stockMovementRepository->getEmployees(), $request);
@@ -79,6 +62,7 @@ class StockMovementController extends ApiController
      *
      * @return JsonResponse
      */
+    #[AdminSecurity("is_granted('read', request.get('_legacy_controller'))")]
     public function listMovementsTypesAction(Request $request)
     {
         $grouped = (bool) $request->get('grouped');

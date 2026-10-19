@@ -1,30 +1,11 @@
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 import $ from 'jquery';
+import prestashop from 'prestashop';
 
-export function psShowHide () {
+export function psShowHide() {
   $('.ps-shown-by-js').show();
   $('.ps-hidden-by-js').hide();
 }
@@ -35,13 +16,10 @@ export function psShowHide () {
  * @returns {string|null|object}
  */
 export function psGetRequestParameter(paramName) {
-  let vars = {};
-  window.location.href.replace(location.hash, '').replace(
-    /[?&]+([^=&]+)=?([^&]*)?/gi,
-    function (m, key, value) {
-      vars[key] = value !== undefined ? value : '';
-    }
-  );
+  const vars = {};
+  window.location.href.replace(location.hash, '').replace(/[?&]+([^=&]+)=?([^&]*)?/gi, (m, key, value) => {
+    vars[key] = value !== undefined ? value : '';
+  });
   if (paramName !== undefined) {
     return vars[paramName] ? vars[paramName] : null;
   }
@@ -55,21 +33,46 @@ export function psGetRequestParameter(paramName) {
  * amount is correctly updated on payment modules
  */
 export function refreshCheckoutPage() {
+  const queryParams = psGetRequestParameter();
+
   // we get the refresh flag : on payment step we need to refresh page to be sure
   // amount is correctly updated on payemnt modules
-  if (psGetRequestParameter('updatedTransaction') !== null) {
+  if (queryParams.updatedTransaction) {
     // this parameter is used to display some info message
     // already set : just refresh page
     window.location.reload();
-  } else {
-    // not set : add it to the url
-    let queryParams = psGetRequestParameter();
-    queryParams['updatedTransaction'] = 1;
-    const joined = [];
-    for (let key in queryParams) {
-      let val = queryParams[key]; // gets the value by looking for the key in the object
-      joined.push(key + "=" + val);
-    }
-    window.location.href = window.location.pathname + "?" + joined.join("&");
+
+    return;
   }
+
+  // not set : add it to the url
+  queryParams.updatedTransaction = 1;
+
+  const joined = Object.entries(queryParams)
+    .map((v) => v.join('='))
+    .join('&');
+  window.location.href = `${window.location.pathname}?${joined}`;
 }
+
+/**
+ * Verify password score.
+ * Estimate guesses needed to crack the password.
+ */
+prestashop.checkPasswordScore = async (password) => {
+  const {zxcvbn, zxcvbnOptions} = await import('@zxcvbn-ts/core');
+  const zxcvbnCommonPackage = await import('@zxcvbn-ts/language-common');
+  const zxcvbnEnPackage = await import('@zxcvbn-ts/language-en');
+
+  const options = {
+    translations: zxcvbnEnPackage.translations,
+    graphs: zxcvbnCommonPackage.adjacencyGraphs,
+    dictionary: {
+      ...zxcvbnCommonPackage.dictionary,
+      ...zxcvbnEnPackage.dictionary,
+    },
+  };
+
+  zxcvbnOptions.setOptions(options);
+
+  return zxcvbn(password);
+};

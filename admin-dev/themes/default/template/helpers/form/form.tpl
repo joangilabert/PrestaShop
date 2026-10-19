@@ -1,26 +1,6 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 {if isset($fields.title)}<h3>{$fields.title}</h3>{/if}
 
@@ -67,13 +47,13 @@
 					<div class="form-wrapper">
 					{foreach $field as $input}
 						{block name="input_row"}
-						<div class="form-group{if isset($input.form_group_class)} {$input.form_group_class}{/if}{if $input.type == 'hidden'} hide{/if}"{if $input.name == 'id_state'} id="contains_states"{if !$contains_states} style="display:none;"{/if}{/if}{if isset($tabs) && isset($input.tab)} data-tab-id="{$input.tab}"{/if}>
+						<div class="form-group{if isset($input.form_group_class)} {$input.form_group_class}{/if}{if $input.type == 'hidden'} hide{/if}"{if $input.name == 'id_state'} id="contains_states" data-states-url={$states_url} {if !$contains_states} style="display:none;"{/if}{/if}{if $input.name == 'dni'} id="dni_required"{if !$dni_required} style="display:none;"{/if}{/if}{if isset($tabs) && isset($input.tab)} data-tab-id="{$input.tab}"{/if}>
 						{if $input.type == 'hidden'}
-							<input type="hidden" name="{$input.name}" id="{$input.name}" value="{$fields_value[$input.name]|escape:'html':'UTF-8'}" />
+							<input type="hidden" name="{$input.name}" id="{$input.name}" value="{$fields_value[$input.name]|default|escape:'html':'UTF-8'}" />
 						{else}
 							{block name="label"}
 								{if isset($input.label)}
-									<label class="control-label col-lg-3{if isset($input.required) && $input.required && $input.type != 'radio'} required{/if}">
+									<label class="control-label col-lg-4{if isset($input.required) && $input.required && $input.type != 'radio'} required{/if}">
 										{if isset($input.hint)}
 										<span class="label-tooltip" data-toggle="tooltip" data-html="true" title="{if is_array($input.hint)}
 													{foreach $input.hint as $hint}
@@ -96,7 +76,7 @@
 							{/block}
 
 							{block name="field"}
-								<div class="col-lg-{if isset($input.col)}{$input.col|intval}{else}9{/if}{if !isset($input.label)} col-lg-offset-3{/if}">
+								<div class="col-lg-{if isset($input.col)}{$input.col|intval}{else}8{/if}{if !isset($input.label)} col-lg-offset-3{/if}">
 								{block name="input"}
 								{if $input.type == 'text' || $input.type == 'tags'}
 									{if isset($input.lang) AND $input.lang}
@@ -104,10 +84,14 @@
 									<div class="form-group">
 									{/if}
 									{foreach $languages as $language}
-										{assign var='value_text' value=$fields_value[$input.name][$language.id_lang]}
+                    {if isset($fields_value[$input.name][$language.id_lang])}
+                      {assign var='value_text' value=$fields_value[$input.name][$language.id_lang]}
+                    {else}
+                      {assign var='value_text' value=''}
+                    {/if}
 										{if $languages|count > 1}
 										<div class="translatable-field lang-{$language.id_lang}" {if $language.id_lang != $defaultFormLanguage}style="display:none"{/if}>
-											<div class="col-lg-9">
+											<div class="col-lg-10">
 										{/if}
 												{if $input.type == 'tags'}
 													{literal}
@@ -115,7 +99,7 @@
 															$().ready(function () {
 																var input_id = '{/literal}{if isset($input.id)}{$input.id}_{$language.id_lang}{else}{$input.name}_{$language.id_lang}{/if}{literal}';
 																$('#'+input_id).tagify({delimiters: [13,44], addTagPrompt: '{/literal}{l s='Add tag' js=1}{literal}'});
-																$({/literal}'#{$table}{literal}_form').submit( function() {
+																$({/literal}'#{$table}{literal}_form').on('submit', function() {
 																	$(this).find('#'+input_id).val($('#'+input_id).tagify('serialize'));
 																});
 															});
@@ -175,7 +159,7 @@
 									{/foreach}
 									{if isset($input.maxchar) && $input.maxchar}
 									<script type="text/javascript">
-									$(document).ready(function(){
+									$(function(){
 									{foreach from=$languages item=language}
 										countDown($("#{if isset($input.id)}{$input.id}_{$language.id_lang}{else}{$input.name}_{$language.id_lang}{/if}"), $("#{if isset($input.id)}{$input.id}_{$language.id_lang}{else}{$input.name}_{$language.id_lang}{/if}_counter"));
 									{/foreach}
@@ -192,7 +176,7 @@
 												$().ready(function () {
 													var input_id = '{/literal}{if isset($input.id)}{$input.id}{else}{$input.name}{/if}{literal}';
 													$('#'+input_id).tagify({delimiters: [13,44], addTagPrompt: '{/literal}{l s='Add tag'}{literal}'});
-													$({/literal}'#{$table}{literal}_form').submit( function() {
+													$({/literal}'#{$table}{literal}_form').on('submit', function() {
 														$(this).find('#'+input_id).val($('#'+input_id).tagify('serialize'));
 													});
 												});
@@ -214,7 +198,7 @@
 										<input type="text"
 											name="{$input.name}"
 											id="{if isset($input.id)}{$input.id}{else}{$input.name}{/if}"
-											value="{if isset($input.string_format) && $input.string_format}{$value_text|string_format:$input.string_format|escape:'html':'UTF-8'}{else}{$value_text|escape:'html':'UTF-8'}{/if}"
+											value="{if isset($input.string_format) && $input.string_format}{$value_text|default|string_format:$input.string_format|escape:'html':'UTF-8'}{else}{$value_text|default|escape:'html':'UTF-8'}{/if}"
 											class="{if isset($input.class)}{$input.class}{/if}{if $input.type == 'tags'} tagify{/if}"
 											{if isset($input.size)} size="{$input.size}"{/if}
 											{if isset($input.maxchar) && $input.maxchar} data-maxchar="{$input.maxchar|intval}"{/if}
@@ -236,7 +220,7 @@
 										{/if}
 										{if isset($input.maxchar) && $input.maxchar}
 										<script type="text/javascript">
-										$(document).ready(function(){
+										$(function(){
 											countDown($("#{if isset($input.id)}{$input.id}{else}{$input.name}{/if}"), $("#{if isset($input.id)}{$input.id}{else}{$input.name}{/if}_counter"));
 										});
 										</script>
@@ -283,7 +267,7 @@
 									</div>
 									{if isset($input.maxchar) && $input.maxchar}
 									<script type="text/javascript">
-										$(document).ready(function() {
+										$(function() {
 											countDown($("#{if isset($input.id)}{$input.id}{else}{$input.name}{/if}"), $("#{if isset($input.id)}{$input.id}{else}{$input.name}{/if}_counter"));
 										});
 									</script>
@@ -297,13 +281,13 @@
 													{foreach $input.options.query AS $option}
 														{if is_object($option)}
 															{if !in_array($option->$input.options.id, $fields_value[$input.name])}
-																<option value="{$option->$input.options.id}">{$option->$input.options.name}</option>
+																<option value="{$option->$input.options.id|escape:'html':'UTF-8'}">{$option->$input.options.name|escape:'html':'UTF-8'}</option>
 															{/if}
 														{elseif $option == "-"}
 															<option value="">-</option>
 														{else}
 															{if !in_array($option[$input.options.id], $fields_value[$input.name])}
-																<option value="{$option[$input.options.id]}">{$option[$input.options.name]}</option>
+																<option value="{$option[$input.options.id]|escape:'html':'UTF-8'}">{$option[$input.options.name]|escape:'html':'UTF-8'}</option>
 															{/if}
 														{/if}
 													{/foreach}
@@ -315,13 +299,13 @@
 													{foreach $input.options.query AS $option}
 														{if is_object($option)}
 															{if in_array($option->$input.options.id, $fields_value[$input.name])}
-																<option value="{$option->$input.options.id}">{$option->$input.options.name}</option>
+																<option value="{$option->$input.options.id|escape:'html':'UTF-8'}">{$option->$input.options.name|escape:'html':'UTF-8'}</option>
 															{/if}
 														{elseif $option == "-"}
 															<option value="">-</option>
 														{else}
 															{if in_array($option[$input.options.id], $fields_value[$input.name])}
-																<option value="{$option[$input.options.id]}">{$option[$input.options.name]}</option>
+																<option value="{$option[$input.options.id]|escape:'html':'UTF-8'}">{$option[$input.options.name]|escape:'html':'UTF-8'}</option>
 															{/if}
 														{/if}
 													{/foreach}
@@ -338,12 +322,13 @@
 										{$input.desc = null}
 									{else}
 										<select name="{$input.name|escape:'html':'utf-8'}"
-												class="{if isset($input.class)}{$input.class|escape:'html':'utf-8'}{/if} fixed-width-xl"
+												class="{if isset($input.class)}{$input.class|escape:'html':'utf-8'} {/if}col-12"
 												id="{if isset($input.id)}{$input.id|escape:'html':'utf-8'}{else}{$input.name|escape:'html':'utf-8'}{/if}"
 												{if isset($input.multiple) && $input.multiple} multiple="multiple"{/if}
 												{if isset($input.size)} size="{$input.size|escape:'html':'utf-8'}"{/if}
 												{if isset($input.onchange)} onchange="{$input.onchange|escape:'html':'utf-8'}"{/if}
-												{if isset($input.disabled) && $input.disabled} disabled="disabled"{/if}>
+												{if isset($input.disabled) && $input.disabled} disabled="disabled"{/if}
+												{if isset($input.placeholder) && $input.placeholder} data-placeholder="{$input.placeholder|escape:'html':'utf-8'}"{/if}>
 											{if isset($input.options.default)}
 												<option value="{$input.options.default.value|escape:'html':'utf-8'}">{$input.options.default.label|escape:'html':'utf-8'}</option>
 											{/if}
@@ -359,7 +344,7 @@
 																{else}
 																	{if $fields_value[$input.name] == $option[$input.options.options.id]}selected="selected"{/if}
 																{/if}
-															>{$option[$input.options.options.name]}</option>
+															>{$option[$input.options.options.name]|escape:'html':'UTF-8'}</option>
 														{/foreach}
 													</optgroup>
 												{/foreach}
@@ -394,7 +379,7 @@
 																	selected="selected"
 																{/if}
 															{/if}
-														>{$option[$input.options.name]}</option>
+														>{$option[$input.options.name]|escape:'html':'UTF-8'}</option>
 
 													{/if}
 												{/foreach}
@@ -403,11 +388,11 @@
 									{/if}
 								{elseif $input.type == 'radio'}
 									{foreach $input.values as $value}
-										<div class="radio {if isset($input.class)}{$input.class}{/if}">
+										<div class="radio {if isset($input.class)}{$input.class|escape:'html':'UTF-8'}{/if}">
 											{strip}
 											<label>
-											<input type="radio"	name="{$input.name}" id="{$value.id}" value="{$value.value|escape:'html':'UTF-8'}"{if $fields_value[$input.name] == $value.value} checked="checked"{/if}{if (isset($input.disabled) && $input.disabled) or (isset($value.disabled) && $value.disabled)} disabled="disabled"{/if}/>
-												{$value.label}
+											<input type="radio"	name="{$input.name|escape:'html':'UTF-8'}" id="{$value.id}" value="{$value.value|escape:'html':'UTF-8'}"{if $fields_value[$input.name] == $value.value} checked="checked"{/if}{if (isset($input.disabled) && $input.disabled) or (isset($value.disabled) && $value.disabled)} disabled="disabled"{/if}/>
+												{$value.label|escape:'html':'UTF-8'}
 											</label>
 											{/strip}
 										</div>
@@ -419,11 +404,7 @@
 										<input type="radio" name="{$input.name}"{if $value.value == 1} id="{$input.name}_on"{else} id="{$input.name}_off"{/if} value="{$value.value}"{if $fields_value[$input.name] == $value.value} checked="checked"{/if}{if (isset($input.disabled) && $input.disabled) or (isset($value.disabled) && $value.disabled)} disabled="disabled"{/if}/>
 										{strip}
 										<label {if $value.value == 1} for="{$input.name}_on"{else} for="{$input.name}_off"{/if}>
-											{if $value.value == 1}
-												{l s='Yes' d='Admin.Global'}
-											{else}
-												{l s='No' d='Admin.Global'}
-											{/if}
+											{$value.label}
 										</label>
 										{/strip}
 										{/foreach}
@@ -435,7 +416,7 @@
 										{foreach $languages as $language}
 											{if $languages|count > 1}
 											<div class="form-group translatable-field lang-{$language.id_lang}"{if $language.id_lang != $defaultFormLanguage} style="display:none;"{/if}>
-												<div class="col-lg-9">
+												<div class="col-lg-10">
 											{/if}
 													{if isset($input.maxchar) && $input.maxchar}
 													<div class="input-group">
@@ -467,7 +448,7 @@
 										{/foreach}
 										{if isset($input.maxchar) && $input.maxchar}
 											<script type="text/javascript">
-											$(document).ready(function(){
+											$(function(){
 											{foreach from=$languages item=language}
 												countDown($("#{if isset($input.id)}{$input.id}_{$language.id_lang}{else}{$input.name}_{$language.id_lang}{/if}"), $("#{if isset($input.id)}{$input.id}_{$language.id_lang}{else}{$input.name}_{$language.id_lang}{/if}_counter"));
 											{/foreach}
@@ -480,10 +461,10 @@
 												<span class="text-count-down">{$input.maxchar|intval}</span>
 											</span>
 										{/if}
-										<textarea{if isset($input.readonly) && $input.readonly} readonly="readonly"{/if} name="{$input.name}" id="{if isset($input.id)}{$input.id}{else}{$input.name}{/if}" {if isset($input.cols)}cols="{$input.cols}"{/if} {if isset($input.rows)}rows="{$input.rows}"{/if} class="{if isset($input.autoload_rte) && $input.autoload_rte}rte autoload_rte{else}textarea-autosize{/if}{if isset($input.class)} {$input.class}{/if}"{if isset($input.maxlength) && $input.maxlength} maxlength="{$input.maxlength|intval}"{/if}{if isset($input.maxchar) && $input.maxchar} data-maxchar="{$input.maxchar|intval}"{/if}>{$fields_value[$input.name]|escape:'html':'UTF-8'}</textarea>
+										<textarea{if isset($input.readonly) && $input.readonly} readonly="readonly"{/if} name="{$input.name}" id="{if isset($input.id)}{$input.id}{else}{$input.name}{/if}" {if isset($input.cols)}cols="{$input.cols}"{/if} {if isset($input.rows)}rows="{$input.rows}"{/if} class="{if isset($input.autoload_rte) && $input.autoload_rte}rte autoload_rte{else}textarea-autosize{/if}{if isset($input.class)} {$input.class}{/if}"{if isset($input.maxlength) && $input.maxlength} maxlength="{$input.maxlength|intval}"{/if}{if isset($input.maxchar) && $input.maxchar} data-maxchar="{$input.maxchar|intval}"{/if}>{$fields_value[$input.name]|default|escape:'html':'UTF-8'}</textarea>
 										{if isset($input.maxchar) && $input.maxchar}
 											<script type="text/javascript">
-											$(document).ready(function(){
+											$(function(){
 												countDown($("#{if isset($input.id)}{$input.id}{else}{$input.name}{/if}"), $("#{if isset($input.id)}{$input.id}{else}{$input.name}{/if}_counter"));
 											});
 											</script>
@@ -517,161 +498,6 @@
 											{/strip}
 										</div>
 									{/foreach}
-								{elseif $input.type == 'change-password'}
-									<div class="row">
-										<div class="col-lg-12">
-											<button type="button" id="{$input.name}-btn-change" class="btn btn-default">
-												<i class="icon-lock"></i>
-												{l s='Change password...'}
-											</button>
-											<div id="{$input.name}-change-container" class="form-password-change well hide">
-												<div class="form-group">
-													<label for="old_passwd" class="control-label col-lg-2 required">
-														{l s='Current password'}
-													</label>
-													<div class="col-lg-10">
-														<div class="input-group fixed-width-lg">
-															<span class="input-group-addon">
-																<i class="icon-unlock"></i>
-															</span>
-															<input type="password" id="old_passwd" name="old_passwd" class="form-control" value="" required="required" autocomplete="off">
-														</div>
-													</div>
-												</div>
-												<hr />
-												<div class="form-group">
-													<label for="{$input.name}" class="required control-label col-lg-2">
-														<span class="label-tooltip" data-toggle="tooltip" data-html="true" title="" data-original-title="{l s='Password should be at least 8 characters long.'}">
-															{l s='New password'}
-														</span>
-													</label>
-													<div class="col-lg-9">
-														<div class="input-group fixed-width-lg">
-															<span class="input-group-addon">
-																<i class="icon-key"></i>
-															</span>
-															<input type="password" id="{$input.name}" name="{$input.name}" class="{if isset($input.class)}{$input.class}{/if}" value="" required="required" autocomplete="off"/>
-														</div>
-														<span id="{$input.name}-output"></span>
-													</div>
-												</div>
-												<div class="form-group">
-													<label for="{$input.name}2" class="required control-label col-lg-2">
-														{l s='Confirm password'}
-													</label>
-													<div class="col-lg-4">
-														<div class="input-group fixed-width-lg">
-															<span class="input-group-addon">
-																<i class="icon-key"></i>
-															</span>
-															<input type="password" id="{$input.name}2" name="{$input.name}2" class="{if isset($input.class)}{$input.class}{/if}" value="" autocomplete="off"/>
-														</div>
-													</div>
-												</div>
-												<div class="form-group">
-													<div class="col-lg-10 col-lg-offset-2">
-														<input type="text" class="form-control fixed-width-md pull-left" id="{$input.name}-generate-field" disabled="disabled">
-														<button type="button" id="{$input.name}-generate-btn" class="btn btn-default">
-															<i class="icon-random"></i>
-															{l s='Generate password'}
-														</button>
-													</div>
-												</div>
-												<div class="row">
-													<div class="col-lg-12">
-														<button type="button" id="{$input.name}-cancel-btn" class="btn btn-default">
-															<i class="icon-remove"></i>
-															{l s='Cancel' d='Admin.Actions'}
-														</button>
-													</div>
-												</div>
-											</div>
-										</div>
-									</div>
-									<script>
-										$(function(){
-											var $oldPwd = $('#old_passwd');
-											var $passwordField = $('#{$input.name}');
-											var $output = $('#{$input.name}-output');
-											var $generateBtn = $('#{$input.name}-generate-btn');
-											var $generateField = $('#{$input.name}-generate-field');
-											var $cancelBtn = $('#{$input.name}-cancel-btn');
-
-											var feedback = [
-												{ badge: 'text-danger', text: '{l s="Invalid" js=1}' },
-												{ badge: 'text-warning', text: '{l s="Okay" js=1}' },
-												{ badge: 'text-success', text: '{l s="Good" js=1}' },
-												{ badge: 'text-success', text: '{l s="Fabulous" js=1}' }
-											];
-											$.passy.requirements.length.min = 8;
-											$.passy.requirements.characters = 'DIGIT';
-											$passwordField.passy(function(strength, valid) {
-												$output.text(feedback[strength].text);
-												$output.removeClass('text-danger').removeClass('text-warning').removeClass('text-success');
-												$output.addClass(feedback[strength].badge);
-												if (valid){
-													$output.show();
-												}
-												else {
-													$output.hide();
-												}
-											});
-											var $container = $('#{$input.name}-change-container');
-											var $changeBtn = $('#{$input.name}-btn-change');
-											var $confirmPwd = $('#{$input.name}2');
-
-											$changeBtn.on('click',function(){
-												$container.removeClass('hide');
-												$changeBtn.addClass('hide');
-											});
-											$generateBtn.click(function() {
-												$generateField.passy( 'generate', 8 );
-												var generatedPassword = $generateField.val();
-												$passwordField.val(generatedPassword);
-												$confirmPwd.val(generatedPassword);
-											});
-											$cancelBtn.on('click',function() {
-												$container.find("input").val("");
-												$container.addClass('hide');
-												$changeBtn.removeClass('hide');
-											});
-
-											$.validator.addMethod('password_same', function(value, element) {
-												return $passwordField.val() == $confirmPwd.val();
-											}, '{l s="Invalid password confirmation" js=1}');
-
-											$('#employee_form').validate({
-												rules: {
-													"email": {
-														email: true
-													},
-													"{$input.name}" : {
-														minlength: 8
-													},
-													"{$input.name}2": {
-														password_same: true
-													},
-													"old_passwd" : {},
-												},
-												// override jquery validate plugin defaults for bootstrap 3
-												highlight: function(element) {
-													$(element).closest('.form-group').addClass('has-error');
-												},
-												unhighlight: function(element) {
-													$(element).closest('.form-group').removeClass('has-error');
-												},
-												errorElement: 'span',
-												errorClass: 'help-block',
-												errorPlacement: function(error, element) {
-													if(element.parent('.input-group').length) {
-														error.insertAfter(element.parent());
-													} else {
-														error.insertAfter(element);
-													}
-												}
-											});
-										});
-									</script>
 								{elseif $input.type == 'password'}
 									<div class="input-group fixed-width-lg">
 										<span class="input-group-addon">
@@ -709,11 +535,11 @@
 													{l s='December'}
 												*}
 												{foreach $select as $k => $v}
-													<option value="{$k}" {if $k == $fields_value[$key]}selected="selected"{/if}>{l s=$v}</option>
+													<option value="{$k}" {if $k == $fields_value[$key]}selected="selected"{/if}>{l s=$v|escape:'html':'UTF-8'}</option>
 												{/foreach}
 											{else}
 												{foreach $select as $v}
-													<option value="{$v}" {if $v == $fields_value[$key]}selected="selected"{/if}>{$v}</option>
+													<option value="{$v}" {if $v == $fields_value[$key]}selected="selected"{/if}>{$v|escape:'html':'UTF-8'}</option>
 												{/foreach}
 											{/if}
 										</select>
@@ -735,9 +561,8 @@
 									{$asso_shop}
 								{elseif $input.type == 'color'}
 								<div class="form-group">
-									<div class="col-lg-2">
-										<div class="row">
-											<div class="input-group">
+									<div class="col-lg-6">
+										<div class="input-group">
 												<input type="color"
 												data-hex="true"
 												{if isset($input.class)} class="{$input.class}"
@@ -745,7 +570,6 @@
 												name="{$input.name}"
 												value="{$fields_value[$input.name]|escape:'html':'UTF-8'}" />
 											</div>
-										</div>
 									</div>
 								</div>
 								{elseif $input.type == 'date'}
@@ -757,6 +581,7 @@
 												data-hex="true"
 												{if isset($input.class)} class="{$input.class}"
 												{else}class="datepicker"{/if}
+												autocomplete="off"
 												name="{$input.name}"
 												value="{$fields_value[$input.name]|escape:'html':'UTF-8'}" />
 											<span class="input-group-addon">
@@ -773,6 +598,7 @@
 												data-hex="true"
 												{if isset($input.class)} class="{$input.class}"
 												{else} class="datetimepicker"{/if}
+												autocomplete="off"
 												name="{$input.name}"
 												value="{$fields_value[$input.name]|escape:'html':'UTF-8'}" />
 											<span class="input-group-addon">
@@ -845,12 +671,12 @@
 				{if isset($fieldset['form']['submit']) || isset($fieldset['form']['buttons'])}
 					<div class="panel-footer">
 						{if isset($fieldset['form']['submit']) && !empty($fieldset['form']['submit'])}
-						<button type="submit" value="1"	id="{if isset($fieldset['form']['submit']['id'])}{$fieldset['form']['submit']['id']}{else}{$table}_form_submit_btn{/if}{if $smarty.capture.form_submit_btn > 1}_{($smarty.capture.form_submit_btn - 1)|intval}{/if}" name="{if isset($fieldset['form']['submit']['name'])}{$fieldset['form']['submit']['name']}{else}{$submit_action}{/if}{if isset($fieldset['form']['submit']['stay']) && $fieldset['form']['submit']['stay']}AndStay{/if}" class="{if isset($fieldset['form']['submit']['class'])}{$fieldset['form']['submit']['class']}{else}btn btn-default pull-right{/if}">
+						<button type="submit" value="{$fieldset['form']['submit']['value']|default:'1'}"	id="{if isset($fieldset['form']['submit']['id'])}{$fieldset['form']['submit']['id']}{else}{$table}_form_submit_btn{/if}{if $smarty.capture.form_submit_btn > 1}_{($smarty.capture.form_submit_btn - 1)|intval}{/if}" name="{if isset($fieldset['form']['submit']['name'])}{$fieldset['form']['submit']['name']}{else}{$submit_action}{/if}{if isset($fieldset['form']['submit']['stay']) && $fieldset['form']['submit']['stay']}AndStay{/if}" class="{if isset($fieldset['form']['submit']['class'])}{$fieldset['form']['submit']['class']}{else}btn btn-primary pull-right{/if}">
 							<i class="{if isset($fieldset['form']['submit']['icon'])}{$fieldset['form']['submit']['icon']}{else}process-icon-save{/if}"></i> {$fieldset['form']['submit']['title']}
 						</button>
 						{/if}
 						{if isset($show_cancel_button) && $show_cancel_button}
-						<a href="#" class="btn btn-default" {if $table}id="{$table}_form_cancel_btn"{/if} onclick="window.history.back();">
+						<a class="btn btn-default" {if $table}id="{$table}_form_cancel_btn"{/if} onclick="javascript:window.history.back();">
 							<i class="process-icon-cancel"></i> {l s='Cancel' d='Admin.Actions'}
 						</a>
 						{/if}
@@ -889,7 +715,7 @@
 	var pathCSS = '{$smarty.const._THEME_CSS_DIR_|addslashes}';
 	var ad = '{$ad|addslashes}';
 
-	$(document).ready(function(){
+	$(function(){
 		{block name="autoload_tinyMCE"}
 			tinySetup({
 				editor_selector :"autoload_rte"
@@ -908,9 +734,6 @@
 		var module_dir = '{$smarty.const._MODULE_DIR_}';
 		var id_language = {$defaultFormLanguage|intval};
 		var languages = new Array();
-		var vat_number = {if $vat_number}1{else}0{/if};
-		// Multilang field setup must happen before document is ready so that calls to displayFlags() to avoid
-		// precedence conflicts with other document.ready() blocks
 		{foreach $languages as $k => $language}
 			languages[{$k}] = {
 				id_lang: {$language.id_lang|escape:'javascript'},
@@ -921,17 +744,16 @@
 		{/foreach}
 		// we need allowEmployeeFormLang var in ajax request
 		allowEmployeeFormLang = {$allowEmployeeFormLang|intval};
-		displayFlags(languages, id_language, allowEmployeeFormLang);
 
-		$(document).ready(function() {
+		$(function() {
 
-			$(".show_checkbox").click(function () {
+			$(".show_checkbox").on('click', function () {
 				$(this).addClass('hidden')
 				$(this).siblings('.checkbox').removeClass('hidden');
 				$(this).siblings('.hide_checkbox').removeClass('hidden');
 				return false;
 			});
-			$(".hide_checkbox").click(function () {
+			$(".hide_checkbox").on('click', function () {
 				$(this).addClass('hidden')
 				$(this).siblings('.checkbox').addClass('hidden');
 				$(this).siblings('.show_checkbox').removeClass('hidden');
@@ -942,11 +764,14 @@
 				if ($('#id_country') && $('#id_state'))
 				{
 					ajaxStates({$fields_value.id_state});
-					$('#id_country').change(function() {
+					$('#id_country').on('change', function() {
 						ajaxStates();
 					});
 				}
 			{/if}
+
+			dniRequired();
+			$('#id_country').on('change', dniRequired);
 
 			if ($(".datepicker").length > 0)
 				$(".datepicker").datepicker({
@@ -977,7 +802,8 @@
 			$(".textarea-autosize").autosize();
 			{/if}
 		});
-	state_token = '{getAdminToken tab='AdminStates'}';
+		state_token = '{getAdminToken tab='AdminStates'}';
+		address_token = '{getAdminToken tab='AdminAddresses'}';
 	{block name="script"}{/block}
 	</script>
 {/if}

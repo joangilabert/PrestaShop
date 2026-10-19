@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
@@ -32,8 +12,8 @@ use Symfony\Component\HttpKernel\CacheWarmer\CacheWarmerAggregate;
 use Symfony\Component\Yaml\Yaml;
 
 $container_builder = new ContainerBuilder();
-$container = $container_builder->build();
-ServiceLocator::setServiceContainerInstance($container);
+$legacyContainer = $container_builder->build();
+ServiceLocator::setServiceContainerInstance($legacyContainer);
 
 if (!file_exists(_PS_CACHE_DIR_)) {
     @mkdir(_PS_CACHE_DIR_);
@@ -61,7 +41,7 @@ $exportPhpConfigFile = function ($config, $destination) use ($filesystem) {
 
 // Bootstrap an application with parameters.yml, which has been installed before PHP parameters file support
 if (!file_exists($phpParametersFilepath) && file_exists($yamlParametersFilepath)) {
-    $parameters = Yaml::parse($yamlParametersFilepath);
+    $parameters = Yaml::parseFile($yamlParametersFilepath);
     if ($exportPhpConfigFile($parameters, $phpParametersFilepath)) {
         $filesystem->dumpFile($yamlParametersFilepath, 'parameters:' . "\n");
     }
@@ -79,14 +59,14 @@ if ($lastParametersModificationTime) {
             $config = require $phpParametersFilepath;
             $exportPhpConfigFile($config, $cachedParameters);
         } elseif (file_exists($yamlParametersFilepath)) {
-            $config = Yaml::parse($yamlParametersFilepath);
+            $config = Yaml::parseFile($yamlParametersFilepath);
             $exportPhpConfigFile($config, $cachedParameters);
         }
     }
 
     $config = require_once _PS_CACHE_DIR_ . 'appParameters.php';
     array_walk($config['parameters'], function (&$param) {
-        $param = str_replace('%%', '%', $param);
+        $param = str_replace('%%', '%', $param ?? '');
     });
 
     $database_host = $config['parameters']['database_host'];
@@ -107,6 +87,7 @@ if ($lastParametersModificationTime) {
     define('_DB_PREFIX_',  $config['parameters']['database_prefix']);
     define('_MYSQL_ENGINE_',  $config['parameters']['database_engine']);
     define('_PS_CACHING_SYSTEM_',  $config['parameters']['ps_caching']);
+
     if (!defined('PS_IN_UPGRADE') && !defined('_PS_IN_TEST_')) {
         define('_PS_CACHE_ENABLED_', $config['parameters']['ps_cache_enable']);
     } else {
@@ -126,7 +107,7 @@ if ($lastParametersModificationTime) {
         define('_COOKIE_IV_', $config['parameters']['cookie_iv']);
     } else {
         // Define cookie IV if missing to prevent failure in composer post-install script
-        define('_COOKIE_IV_', Tools::passwdGen(8));
+        define('_COOKIE_IV_', Tools::passwdGen(32));
     }
 
     // New cookie
@@ -144,6 +125,4 @@ if ($lastParametersModificationTime) {
         define('_RIJNDAEL_KEY_', $config['parameters']['_rijndael_key']);
         define('_RIJNDAEL_IV_', $config['parameters']['_rijndael_iv']);
     }
-} elseif (file_exists(_PS_ROOT_DIR_.'/config/settings.inc.php')) {
-    require_once _PS_ROOT_DIR_.'/config/settings.inc.php';
 }

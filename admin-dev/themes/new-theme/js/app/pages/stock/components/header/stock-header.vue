@@ -1,26 +1,6 @@
-<!--**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+<!--*
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *-->
 
 <template>
@@ -28,18 +8,23 @@
     <div class="container-fluid">
       <Breadcrumb />
       <div class="title-row">
-        <h1 class="title">{{trans('head_title')}}</h1>
+        <h1 class="title">
+          {{ trans('head_title') }}
+        </h1>
       </div>
     </div>
     <Tabs />
   </div>
 </template>
 
-<script>
-  import Breadcrumb from './breadcrumb';
-  import Tabs from './tabs';
+<script lang="ts">
+  import ComponentsMap from '@components/components-map';
+  import {defineComponent} from 'vue';
+  import translate from '@app/pages/stock/mixins/translate';
+  import Breadcrumb from './breadcrumb.vue';
+  import Tabs from './tabs.vue';
 
-  const $ = global.$;
+  const {$} = window;
 
   function getOldHeaderToolbarButtons() {
     return $('.header-toolbar')
@@ -47,15 +32,24 @@
       .find('.toolbar-icons');
   }
 
-  export default {
+  function getNotificationsElements() {
+    return $(`${ComponentsMap.ajaxConfirmation}, #${ComponentsMap.contextualNotification.messageBoxId}`);
+  }
+
+  export default defineComponent({
     components: {
       Breadcrumb,
       Tabs,
     },
+    mixins: [translate],
     mounted() {
+      const $vueElement = $(this.$el);
       // move the toolbar buttons to this header
       const toolbarButtons = getOldHeaderToolbarButtons();
-      toolbarButtons.insertAfter($(this.$el).find('.title-row > .title'));
+      toolbarButtons.insertAfter($vueElement.find('.title-row > .title'));
+
+      const notifications = getNotificationsElements();
+      notifications.insertAfter($vueElement);
 
       // signal header change (so size can be updated)
       const event = $.Event('vueHeaderMounted', {
@@ -63,5 +57,5 @@
       });
       $(document).trigger(event);
     },
-  };
+  });
 </script>

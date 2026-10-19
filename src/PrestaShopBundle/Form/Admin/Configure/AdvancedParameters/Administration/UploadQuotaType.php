@@ -1,66 +1,150 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Form\Admin\Configure\AdvancedParameters\Administration;
 
-use PrestaShopBundle\Form\Admin\Type\TextWithUnitType;
+use PrestaShop\PrestaShop\Core\Configuration\UploadSizeConfigurationInterface;
+use PrestaShop\PrestaShop\Core\ConfigurationInterface;
+use PrestaShopBundle\Form\Admin\Type\MultistoreConfigurationType;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
+use PrestaShopBundle\Form\Extension\MultistoreConfigurationTypeExtension;
+use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\GreaterThanOrEqual;
+use Symfony\Component\Validator\Constraints\Type;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class UploadQuotaType extends TranslatorAwareType
 {
+    public const FIELD_MAX_SIZE_ATTACHED_FILES = 'max_size_attached_files';
+    public const FIELD_MAX_SIZE_DOWNLOADABLE_FILE = 'max_size_downloadable_product';
+    public const FIELD_MAX_SIZE_PRODUCT_IMAGE = 'max_size_product_image';
+
+    /**
+     * @var ConfigurationInterface
+     */
+    private $configuration;
+    private UploadSizeConfigurationInterface $uploadSizeConfiguration;
+
+    public function __construct(
+        TranslatorInterface $translator,
+        array $locales,
+        ConfigurationInterface $configuration,
+        UploadSizeConfigurationInterface $uploadSizeConfiguration
+    ) {
+        parent::__construct($translator, $locales);
+        $this->configuration = $configuration;
+        $this->uploadSizeConfiguration = $uploadSizeConfiguration;
+    }
+
     /**
      * {@inheritdoc}
      */
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
+        $configuration = $this->configuration;
         $builder
             ->add(
-                'max_size_attached_files',
-                TextWithUnitType::class,
+                self::FIELD_MAX_SIZE_ATTACHED_FILES,
+                IntegerType::class,
                 [
-                    'required' => true,
+                    'label' => $this->trans(
+                        'Maximum size for attached files',
+                        'Admin.Advparameters.Feature'
+                    ),
+                    'help' => $this->trans(
+                        'Set the maximum size allowed for attachment files (in megabytes). This value has to be lower than or equal to the maximum file upload allotted by your server (currently: %size% MB).',
+                        'Admin.Advparameters.Help',
+                        [
+                            '%size%' => round($this->uploadSizeConfiguration->getMaxUploadSizeInBytes() / 1048576),
+                        ]
+                    ),
                     'unit' => $this->trans('megabytes', 'Admin.Advparameters.Feature'),
+                    'constraints' => [
+                        new Type(
+                            [
+                                'value' => 'numeric',
+                                'message' => $this->trans('The field is invalid. Please enter an integer greater than or equal to 0.', 'Admin.Notifications.Error'),
+                            ]
+                        ),
+                        new GreaterThanOrEqual(
+                            [
+                                'value' => 0,
+                                'message' => $this->trans('The field is invalid. Please enter an integer greater than or equal to 0.', 'Admin.Notifications.Error'),
+                            ]
+                        ),
+                    ],
+                    'multistore_configuration_key' => 'PS_ATTACHMENT_MAXIMUM_SIZE',
                 ]
             )
             ->add(
-                'max_size_downloadable_product',
-                TextWithUnitType::class,
+                self::FIELD_MAX_SIZE_DOWNLOADABLE_FILE,
+                IntegerType::class,
                 [
-                    'required' => true,
+                    'label' => $this->trans(
+                        'Maximum size for a downloadable product',
+                        'Admin.Advparameters.Feature'
+                    ),
+                    'help' => $this->trans(
+                        'Define the upload limit for a downloadable product (in megabytes). This value has to be lower or equal to the maximum file upload allotted by your server (currently: %size% MB).',
+                        'Admin.Advparameters.Help',
+                        [
+                            '%size%' => $configuration->get('PS_LIMIT_UPLOAD_FILE_VALUE'),
+                        ]
+                    ),
                     'unit' => $this->trans('megabytes', 'Admin.Advparameters.Feature'),
+                    'constraints' => [
+                        new Type(
+                            [
+                                'value' => 'numeric',
+                                'message' => $this->trans('The field is invalid. Please enter an integer greater than or equal to 0.', 'Admin.Notifications.Error'),
+                            ]
+                        ),
+                        new GreaterThanOrEqual(
+                            [
+                                'value' => 0,
+                                'message' => $this->trans('The field is invalid. Please enter an integer greater than or equal to 0.', 'Admin.Notifications.Error'),
+                            ]
+                        ),
+                    ],
+                    'multistore_configuration_key' => 'PS_LIMIT_UPLOAD_FILE_VALUE',
                 ]
             )
             ->add(
-                'max_size_product_image',
-                TextWithUnitType::class,
+                self::FIELD_MAX_SIZE_PRODUCT_IMAGE,
+                IntegerType::class,
                 [
-                    'required' => true,
+                    'label' => $this->trans(
+                        'Maximum size for a product\'s image',
+                        'Admin.Advparameters.Feature'
+                    ),
+                    'help' => $this->trans(
+                        'Define the upload limit for an image (in megabytes). This value has to be lower or equal to the maximum file upload allotted by your server (currently: %size% MB).',
+                        'Admin.Advparameters.Help',
+                        [
+                            '%size%' => $configuration->get('PS_LIMIT_UPLOAD_IMAGE_VALUE'),
+                        ]
+                    ),
+                    'constraints' => [
+                        new Type(
+                            [
+                                'value' => 'numeric',
+                                'message' => $this->trans('The field is invalid. Please enter an integer greater than or equal to 0.', 'Admin.Notifications.Error'),
+                            ]
+                        ),
+                        new GreaterThanOrEqual(
+                            [
+                                'value' => 0,
+                                'message' => $this->trans('The field is invalid. Please enter an integer greater than or equal to 0.', 'Admin.Notifications.Error'),
+                            ]
+                        ),
+                    ],
                     'unit' => $this->trans('megabytes', 'Admin.Advparameters.Feature'),
+                    'multistore_configuration_key' => 'PS_LIMIT_UPLOAD_IMAGE_VALUE',
                 ]
             );
     }
@@ -81,5 +165,15 @@ class UploadQuotaType extends TranslatorAwareType
     public function getBlockPrefix()
     {
         return 'administration_upload_quota_block';
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * @see MultistoreConfigurationTypeExtension
+     */
+    public function getParent(): string
+    {
+        return MultistoreConfigurationType::class;
     }
 }

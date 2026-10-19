@@ -1,39 +1,31 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Command;
 
-use PrestaShopBundle\Translation\PrestaShopTranslatorTrait;
-use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
+use PrestaShopBundle\Translation\Translator;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Translation\TranslatorBagInterface;
 
-class CheckTranslationDuplicatesCommand extends ContainerAwareCommand
+class CheckTranslationDuplicatesCommand extends Command
 {
+    /**
+     * @var TranslatorBagInterface
+     */
+    private $translator;
+
+    public function __construct(TranslatorBagInterface $translator)
+    {
+        parent::__construct();
+        $this->translator = $translator;
+    }
+
     protected function configure()
     {
         $this
@@ -41,18 +33,17 @@ class CheckTranslationDuplicatesCommand extends ContainerAwareCommand
             ->setDescription('Find duplicates of your translations');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         // Get dependancies
-        $translator = $this->getContainer()->get('translator');
-        $catalogue = $translator->getCatalogue()->all();
+        $catalogue = $this->translator->getCatalogue()->all();
 
         // Init progress bar
-        $progress = new ProgressBar($output, count($catalogue, true));
+        $progress = new ProgressBar($output, count($catalogue, COUNT_RECURSIVE));
         $progress->start();
         $progress->setRedrawFrequency(20);
 
-        $duplicates = array();
+        $duplicates = [];
 
         foreach ($catalogue as $domain => $messages) {
             $nbOfMessages = count($messages);
@@ -63,7 +54,7 @@ class CheckTranslationDuplicatesCommand extends ContainerAwareCommand
             for ($i = 0; $i < $nbOfMessages; ++$i) {
                 for ($j = ($i + 1); $j < $nbOfMessages; ++$j) {
                     if ($this->check($messages[$i], $messages[$j])) {
-                        $duplicates[$domain][] = array($i => $messages[$i], $j => $messages[$j]);
+                        $duplicates[$domain][] = [$i => $messages[$i], $j => $messages[$j]];
                     }
                 }
                 $progress->advance();
@@ -79,7 +70,7 @@ class CheckTranslationDuplicatesCommand extends ContainerAwareCommand
             $output->writeln('Duplicates found:');
             dump($duplicates);
 
-            return count($duplicates, true);
+            return count($duplicates, COUNT_RECURSIVE);
         }
 
         $output->writeln('Awww yisss! There is no duplicate in your translator catalog.');
@@ -112,9 +103,9 @@ class CheckTranslationDuplicatesCommand extends ContainerAwareCommand
     protected function removeParams($message)
     {
         // Remove PrestaShop arguments %<arg>%
-        $message = preg_replace(PrestaShopTranslatorTrait::$regexClassicParams, '~', $message);
+        $message = preg_replace(Translator::$regexClassicParams, '~', $message);
         // Remove all related sprintf arguments
-        $message = preg_replace(PrestaShopTranslatorTrait::$regexSprintfParams, '~', $message);
+        $message = preg_replace(Translator::$regexSprintfParams, '~', $message);
 
         return $message;
     }

@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter;
@@ -52,14 +32,14 @@ class ImageManager
      *
      * Use it upon a new Image management system is available.
      *
-     * @param $imageId
+     * @param int $imageId
      * @param string $imageType
      * @param string $tableName
      * @param string $imageDir
      *
      * @return string The HTML < img > tag
      */
-    public function getThumbnailForListing($imageId, $imageType = 'jpg', $tableName = 'product', $imageDir = 'p')
+    public function getThumbnailForListing($imageId, $imageType = 'jpg', $tableName = 'product', $imageDir = _PS_PRODUCT_IMG_DIR_)
     {
         $thumbPath = $this->getThumbnailTag($imageId, $imageType, $tableName, $imageDir);
 
@@ -70,11 +50,16 @@ class ImageManager
         return $thumbPath;
     }
 
+    /**
+     * @param int $imageId
+     *
+     * @return string
+     */
     public function getThumbnailPath($imageId)
     {
         $imageType = 'jpg';
         $tableName = 'product';
-        $imageDir = 'p';
+        $imageDir = _PS_PRODUCT_IMG_DIR_;
 
         $imagePath = $this->getImagePath($imageId, $imageType, $tableName, $imageDir);
         $thumbnailCachedImageName = $this->makeCachedImageName($imageId, $imageType, $tableName);
@@ -89,7 +74,7 @@ class ImageManager
     }
 
     /**
-     * @param $imageId
+     * @param int $imageId
      * @param string $imageType
      * @param string $tableName
      * @param string $imageDir
@@ -109,30 +94,28 @@ class ImageManager
     }
 
     /**
-     * @param $imageId
-     * @param $imageType
-     * @param $tableName
-     * @param $imageDir
+     * @param int $imageId
+     * @param string $imageType
+     * @param string $tableName
+     * @param string $imageDir
      *
      * @return string
      */
     private function getImagePath($imageId, $imageType, $tableName, $imageDir)
     {
-        $parentDirectory = _PS_IMG_DIR_ . $imageDir;
-
         if ($tableName == 'product') {
             $image = new Image($imageId);
 
-            return $parentDirectory . '/' . $image->getExistingImgPath() . '.' . $imageType;
+            return $imageDir . $image->getExistingImgPath() . '.' . $imageType;
         }
 
-        return $parentDirectory . '/' . $imageId . '.' . $imageType;
+        return $imageDir . $imageId . '.' . $imageType;
     }
 
     /**
-     * @param $imageId
-     * @param $imageType
-     * @param $tableName
+     * @param int $imageId
+     * @param string $imageType
+     * @param string $tableName
      *
      * @return string
      */

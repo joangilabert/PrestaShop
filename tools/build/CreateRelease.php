@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 require_once 'Exception/BuildException.php';
 require_once 'Library/ReleaseCreator.php';
@@ -55,8 +35,16 @@ $releaseOptions = [
     ],
     'no-installer' => [
         'required' => false,
-        'description' => 'Do not put the installer in the release. Interesting if release will be upload remotly by FTP or for public release. Default: false.',
+        'description' => 'Do not put the installer in the release. Interesting if release will be upload remotely by FTP or for public release. Default: false.',
         'longopt' => 'no-installer',
+    ],
+    'keep-tests' => [
+        'description' => 'Keep tests folder in the release. Default: false.',
+        'longopt' => 'keep-tests',
+    ],
+    'distribution' => [
+        'description' => 'Distribution type for app/metadata.json (e.g. open_source). When set, metadata file is generated.',
+        'longopt' => 'distribution::',
     ],
     'help' => [
         'description' => 'Show help',
@@ -69,7 +57,7 @@ $helpMessage = "Usage: php {prestashop_root_path}/tools/build/CreateRelease.php 
 
 foreach ($releaseOptions as $optionName => $option) {
     $required = isset($option['required']) ? var_export($option['required'], true) : 'false';
-    $description = isset($releaseOptions[$optionName]['description']) ? $releaseOptions[$optionName]['description'] : '';
+    $description = $releaseOptions[$optionName]['description'];
     $padding = str_pad('', 24, ' ', STR_PAD_LEFT);
     $requiredLabel = str_pad('required:', 13);
     $descriptionLabel = str_pad('description:', 13);
@@ -88,20 +76,10 @@ if (isset($userOptions['h'])
     exit(0);
 }
 
-foreach ($releaseOptions as $optionName => $option) {
-    $required = isset($option['required']) ? $option['required'] : false;
-
-    if ($required && empty($userOptions[$optionName])) {
-        $consoleWrite->displayText(
-            "ERROR:{$lineSeparator}'--{$optionName}' option missing.{$lineSeparator}-h for help{$lineSeparator}",
-            ConsoleWriter::COLOR_RED
-        );
-
-        exit(1);
-    }
-}
 $destinationDir = '';
 $useZip = $useInstaller = true;
+$keepTests = false;
+$distribution = '';
 
 if (isset($userOptions['version'])) {
     $version = $userOptions['version'];
@@ -121,8 +99,16 @@ if (isset($userOptions['no-installer'])) {
     $useInstaller = false;
 }
 
+if (isset($userOptions['keep-tests'])) {
+    $keepTests = true;
+}
+
+if (isset($userOptions['distribution'])) {
+    $distribution = $userOptions['distribution'];
+}
+
 try {
-    $releaseCreator = new ReleaseCreator($version, $useInstaller, $useZip, $destinationDir);
+    $releaseCreator = new ReleaseCreator($version, $useInstaller, $useZip, $destinationDir, $keepTests, $distribution);
     $releaseCreator->createRelease();
 } catch (Exception $e) {
     $consoleWrite->displayText(

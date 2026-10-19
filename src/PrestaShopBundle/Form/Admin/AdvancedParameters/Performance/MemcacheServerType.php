@@ -1,40 +1,19 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Form\Admin\AdvancedParameters\Performance;
 
-use PrestaShopBundle\Form\Admin\Type\CommonAbstractType;
+use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
  * This form class generates the "Memcache server" form in Performance page.
  */
-class MemcacheServerType extends CommonAbstractType
+class MemcacheServerType extends TranslatorAwareType
 {
     /**
      * {@inheritdoc}
@@ -43,27 +22,20 @@ class MemcacheServerType extends CommonAbstractType
     {
         $builder
             ->add('memcache_ip', TextType::class, [
-                'required' => false,
+                'label' => $this->trans('IP Address', 'Admin.Advparameters.Feature'),
                 'empty_data' => '',
+                'required' => false,
             ])
             ->add('memcache_port', TextType::class, [
-                'required' => false,
+                'label' => $this->trans('Port', 'Admin.Advparameters.Feature'),
                 'empty_data' => '',
+                'required' => false,
             ])
             ->add('memcache_weight', TextType::class, [
-                'required' => false,
+                'label' => $this->trans('Weight', 'Admin.Advparameters.Feature'),
                 'empty_data' => '',
+                'required' => false,
             ]);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function configureOptions(OptionsResolver $resolver)
-    {
-        $resolver->setDefaults([
-            'translation_domain' => 'Admin.Advparameters.Feature',
-        ]);
     }
 
     /**

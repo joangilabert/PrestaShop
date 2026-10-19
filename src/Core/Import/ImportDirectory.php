@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Import;
@@ -40,11 +20,19 @@ final class ImportDirectory
     private $configuration;
 
     /**
-     * @param ConfigurationInterface $configuration
+     * @var string|null
      */
-    public function __construct(ConfigurationInterface $configuration)
+    private $adminDir;
+
+    /**
+     * @param ConfigurationInterface $configuration
+     * @param string|null $adminDir the container knows the admin folder even when _PS_ADMIN_DIR_ is
+     *                              undefined, which is the case under bin/console
+     */
+    public function __construct(ConfigurationInterface $configuration, ?string $adminDir = null)
     {
         $this->configuration = $configuration;
+        $this->adminDir = $adminDir;
     }
 
     /**
@@ -54,9 +42,30 @@ final class ImportDirectory
      */
     public function getDir()
     {
-        return ($this->configuration->get('_PS_HOST_MODE_') ?
-                $this->configuration->get('_PS_ROOT_DIR_') :
-                $this->configuration->get('_PS_ADMIN_DIR_')) . DIRECTORY_SEPARATOR . 'import' . DIRECTORY_SEPARATOR;
+        return ($this->adminDir ?? $this->configuration->get('_PS_ADMIN_DIR_')) . DIRECTORY_SEPARATOR . 'import' . DIRECTORY_SEPARATOR;
+    }
+
+    /**
+     * Directory holding the working files of import jobs.
+     *
+     * A subdirectory, not the import root: FileFinder lists the root at depth 0 and excludes only
+     * index.php, so a working file there would show up in the merchant's uploaded-file dropdown.
+     *
+     * @return string
+     */
+    public function getWorkingDir(): string
+    {
+        return $this->getDir() . 'work' . DIRECTORY_SEPARATOR;
+    }
+
+    /**
+     * One job's working file: the normalized copy every batch reads from, named after the job.
+     *
+     * @return string
+     */
+    public function getWorkingFile(string $importJobUuid): string
+    {
+        return $this->getWorkingDir() . $importJobUuid . '.csv';
     }
 
     /**

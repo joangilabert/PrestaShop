@@ -1,26 +1,6 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 {extends file="helpers/form/form.tpl"}
 
@@ -34,7 +14,7 @@
 			<div class="col-lg-6">
 				<select multiple id="select_left">
 					{foreach from=$field.products_unselected item='product'}
-					<option value="{$product.id_product}">{$product.name}</option>
+					<option value="{$product.id_product}">{$product.name|escape:'html':'UTF-8'}</option>
 					{/foreach}
 				</select>
 				<a href="#" id="move_to_right" class="btn btn-default btn-block multiple_select_add">
@@ -44,7 +24,7 @@
 			<div class="col-lg-6">
 				<select multiple id="select_right" name="products[]">
 					{foreach from=$field.products item='product'}
-					<option selected="selected" value="{$product.id_product}">{$product.name}</option>
+					<option selected="selected" value="{$product.id_product}">{$product.name|escape:'html':'UTF-8'}</option>
 					{/foreach}
 				</select>
 				<a href="#" id="move_to_left" class="btn btn-default btn-block multiple_select_remove">
@@ -57,24 +37,24 @@
 
 
 	<script type="text/javascript">
-	$(document).ready(function(){
-		$('#move_to_right').click(function(){
+	$(function(){
+		$('#move_to_right').on('click', function(){
 			return !$('#select_left option:selected').remove().appendTo('#select_right');
 		})
-		$('#move_to_left').click(function(){
+		$('#move_to_left').on('click', function(){
 			return !$('#select_right option:selected').remove().appendTo('#select_left');
 		});
-		$('#select_left option').live('dblclick', function(){
+		$(document).on('dblclick', '#select_left option', function(e) {
 			$(this).remove().appendTo('#select_right');
 		});
-		$('#select_right option').live('dblclick', function(){
+		$(document).on('dblclick', '#select_right option', function(e) {
 			$(this).remove().appendTo('#select_left');
 		});
 	});
-	$('#tag_form').submit(function()
+	$('#tag_form').on('submit', function()
 	{
 		$('#select_right option').each(function(i){
-			$(this).attr("selected", "selected");
+			$(this).prop('selected', 'selected');
 		});
 	});
 	</script>

@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 /**
@@ -39,6 +19,10 @@ class ConfigurationKPICore extends Configuration
         ConfigurationKPI::$definition_backup = Configuration::$definition;
         Configuration::$definition['table'] = 'configuration_kpi';
         Configuration::$definition['primary'] = 'id_configuration_kpi';
+
+        if (empty(static::$_cache[Configuration::$definition['table']])) {
+            parent::loadConfiguration();
+        }
     }
 
     /**
@@ -126,7 +110,7 @@ class ConfigurationKPICore extends Configuration
     public static function getInt($key, $idShopGroup = null, $idShop = null)
     {
         ConfigurationKPI::setKpiDefinition();
-        $values = parent::getInt($key, $idShopGroup, $idShop);
+        $values = parent::getConfigInMultipleLangs($key, $idShopGroup, $idShop);
         ConfigurationKPI::unsetKpiDefinition();
 
         return $values;
@@ -239,13 +223,15 @@ class ConfigurationKPICore extends Configuration
 
     /**
      * @param string $key
+     * @param int|null $idShopGroup
+     * @param int|null $idShop
      *
      * @return bool
      */
-    public static function deleteFromContext($key)
+    public static function deleteFromContext($key, ?int $idShopGroup = null, ?int $idShop = null)
     {
         ConfigurationKPI::setKpiDefinition();
-        $deleteSuccess = parent::deleteFromContext($key);
+        $deleteSuccess = parent::deleteFromContext($key, $idShopGroup, $idShop);
         ConfigurationKPI::unsetKpiDefinition();
 
         return $deleteSuccess;

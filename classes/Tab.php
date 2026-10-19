@@ -1,39 +1,24 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShop\PrestaShop\Core\Security\Permission;
 
 /**
  * Class TabCore.
  */
 class TabCore extends ObjectModel
 {
-    /** @var string Displayed name */
+    /** @var string|array<int, string> Displayed name */
     public $name;
 
     /** @var string Class and file name */
     public $class_name;
+
+    /** @var string Route name for Symfony */
+    public $route_name;
 
     public $module;
 
@@ -46,33 +31,40 @@ class TabCore extends ObjectModel
     /** @var bool active */
     public $active = true;
 
-    /** @var int hide_host_mode */
-    public $hide_host_mode = false;
+    /** @var bool enabled */
+    public $enabled = true;
 
     /** @var string Icon font */
     public $icon;
 
-    const TAB_MODULE_LIST_URL = _PS_TAB_MODULE_LIST_URL_;
+    /** @var string|null Wording to use for the display name */
+    public $wording;
+
+    /** @var string|null Wording domain to use for the display name */
+    public $wording_domain;
 
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'tab',
         'primary' => 'id_tab',
         'multilang' => true,
-        'fields' => array(
-            'id_parent' => array('type' => self::TYPE_INT, 'validate' => 'isInt'),
-            'position' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'),
-            'module' => array('type' => self::TYPE_STRING, 'validate' => 'isTabName', 'size' => 64),
-            'class_name' => array('type' => self::TYPE_STRING, 'required' => true, 'size' => 64),
-            'active' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'hide_host_mode' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'icon' => array('type' => self::TYPE_STRING, 'size' => 64),
+        'fields' => [
+            'id_parent' => ['type' => self::TYPE_INT, 'validate' => 'isInt'],
+            'position' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'],
+            'module' => ['type' => self::TYPE_STRING, 'validate' => 'isTabName', 'size' => 64],
+            'class_name' => ['type' => self::TYPE_STRING, 'required' => true, 'size' => 64],
+            'route_name' => ['type' => self::TYPE_STRING, 'required' => false, 'size' => 256],
+            'active' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'enabled' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'icon' => ['type' => self::TYPE_STRING, 'size' => 64],
+            'wording' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'allow_null' => true, 'size' => 255],
+            'wording_domain' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'allow_null' => true, 'size' => 255],
             /* Lang fields */
-            'name' => array('type' => self::TYPE_STRING, 'lang' => true, 'required' => true, 'validate' => 'isTabName', 'size' => 64),
-        ),
-    );
+            'name' => ['type' => self::TYPE_STRING, 'lang' => true, 'required' => true, 'validate' => 'isTabName', 'size' => 128],
+        ],
+    ];
 
     protected static $_getIdFromClassName = null;
 
@@ -84,11 +76,11 @@ class TabCore extends ObjectModel
      * @param bool $autoDate
      * @param bool $nullValues
      *
-     * @return int id_tab
+     * @return bool true if success
      */
     public function add($autoDate = true, $nullValues = false)
     {
-        self::$_cache_tabs = array();
+        self::$_cache_tabs = [];
 
         // Set good position for new tab
         $this->position = Tab::getNewLastPosition($this->id_parent);
@@ -96,7 +88,7 @@ class TabCore extends ObjectModel
 
         // Add tab
         if (parent::add($autoDate, $nullValues)) {
-            //forces cache to be reloaded
+            // forces cache to be reloaded
             self::$_getIdFromClassName = null;
 
             return Tab::initAccess($this->id);
@@ -127,23 +119,35 @@ class TabCore extends ObjectModel
      *
      * @return bool true if succeed
      */
-    public static function initAccess($idTab, Context $context = null)
+    public static function initAccess($idTab, ?Context $context = null)
     {
         if (!$context) {
             $context = Context::getContext();
         }
 
         /* Right management */
-        $slug = 'ROLE_MOD_TAB_' . strtoupper(self::getClassNameById($idTab));
+        $slug = Permission::PREFIX_TAB . strtoupper(self::getClassNameById($idTab));
 
-        foreach (array('CREATE', 'READ', 'UPDATE', 'DELETE') as $action) {
-            Db::getInstance()->execute('INSERT INTO `' . _DB_PREFIX_ . 'authorization_role` (`slug`) VALUES ("' . $slug . '_' . $action . '")');
+        foreach (['CREATE', 'READ', 'UPDATE', 'DELETE'] as $action) {
+            /*
+             * Check if authorization role does not exist.
+             * This can happen if you want to create several tabs with the same class_name or route_name
+             */
+            $actionSlug = pSQL($slug . '_' . $action);
+            $authorizationRole = Db::getInstance()->getRow(
+                'SELECT slug FROM `' . _DB_PREFIX_ . 'authorization_role` ' .
+                'WHERE `slug` = "' . $actionSlug . '"'
+            );
+            if (empty($authorizationRole)) {
+                Db::getInstance()->execute(
+                    'INSERT INTO `' . _DB_PREFIX_ . 'authorization_role` (`slug`) VALUES ("' . $actionSlug . '")'
+                );
+            }
         }
 
         $access = new Access();
-
-        foreach (array('view', 'add', 'edit', 'delete') as $action) {
-            $access->updateLgcAccess('1', $idTab, $action, true);
+        foreach (['view', 'add', 'edit', 'delete'] as $action) {
+            $access->updateLgcAccess(1, $idTab, $action, true);
 
             if ($context->employee && $context->employee->id_profile) {
                 $access->updateLgcAccess($context->employee->id_profile, $idTab, $action, true);
@@ -156,9 +160,9 @@ class TabCore extends ObjectModel
     public function delete()
     {
         if (parent::delete()) {
-            $slug = 'ROLE_MOD_TAB_' . strtoupper($this->class_name);
+            $slug = Permission::PREFIX_TAB . strtoupper($this->class_name);
 
-            foreach (array('CREATE', 'READ', 'UPDATE', 'DELETE') as $action) {
+            foreach (['CREATE', 'READ', 'UPDATE', 'DELETE'] as $action) {
                 Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'authorization_role` WHERE `slug` = "' . $slug . '_' . $action . '"');
             }
 
@@ -170,6 +174,19 @@ class TabCore extends ObjectModel
         }
 
         return false;
+    }
+
+    /**
+     * reset static cache (eg unit testing purpose).
+     */
+    public static function resetStaticCache()
+    {
+        self::$_getIdFromClassName = null;
+    }
+
+    public static function resetTabCache()
+    {
+        self::$_cache_tabs = [];
     }
 
     /**
@@ -197,7 +214,7 @@ class TabCore extends ObjectModel
     {
         $cacheId = 'getCurrentParentId_' . Tools::strtolower(Tools::getValue('controller'));
         if (!Cache::isStored($cacheId)) {
-            $value = Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue('
+            $value = (int) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue('
 			SELECT `id_parent`
 			FROM `' . _DB_PREFIX_ . 'tab`
 			WHERE LOWER(class_name) = \'' . pSQL(Tools::strtolower(Tools::getValue('controller'))) . '\'');
@@ -223,12 +240,10 @@ class TabCore extends ObjectModel
         if (!Cache::isStored($cacheId)) {
             /* Tabs selection */
             $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->getRow(
-                '
-				SELECT *
+                'SELECT *
 				FROM `' . _DB_PREFIX_ . 'tab` t
-				LEFT JOIN `' . _DB_PREFIX_ . 'tab_lang` tl
-					ON (t.`id_tab` = tl.`id_tab` AND tl.`id_lang` = ' . (int) $idLang . ')
-				WHERE t.`id_tab` = ' . (int) $idTab . (defined('_PS_HOST_MODE_') ? ' AND `hide_host_mode` = 0' : '')
+				LEFT JOIN `' . _DB_PREFIX_ . 'tab_lang` tl ON (t.`id_tab` = tl.`id_tab` AND tl.`id_lang` = ' . (int) $idLang . ')
+				WHERE t.`id_tab` = ' . (int) $idTab
             );
             Cache::store($cacheId, $result);
 
@@ -245,7 +260,7 @@ class TabCore extends ObjectModel
      */
     public static function getModuleTabList()
     {
-        $list = array();
+        $list = [];
 
         $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
 			SELECT t.`class_name`, t.`module`
@@ -266,33 +281,32 @@ class TabCore extends ObjectModel
      *
      * @return array tabs
      */
-    protected static $_cache_tabs = array();
+    protected static $_cache_tabs = [];
 
     public static function getTabs($idLang, $idParent = null)
     {
         if (!isset(self::$_cache_tabs[$idLang])) {
-            self::$_cache_tabs[$idLang] = array();
+            self::$_cache_tabs[$idLang] = [];
             // Keep t.*, tl.name instead of only * because if translations are missing, the join on tab_lang will overwrite the id_tab in the results
             $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS(
                 '
 				SELECT t.*, tl.name
 				FROM `' . _DB_PREFIX_ . 'tab` t
 				LEFT JOIN `' . _DB_PREFIX_ . 'tab_lang` tl ON (t.`id_tab` = tl.`id_tab` AND tl.`id_lang` = ' . (int) $idLang . ')
-				WHERE 1 ' . (defined('_PS_HOST_MODE_') ? ' AND `hide_host_mode` = 0' : '') . '
 				ORDER BY t.`position` ASC'
             );
 
             if (is_array($result)) {
                 foreach ($result as $row) {
                     if (!isset(self::$_cache_tabs[$idLang][$row['id_parent']])) {
-                        self::$_cache_tabs[$idLang][$row['id_parent']] = array();
+                        self::$_cache_tabs[$idLang][$row['id_parent']] = [];
                     }
                     self::$_cache_tabs[$idLang][$row['id_parent']][] = $row;
                 }
             }
         }
         if ($idParent === null) {
-            $arrayAll = array();
+            $arrayAll = [];
             foreach (self::$_cache_tabs[$idLang] as $arrayParent) {
                 $arrayAll = array_merge($arrayAll, $arrayParent);
             }
@@ -300,7 +314,7 @@ class TabCore extends ObjectModel
             return $arrayAll;
         }
 
-        return isset(self::$_cache_tabs[$idLang][$idParent]) ? self::$_cache_tabs[$idLang][$idParent] : array();
+        return isset(self::$_cache_tabs[$idLang][$idParent]) ? self::$_cache_tabs[$idLang][$idParent] : [];
     }
 
     /**
@@ -310,13 +324,13 @@ class TabCore extends ObjectModel
      *
      * @param string $className
      *
-     * @return int Tab ID
+     * @return int|false Tab ID
      */
     public static function getIdFromClassName($className)
     {
-        $className = self::getClassName($className);
-        if (self::$_getIdFromClassName === null) {
-            self::$_getIdFromClassName = array();
+        $className = strtolower($className);
+        if (empty(self::$_getIdFromClassName)) {
+            self::$_getIdFromClassName = [];
             $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('SELECT id_tab, class_name FROM `' . _DB_PREFIX_ . 'tab`', true, false);
 
             if (is_array($result)) {
@@ -330,44 +344,21 @@ class TabCore extends ObjectModel
     }
 
     /**
-     * @deprecated 1.7.0, to be removed in 1.7.1. Upgrade module to 1.7.
-     */
-    private static function getClassName($className)
-    {
-        $legacyClassNames = array(
-            'AdminTools',
-            'AdminPriceRule',
-            'AdminAdmin',
-            'AdminParentStats',
-            'AdminMarketing',
-            'AdminCarrierWizard',
-            'AdminTabs',
-        );
-
-        if (in_array($className, $legacyClassNames)) {
-            @trigger_error($className . ' is a deprecated tab since version 1.7.0 and "Default" will be removed in 1.7.1.. Upgrade module using the docs: http://build.prestashop.com/news/how-we-reorganized-main-menu-prestashop-1.7/.', E_USER_DEPRECATED);
-            $className = 'DEFAULT';
-        }
-
-        return strtolower($className);
-    }
-
-    /**
      * Get collection from module name.
      *
-     * @param $module string Module name
-     * @param null $idLang integer Language ID
+     * @param string $module Module name
+     * @param int|null $idLang integer Language ID
      *
      * @return array|PrestaShopCollection Collection of tabs (or empty array)
      */
     public static function getCollectionFromModule($module, $idLang = null)
     {
-        if (is_null($idLang)) {
+        if (null === $idLang) {
             $idLang = Context::getContext()->language->id;
         }
 
         if (!Validate::isModuleName($module)) {
-            return array();
+            return [];
         }
 
         $tabs = new PrestaShopCollection('Tab', (int) $idLang);
@@ -379,7 +370,7 @@ class TabCore extends ObjectModel
     /**
      * Enabling tabs for module.
      *
-     * @param $module string Module Name
+     * @param string $module Module Name
      *
      * @return bool Status
      */
@@ -401,7 +392,7 @@ class TabCore extends ObjectModel
     /**
      * Disabling tabs for module.
      *
-     * @param $module string Module name
+     * @param string $module Module name
      *
      * @return bool Status
      */
@@ -423,8 +414,8 @@ class TabCore extends ObjectModel
     /**
      * Get Instance from tab class name.
      *
-     * @param $className string Name of tab class
-     * @param $idLang     integer id_lang
+     * @param string $className Name of tab class
+     * @param int|null $idLang id_lang
      *
      * @return Tab Tab object (empty if bad id or class name)
      */
@@ -441,7 +432,7 @@ class TabCore extends ObjectModel
             '
 			SELECT COUNT(*)
 			FROM `' . _DB_PREFIX_ . 'tab` t
-			' . (!is_null($idParent) ? 'WHERE t.`id_parent` = ' . (int) $idParent : '')
+			' . (null !== $idParent ? 'WHERE t.`id_parent` = ' . (int) $idParent : '')
         );
     }
 
@@ -454,9 +445,8 @@ class TabCore extends ObjectModel
      */
     public static function getNewLastPosition($idParent)
     {
-        return Db::getInstance()->getValue(
-            '
-			SELECT IFNULL(MAX(position),0)+1
+        return (int) Db::getInstance()->getValue(
+            'SELECT IFNULL(MAX(position), 0) + 1
 			FROM `' . _DB_PREFIX_ . 'tab`
 			WHERE `id_parent` = ' . (int) $idParent
         );
@@ -545,7 +535,7 @@ class TabCore extends ObjectModel
             }
         }
 
-        if (!isset($movedTab) || !isset($position)) {
+        if (!isset($movedTab)) {
             return false;
         }
         // < and > statements rather than BETWEEN operator
@@ -597,7 +587,7 @@ class TabCore extends ObjectModel
     {
         $adminTab = Tab::getTab((int) Context::getContext()->language->id, $idTab);
         $tabs[] = $adminTab;
-        if ($adminTab['id_parent'] > 0) {
+        if (!empty($adminTab['id_parent'])) {
             $tabs = Tab::recursiveTab($adminTab['id_parent'], $tabs);
         }
 
@@ -620,82 +610,13 @@ class TabCore extends ObjectModel
             $this->position = Tab::getNewLastPosition($this->id_parent);
         }
 
-        self::$_cache_tabs = array();
+        self::$_cache_tabs = [];
 
         return parent::update($nullValues);
     }
 
-    /**
-     * Get Tab by Profile ID.
-     *
-     * @param int $idParent
-     * @param int $idProfile
-     *
-     * @return array|false|mysqli_result|null|PDOStatement|resource
-     */
-    public static function getTabByIdProfile($idParent, $idProfile)
-    {
-        return Db::getInstance()->executeS('
-			SELECT t.`id_tab`, t.`id_parent`, tl.`name`, a.`id_profile`
-			FROM `' . _DB_PREFIX_ . 'tab` t
-			LEFT JOIN `' . _DB_PREFIX_ . 'access` a
-				ON (a.`id_tab` = t.`id_tab`)
-			LEFT JOIN `' . _DB_PREFIX_ . 'tab_lang` tl
-				ON (t.`id_tab` = tl.`id_tab` AND tl.`id_lang` = ' . (int) Context::getContext()->language->id . ')
-			WHERE a.`id_profile` = ' . (int) $idProfile . '
-			AND t.`id_parent` = ' . (int) $idParent . '
-			AND a.`view` = 1
-			AND a.`edit` = 1
-			AND a.`delete` = 1
-			AND a.`add` = 1
-			AND t.`id_parent` != 0 AND t.`id_parent` != -1
-			' . (defined('_PS_HOST_MODE_') ? ' AND `hide_host_mode` = 0' : '') . '
-			ORDER BY t.`id_parent` ASC
-		');
-    }
-
-    /**
-     * @since 1.5.0
-     */
     public static function getClassNameById($idTab)
     {
         return Db::getInstance()->getValue('SELECT class_name FROM ' . _DB_PREFIX_ . 'tab WHERE id_tab = ' . (int) $idTab);
-    }
-
-    public static function getTabModulesList($idTab)
-    {
-        $modulesList = array('default_list' => array(), 'slider_list' => array());
-        $xmlTabModulesList = false;
-
-        if (file_exists(_PS_ROOT_DIR_ . Module::CACHE_FILE_TAB_MODULES_LIST)) {
-            $xmlTabModulesList = @simplexml_load_file(_PS_ROOT_DIR_ . Module::CACHE_FILE_TAB_MODULES_LIST);
-        }
-
-        $className = null;
-        $displayType = 'default_list';
-        if ($xmlTabModulesList) {
-            foreach ($xmlTabModulesList->tab as $tab) {
-                foreach ($tab->attributes() as $key => $value) {
-                    if ($key == 'class_name') {
-                        $className = (string) $value;
-                    }
-                }
-
-                if (Tab::getIdFromClassName((string) $className) == $idTab) {
-                    foreach ($tab->attributes() as $key => $value) {
-                        if ($key == 'display_type') {
-                            $displayType = (string) $value;
-                        }
-                    }
-
-                    foreach ($tab->children() as $module) {
-                        $modulesList[$displayType][(int) $module['position']] = (string) $module['name'];
-                    }
-                    ksort($modulesList[$displayType]);
-                }
-            }
-        }
-
-        return $modulesList;
     }
 }

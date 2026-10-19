@@ -1,30 +1,10 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 /**
- * @since 1.5.0
+ * @deprecated since 9.0 and will be removed in 10.0
  */
 class WarehouseProductLocationCore extends ObjectModel
 {
@@ -51,29 +31,29 @@ class WarehouseProductLocationCore extends ObjectModel
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'warehouse_product_location',
         'primary' => 'id_warehouse_product_location',
-        'fields' => array(
-            'location' => array('type' => self::TYPE_STRING, 'validate' => 'isReference', 'size' => 64),
-            'id_product' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_product_attribute' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_warehouse' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-        ),
-    );
+        'fields' => [
+            'location' => ['type' => self::TYPE_STRING, 'validate' => 'isReference', 'size' => 64],
+            'id_product' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_product_attribute' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_warehouse' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+        ],
+    ];
 
     /**
      * @see ObjectModel::$webserviceParameters
      */
-    protected $webserviceParameters = array(
-        'fields' => array(
-            'id_product' => array('xlink_resource' => 'products'),
-            'id_product_attribute' => array('xlink_resource' => 'combinations'),
-            'id_warehouse' => array('xlink_resource' => 'warehouses'),
-        ),
-        'hidden_fields' => array(
-        ),
-    );
+    protected $webserviceParameters = [
+        'fields' => [
+            'id_product' => ['xlink_resource' => 'products'],
+            'id_product_attribute' => ['xlink_resource' => 'combinations'],
+            'id_warehouse' => ['xlink_resource' => 'warehouses'],
+        ],
+        'hidden_fields' => [
+        ],
+    ];
 
     /**
      * For a given product and warehouse, gets the location.
@@ -82,7 +62,7 @@ class WarehouseProductLocationCore extends ObjectModel
      * @param int $id_product_attribute product attribute ID
      * @param int $id_warehouse warehouse ID
      *
-     * @return string $location Location of the product
+     * @return string|false $location Location of the product
      */
     public static function getProductLocation($id_product, $id_product_attribute, $id_warehouse)
     {
@@ -104,7 +84,7 @@ class WarehouseProductLocationCore extends ObjectModel
      *
      * @param int $id_product
      * @param int $id_product_attribute
-     * @param int $id_supplier
+     * @param int $id_warehouse
      *
      * @return int $id_warehouse_product_location ID of the WarehouseProductLocation
      */
@@ -120,7 +100,7 @@ class WarehouseProductLocationCore extends ObjectModel
 			AND wpl.id_warehouse = ' . (int) $id_warehouse
         );
 
-        return Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($query);
+        return (int) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($query);
     }
 
     /**

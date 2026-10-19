@@ -1,34 +1,13 @@
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 (function ($) {
-
   $.fn.categorytree = function (settings) {
+    const isMethodCall = (typeof settings === 'string'); // is this a method call like $().categorytree("unselect")
+    const returnValue = this;
 
-    var isMethodCall = (typeof settings === 'string'), // is this a method call like $().categorytree("unselect")
-      returnValue = this;
     // if a method call execute the method on all selected instances
     if (isMethodCall) {
       switch (settings) {
@@ -45,34 +24,39 @@
           this.find('li').has('ul').removeClass('less').addClass('more');
           break;
         default:
+          // eslint-disable-next-line
           throw 'Unknown method';
       }
+
+    // eslint-disable-next-line
     }
+
     // initialize tree
     else {
-        var clickHandler = function (event) {
-          var $ui = $(event.target);
-          if ($ui.attr('type') === 'radio' || $ui.attr('type') === 'checkbox') {
-            return;
-          } else {
-            event.stopPropagation();
-          }
+      const clickHandler = function (event) {
+        let $ui = $(event.target);
 
-          if ($ui.next('ul').length === 0) {
-            $ui = $ui.parent();
-          }
+        if ($ui.attr('type') === 'radio' || $ui.attr('type') === 'checkbox') {
+          return;
+        }
+        event.stopPropagation();
 
-          $ui.next('ul').toggle();
-          if ($ui.next('ul').is(':visible')) {
-            $ui.parent('li').removeClass('more').addClass('less');
-          } else {
-            $ui.parent('li').removeClass('less').addClass('more');
-          }
+        if ($ui.next('ul').length === 0) {
+          $ui = $ui.parent();
+        }
 
-          return false;
-    };
-      this.find('li > ul').each(function (i, item) {
-        var $inputWrapper = $(item).prev('div');
+        $ui.next('ul').toggle();
+        if ($ui.next('ul').is(':visible')) {
+          $ui.parent('li').removeClass('more').addClass('less');
+        } else {
+          $ui.parent('li').removeClass('less').addClass('more');
+        }
+
+        // eslint-disable-next-line
+        return false;
+      };
+      this.find('li > ul').each((i, item) => {
+        const $inputWrapper = $(item).prev('div');
         $inputWrapper.on('click', clickHandler);
         $inputWrapper.find('label').on('click', clickHandler);
 
@@ -86,4 +70,4 @@
     // return the jquery selection (or if it was a method call that returned a value - the returned value)
     return returnValue;
   };
-})(jQuery);
+}(jQuery));

@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter\BestSales;
@@ -31,10 +11,9 @@ use PrestaShop\PrestaShop\Core\Product\Search\ProductSearchProviderInterface;
 use PrestaShop\PrestaShop\Core\Product\Search\ProductSearchQuery;
 use PrestaShop\PrestaShop\Core\Product\Search\ProductSearchResult;
 use PrestaShop\PrestaShop\Core\Product\Search\SortOrder;
-use PrestaShop\PrestaShop\Core\Product\Search\SortOrderFactory;
+use PrestaShop\PrestaShop\Core\Product\Search\SortOrdersCollection;
 use ProductSale;
-use Symfony\Component\Translation\TranslatorInterface;
-use Tools;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class BestSalesProductSearchProvider implements ProductSearchProviderInterface
 {
@@ -44,15 +23,15 @@ class BestSalesProductSearchProvider implements ProductSearchProviderInterface
     private $translator;
 
     /**
-     * @var SortOrderFactory
+     * @var SortOrdersCollection
      */
-    private $sortOrderFactory;
+    private $sortOrdersCollection;
 
     public function __construct(
         TranslatorInterface $translator
     ) {
         $this->translator = $translator;
-        $this->sortOrderFactory = new SortOrderFactory($this->translator);
+        $this->sortOrdersCollection = new SortOrdersCollection($this->translator);
     }
 
     /**
@@ -65,12 +44,11 @@ class BestSalesProductSearchProvider implements ProductSearchProviderInterface
         ProductSearchContext $context,
         ProductSearchQuery $query
     ) {
-        $sortBySales = (new SortOrder('product', 'sales', 'desc'))->setLabel(
-            $this->translator->trans('Sales, highest to lowest', array(), 'Shop.Theme.Catalog')
-        );
-
-        if (!Tools::getValue('order', 0)) {
-            $query->setSortOrder($sortBySales);
+        // If provided sort order is unsupported random, we set a fallback
+        if ($query->getSortOrder()->isRandom()) {
+            $query->setSortOrder((new SortOrder('product', 'sales', 'desc'))->setLabel(
+                $this->translator->trans('Sales, highest to lowest', [], 'Shop.Theme.Catalog')
+            ));
         }
 
         if (!$products = ProductSale::getBestSales(
@@ -80,7 +58,7 @@ class BestSalesProductSearchProvider implements ProductSearchProviderInterface
             $query->getSortOrder()->toLegacyOrderBy(),
             $query->getSortOrder()->toLegacyOrderWay()
         )) {
-            $products = array();
+            $products = [];
         }
 
         $count = (int) ProductSale::getNbSales();
@@ -92,22 +70,15 @@ class BestSalesProductSearchProvider implements ProductSearchProviderInterface
                 ->setProducts($products)
                 ->setTotalProductsCount($count);
 
+            // We use default set of sort orders + option to sort by sales
             $result->setAvailableSortOrders(
-                array(
-                    $sortBySales,
-                    (new SortOrder('product', 'name', 'asc'))->setLabel(
-                        $this->translator->trans('Name, A to Z', array(), 'Shop.Theme.Catalog')
-                    ),
-                    (new SortOrder('product', 'name', 'desc'))->setLabel(
-                        $this->translator->trans('Name, Z to A', array(), 'Shop.Theme.Catalog')
-                    ),
-                    (new SortOrder('product', 'price', 'asc'))->setLabel(
-                        $this->translator->trans('Price, low to high', array(), 'Shop.Theme.Catalog')
-                    ),
-                    (new SortOrder('product', 'price', 'desc'))->setLabel(
-                        $this->translator->trans('Price, high to low', array(), 'Shop.Theme.Catalog')
-                    ),
-                )
+                array_merge(
+                    [
+                        (new SortOrder('product', 'sales', 'desc'))->setLabel(
+                            $this->translator->trans('Sales, highest to lowest', [], 'Shop.Theme.Catalog')
+                        ),
+                    ],
+                    $this->sortOrdersCollection->getDefaults())
             );
         }
 

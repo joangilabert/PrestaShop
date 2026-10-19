@@ -1,10 +1,11 @@
 {**
- * 2007-2018 PrestaShop
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
  *
  * NOTICE OF LICENSE
  *
  * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * that is bundled with this package in the file LICENSE.md.
  * It is also available through the world-wide-web at this URL:
  * https://opensource.org/licenses/OSL-3.0
  * If you did not receive a copy of the license and are unable to
@@ -15,12 +16,11 @@
  *
  * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
  * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
  *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
  *}
 
 <div class="leadin">{block name="leadin"}{/block}</div>
@@ -32,7 +32,7 @@
 	<div class="panel">
 		<h3>
 			<i class="icon-paste"></i>
-			{l s='Transplant a module' d='Admin.Design.Feature'}
+			{l s='Hook a module' d='Admin.Design.Feature'}
 		</h3>
 		<div class="form-group">
 			<label class="control-label col-lg-3 required"> {l s='Module' d='Admin.Global'}</label>
@@ -42,22 +42,34 @@
 						<option value="0" selected disabled>{l s='Please select a module' d='Admin.Design.Help'}</option>
 					{/if}
 					{foreach $modules as $module}
-						<option value="{$module->id|intval}"{if $id_module == $module->id || (!$id_module && $show_modules == $module->id)} selected="selected"{/if}>{$module->displayName|stripslashes}</option>
+						<option value="{$module->id|intval}"{if $id_module == $module->id || (!$id_module && $show_modules == $module->id)} selected="selected"{/if}>{$module->displayName|stripslashes|escape:'html':'UTF-8'}</option>
 					{/foreach}
 				</select>
 			</div>
 		</div>
 		<div class="form-group">
-			<label class="control-label col-lg-3 required"> {l s='Transplant to' d='Admin.Design.Feature'}</label>
+			<label class="control-label col-lg-3 required"> {l s='Hook to' d='Admin.Design.Feature'}</label>
 			<div class="col-lg-9">
 				<select name="id_hook"{if !$hooks|@count} disabled="disabled"{/if}>
-					{if !$hooks}
+					{if !$hooks|@count}
 						<option value="0">{l s='Select a module above before choosing from available hooks' d='Admin.Design.Help'}</option>
-					{else}
-						{foreach $hooks as $hook}
-							<option value="{$hook['id_hook']}" {if $id_hook == $hook['id_hook']} selected="selected"{/if}>{$hook['name']}{if $hook['name'] != $hook['title']} ({$hook['title']}){/if}{if isset($hook['description'])} ({$hook['description']|escape:'htmlall':'UTF-8'}){/if}</option>
-						{/foreach}
 					{/if}
+
+					<optgroup id="hooks_unregistered" label="{l s='Available hooks' d='Admin.Design.Feature'}">
+					{foreach $hooks as $hook}
+						{if !$hook['registered']}
+							<option value="{$hook['id_hook']|escape:'html':'UTF-8'}" {if $id_hook == $hook['id_hook']} selected="selected"{/if}>{$hook['name']}{if $hook['name'] != $hook['title']} ({$hook['title']}){/if}{if isset($hook['description'])} ({$hook['description']|escape:'htmlall':'UTF-8'}){/if}</option>
+						{/if}
+					{/foreach}
+					</optgroup>
+
+					<optgroup id="hooks_registered" label="{l s='Already registered hooks' d='Admin.Design.Feature'}" disabled>
+					{foreach $hooks as $hook}
+						{if $hook['registered']}
+							<option value="{$hook['id_hook']|escape:'html':'UTF-8'}" {if $id_hook == $hook['id_hook']} selected="selected"{/if}>{$hook['name']}{if $hook['name'] != $hook['title']} ({$hook['title']}){/if}{if isset($hook['description'])} ({$hook['description']|escape:'htmlall':'UTF-8'}){/if}</option>
+						{/if}
+					{/foreach}
+					</optgroup>
 				</select>
 			</div>
 		</div>
@@ -81,10 +93,14 @@
 			</div>
 		</div>
 		<div class="panel-footer">
+			<button type="button" class="btn btn-default" onclick="window.history.back();">
+				<i class="process-icon-cancel"></i>
+				{l s='Cancel' d='Admin.Actions'}
+			</button>
 			{if $edit_graft}
-				<input type="hidden" name="id_module" value="{$id_module}" />
-				<input type="hidden" name="id_hook" value="{$id_hook}" />
-				<input type="hidden" name="new_hook" id="new_hook" value="{$id_hook}" />
+				<input type="hidden" name="id_module" value="{$id_module|intval}" />
+				<input type="hidden" name="id_hook" value="{$id_hook|intval}" />
+				<input type="hidden" name="new_hook" id="new_hook" value="{$id_hook|intval}" />
 			{/if}
 			<button type="submit" name="{if $edit_graft}submitEditGraft{else}submitAddToHook{/if}" id="{$table}_form_submit_btn" class="btn btn-default pull-right"><i class="process-icon-save"></i> {l s='Save' d='Admin.Actions'}</button>
 		</div>
@@ -113,12 +129,12 @@
 			str = val.join(', ');
 		obj.closest('form').find('#em_text_' + shopID).val(str);
 	}
-	$(document).ready(function(){
+	$(function(){
 		$('form[id="hook_module_form"] input[id^="em_text_"]').each(function(){
-			$(this).change(position_exception_textchange).change();
+			$(this).on('change', position_exception_textchange).change();
 		});
 		$('form[id="hook_module_form"] select[id^="em_list_"]').each(function(){
-			$(this).change(position_exception_listchange);
+			$(this).on('change', position_exception_listchange);
 		});
 		$('select[name=id_hook]').on('change', function() {
 			$('#new_hook').attr('value', $(this).val());

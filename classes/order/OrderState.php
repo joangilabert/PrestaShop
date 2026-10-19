@@ -1,34 +1,17 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShop\PrestaShop\Core\Domain\OrderState\OrderStateSettings;
+
 class OrderStateCore extends ObjectModel
 {
-    /** @var string Name */
+    /** @var string|array<int, string> Name */
     public $name;
 
-    /** @var string Template name if there is any e-mail to send */
+    /** @var string|array<int, string> Template name if there is any e-mail to send */
     public $template;
 
     /** @var bool Send an e-mail to customer ? */
@@ -65,68 +48,72 @@ class OrderStateCore extends ObjectModel
     /** @var bool Attach PDF Delivery Slip */
     public $pdf_delivery;
 
-    /** @var bool True if carrier has been deleted (staying in database as deleted) */
-    public $deleted = 0;
+    /** @var bool True if order status has been deleted (staying in database as deleted) */
+    public $deleted = false;
 
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'order_state',
         'primary' => 'id_order_state',
         'multilang' => true,
-        'fields' => array(
-            'send_email' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'module_name' => array('type' => self::TYPE_STRING, 'validate' => 'isModuleName'),
-            'invoice' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'color' => array('type' => self::TYPE_STRING, 'validate' => 'isColor'),
-            'logable' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'shipped' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'unremovable' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'delivery' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'hidden' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'paid' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'pdf_delivery' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'pdf_invoice' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'deleted' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
+        'fields' => [
+            'send_email' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'module_name' => ['type' => self::TYPE_STRING, 'validate' => 'isModuleName', 'size' => 255],
+            'invoice' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'color' => ['type' => self::TYPE_STRING, 'validate' => 'isColor', 'size' => 32],
+            'logable' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'shipped' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'unremovable' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'delivery' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'hidden' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'paid' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'pdf_delivery' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'pdf_invoice' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'deleted' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
 
             /* Lang fields */
-            'name' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 64),
-            'template' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isTplName', 'size' => 64),
-        ),
-    );
+            'name' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => OrderStateSettings::NAME_MAX_LENGTH],
+            'template' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isTplName', 'size' => 64],
+        ],
+    ];
 
-    protected $webserviceParameters = array(
-        'fields' => array(
-            'unremovable' => array(),
-            'delivery' => array(),
-            'hidden' => array(),
-        ),
-    );
+    protected $webserviceParameters = [
+        'fields' => [
+            'unremovable' => [],
+            'delivery' => [],
+            'hidden' => [],
+        ],
+    ];
 
-    const FLAG_NO_HIDDEN = 1;  /* 00001 */
-    const FLAG_LOGABLE = 2;  /* 00010 */
-    const FLAG_DELIVERY = 4;  /* 00100 */
-    const FLAG_SHIPPED = 8;  /* 01000 */
-    const FLAG_PAID = 16; /* 10000 */
+    public const FLAG_NO_HIDDEN = 1;  /* 00001 */
+    public const FLAG_LOGABLE = 2;  /* 00010 */
+    public const FLAG_DELIVERY = 4;  /* 00100 */
+    public const FLAG_SHIPPED = 8;  /* 01000 */
+    public const FLAG_PAID = 16; /* 10000 */
+    public const FLAG_EMAIL = 32; /* 100000 */
 
     /**
      * Get all available order statuses.
      *
      * @param int $id_lang Language id for status name
+     * @param bool $filterDeleted
      *
      * @return array Order statuses
      */
-    public static function getOrderStates($id_lang)
+    public static function getOrderStates($id_lang, $filterDeleted = true)
     {
+        $deletedStates = $filterDeleted ? ' WHERE deleted = 0' : '';
         $cache_id = 'OrderState::getOrderStates_' . (int) $id_lang;
+        $cache_id .= $filterDeleted ? '_filterDeleted' : '';
+
         if (!Cache::isStored($cache_id)) {
             $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
             SELECT *
             FROM `' . _DB_PREFIX_ . 'order_state` os
-            LEFT JOIN `' . _DB_PREFIX_ . 'order_state_lang` osl ON (os.`id_order_state` = osl.`id_order_state` AND osl.`id_lang` = ' . (int) $id_lang . ')
-            WHERE deleted = 0
-            ORDER BY `name` ASC');
+            LEFT JOIN `' . _DB_PREFIX_ . 'order_state_lang` osl ON (os.`id_order_state` = osl.`id_order_state` AND osl.`id_lang` = ' . (int) $id_lang . ')'
+            . $deletedStates . ' ORDER BY `name` ASC');
             Cache::store($cache_id, $result);
 
             return $result;
@@ -157,6 +144,28 @@ class OrderStateCore extends ObjectModel
 
     public function isRemovable()
     {
-        return !($this->unremovable);
+        return !$this->unremovable;
+    }
+
+    /**
+     * Check if a localized name in database for a specific lang (and excluding some IDs)
+     *
+     * @param string $name
+     * @param int $idLang
+     * @param int|null $excludeIdOrderState ID of the order state excluded for the search
+     *
+     * @return bool
+     */
+    public static function existsLocalizedNameInDatabase(string $name, int $idLang, ?int $excludeIdOrderState): bool
+    {
+        return (bool) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue(
+            'SELECT COUNT(*) AS count' .
+            ' FROM ' . _DB_PREFIX_ . 'order_state_lang osl' .
+            ' INNER JOIN ' . _DB_PREFIX_ . 'order_state os ON (os.`id_order_state` = osl.`id_order_state` AND osl.`id_lang` = ' . $idLang . ')' .
+            ' WHERE osl.id_lang = ' . $idLang .
+            ' AND osl.name =  \'' . pSQL($name) . '\'' .
+            ' AND os.deleted = 0' .
+            ($excludeIdOrderState ? ' AND osl.id_order_state != ' . $excludeIdOrderState : '')
+        );
     }
 }

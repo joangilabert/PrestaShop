@@ -1,18 +1,41 @@
+/**
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
+ */
 .notification-center {
+  height: 100%;
+
   > .notification {
-    padding: 9px 5px;
-    border: none;
-    color: $medium-gray;
+    height: 100%;
+    padding: var(--#{$cdk}size-8);
+    color: var(--#{$cdk}header-text-color);
     background: transparent;
+    border: none;
+
+    &:hover {
+      color: var(--#{$cdk}header-text-color-hover);
+    }
 
     > .material-icons {
-      font-size: 1.375rem;
-      line-height: 1.375rem;
-      vertical-align: middle;
+      font-size: var(--#{$cdk}size-24);
     }
 
     > .count {
       @include notification_counter();
+      top: var(--#{$cdk}size-2);
+      right: var(--#{$cdk}size-2);
+      min-width: var(--#{$cdk}size-18);
+      height: var(--#{$cdk}size-18);
+
+      > span {
+        font-size: inherit;
+        color: inherit;
+      }
+
+      @include media-breakpoint-down("sm") {
+        top: 0.7rem;
+        right: 0.2rem;
+      }
 
       &.hide {
         display: none;
@@ -25,75 +48,34 @@
   }
 
   .dropdown-menu {
-    margin: 0;
-    padding: 0;
-    border-radius: 0;
     min-width: 25rem;
+    padding: 0;
+    margin: 0;
+    @include border-radius(0);
   }
 
   .notifications {
-    font-size: $font-size-base;
-    margin: 0;
-    padding: 0;
-    border-radius: 0;
-    min-width: 25rem;
-    box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
-    top: 42px;
-    right: 5px !important;
-    &:before, &:after {
-      bottom: 100%;
-      right: 9px;
-      border: solid transparent;
-      content: " ";
-      height: 0;
-      width: 0;
-      position: absolute;
-      pointer-events: none;
-    }
-    &:after {
-      border-color: transparent;
-      border-bottom-color: white;
-      border-width: 7px;
-      margin-right: 1px;
-    }
-    &:before {
-      border-color: transparent;
-      border-bottom-color: #bbcdd2;
-      border-width: 8px;
-      margin-left: -8px;
-    }
+    .nav-pills {
+      display: flex;
+      border-bottom: var(--#{$cdk}size-1) solid var(--#{$cdk}primary-400);
 
-    .nav {
       .nav-item {
-        margin-left: 0;
-        width: 33%;
+        //width: 33.33333%;
+        flex-grow: 1;
         text-align: center;
-      }
 
-      .nav-link {
-        color: $gray-medium;
-        font-weight: $font-weight-normal;
-        padding: 0.9375rem 0.9375rem 0.625rem 0.9375rem;
-
-        &.active {
-          border-top: 0;
-          border-bottom: 2px solid $nav-tabs-active-link-hover-border-color;
-          color: $gray-dark;
-        }
-
-        &:hover {
-          color: $link-color;
+        .nav-link {
+          margin: 0;
+          white-space: nowrap;
         }
       }
     }
 
     .tab-content {
-      border-top: 0.125rem solid $gray-light;
-      padding: 0;
-      margin-top: -0.0625rem;
+      padding: var(--#{$cdk}size-16);
 
-      > .tab-pane {
-        height: 11.88rem;
+      .tab-pane {
+        height: var(--#{$cdk}size-160);
         overflow-y: auto;
 
         .no-notification {
@@ -101,86 +83,92 @@
         }
 
         &.empty {
-          color: $gray-medium;
+          color: var(--#{$cdk}primary-800);
           text-align: center;
 
-          &::after {
+          &::before {
+            font-family: var(--#{$cdk}font-family-material-icons);
+            font-size: var(--#{$cdk}size-56);
+            color: var(--#{$cdk}primary-400);
             content: "\E7F5";
-            font-family: "Material Icons";
-            opacity: 0.7;
-            font-size: 5.625rem;
-            color: $gray-light;
           }
 
           > .no-notification {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
             display: block;
-            .mobile & {
-              bottom: 3.125rem;
-            }
           }
         }
       }
 
       .notif {
-        display: block;
-        padding: 0.625rem 0.9375rem;
-        color: $gray-medium;
+        display: inline-block;
+        width: 100%;
+        padding: var(--#{$cdk}size-8);
+        vertical-align: middle;
 
-        .material-icons {
-          vertical-align: top;
+        * {
+          display: inline-block;
+          line-height: var(--#{$cdk}size-18);
+          vertical-align: text-top;
         }
 
-        .message-notification-status {
+        .material-icons {
+          padding: 0;
+          font-size: var(--#{$cdk}size-16);
+          line-height: var(--#{$cdk}size-18);
+          color: inherit;
+        }
+
+        &__carrier {
+          color: var(--#{$cdk}primary-600);
+        }
+
+        &__status {
           &.open {
-            color: $brand-success;
+            color: var(--#{$cdk}green-500);
           }
 
           &.closed {
-            color: $brand-danger;
+            color: var(--#{$cdk}red-500);
           }
 
-          &.pending1, &.pending2 {
-            color: $brand-secondary;
+          &.pending1,
+          &.pending2 {
+            color: var(--#{$cdk}yellow-500);
           }
-        }
-
-        strong {
-          color: $gray-dark;
         }
 
         &:hover {
-          background-color: $dropdown-link-hover-bg;
-          color: $dropdown-link-hover-color;
           text-decoration: none;
-
-          strong {
-            color: $dropdown-link-hover-color;
-          }
+          background-color: var(--#{$cdk}blue-50);
         }
       }
     }
   }
+
   .mobile & {
     .nav-link::before {
-      font-family: 'Material Icons';
-      display: block;
+      display: none;
+      font-family: var(--#{$cdk}font-family-material-icons);
       font-size: 30px;
       color: $gray-dark;
     }
+
     #orders-tab::before {
       content: "\E8CB";
     }
+
     #customers-tab::before {
       content: "\E7FE";
     }
+
     #messages-tab::before {
       content: "\E0BE";
     }
-    .no-notification {
-      top: 13.75rem;
+
+    &.show {
+      .dropdown-toggle {
+        color: $primary;
+      }
     }
   }
 }

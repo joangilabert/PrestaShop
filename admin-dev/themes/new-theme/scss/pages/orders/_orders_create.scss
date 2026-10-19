@@ -1,0 +1,21 @@
+/**
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
+ */
+#order-creation-container {
+  .custom-fields-container {
+    padding-bottom: 0.9375rem;
+
+    .custom-file {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  #products-table {
+    .js-product-qty-input {
+      margin-top: 22px;
+    }
+  }
+}

@@ -1,38 +1,14 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
- */
-
-/**
- * @since 1.5.0
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 class PrestaShopExceptionCore extends Exception
 {
     /**
      * This method acts like an error handler, if dev mode is on, display the error else use a better silent way.
      */
-    public function displayMessage()
+    public function displayMessage(bool $dieAfterDisplay = true)
     {
         if (getenv('kernel.environment') === 'test') {
             throw $this;
@@ -64,7 +40,7 @@ class PrestaShopExceptionCore extends Exception
             // Display debug backtrace
             echo '<ul>';
             foreach ($this->getTrace() as $id => $trace) {
-                $relative_file = (isset($trace['file'])) ? ltrim(str_replace(array(_PS_ROOT_DIR_, '\\'), array('', '/'), $trace['file']), '/') : '';
+                $relative_file = (isset($trace['file'])) ? ltrim(str_replace([_PS_ROOT_DIR_, '\\'], ['', '/'], $trace['file']), '/') : '';
                 $current_line = (isset($trace['line'])) ? $trace['line'] : '';
                 if (defined('_PS_ADMIN_DIR_')) {
                     $relative_file = str_replace(basename(_PS_ADMIN_DIR_) . DIRECTORY_SEPARATOR, 'admin' . DIRECTORY_SEPARATOR, $relative_file);
@@ -96,7 +72,11 @@ class PrestaShopExceptionCore extends Exception
         }
         // Log the error in the disk
         $this->logError();
-        exit;
+
+        if ($dieAfterDisplay) {
+            // We only need the error code 1 in cli context
+            exit((int) ToolsCore::isPHPCLI());
+        }
     }
 
     /**
@@ -104,7 +84,7 @@ class PrestaShopExceptionCore extends Exception
      *
      * @param string $file
      * @param int $line
-     * @param string $id
+     * @param int|null $id
      */
     protected function displayFileDebug($file, $line, $id = null)
     {
@@ -118,7 +98,7 @@ class PrestaShopExceptionCore extends Exception
         $lines = array_slice($lines, $offset, $total);
         ++$offset;
 
-        echo '<div class="psTrace" id="psTrace_' . $id . '" ' . ((is_null($id) ? 'style="display: block"' : '')) . '><pre>';
+        echo '<div class="psTrace" id="psTrace_' . $id . '" ' . (null === $id ? 'style="display: block"' : '') . '><pre>';
         foreach ($lines as $k => $l) {
             $string = ($offset + $k) . '. ' . htmlspecialchars($l);
             if ($offset + $k == $line) {
@@ -156,10 +136,10 @@ class PrestaShopExceptionCore extends Exception
         $hiddenArgs = [];
 
         try {
-            $class = new \ReflectionClass($trace['class']);
-            /** @var \ReflectionMethod $method */
+            $class = new ReflectionClass($trace['class']);
+            /** @var ReflectionMethod $method */
             $method = $class->getMethod($trace['function']);
-            /** @var \ReflectionParameter $parameter */
+            /** @var ReflectionParameter $parameter */
             foreach ($method->getParameters() as $argIndex => $parameter) {
                 if ($argIndex >= count($args)) {
                     break;
@@ -172,7 +152,7 @@ class PrestaShopExceptionCore extends Exception
                 }
             }
         } catch (ReflectionException $e) {
-            //In worst case scenario there are some critical args we could't detect so we return an empty array
+            // In worst case scenario there are some critical args we could't detect so we return an empty array
         }
 
         return $hiddenArgs;
@@ -182,7 +162,7 @@ class PrestaShopExceptionCore extends Exception
      * Display arguments list of traced function.
      *
      * @param array $args List of arguments
-     * @param string $id ID of argument
+     * @param int $id ID of argument
      */
     protected function displayArgsDebug($args, $id)
     {
@@ -202,17 +182,14 @@ class PrestaShopExceptionCore extends Exception
     {
         $logger = new FileLogger();
         $logger->setFilename(_PS_ROOT_DIR_ . '/var/logs/' . date('Ymd') . '_exception.log');
-        $logger->logError($this->getExtendedMessage(false));
-    }
 
-    /**
-     * @deprecated 1.5.5
-     */
-    protected function getExentedMessage($html = true)
-    {
-        Tools::displayAsDeprecated('Use getExtendedMessage instead');
-
-        return $this->getExtendedMessage($html);
+        try {
+            $logger->logError($this->getExtendedMessage(false));
+        } catch (PrestaShopException) {
+            // Catch exception because there is a hook executed in the AbstractLogger that is bound to fail when the DB
+            // is not accessible, there is no point adding some potential error in this method that is already logging
+            // a previous error, it would only confuse the error messages and cause an unwanted fatal error
+        }
     }
 
     /**
@@ -229,9 +206,9 @@ class PrestaShopExceptionCore extends Exception
 
         return sprintf(
             $format,
-            $this->getMessage(),
+            Tools::safeOutput($this->getMessage(), true),
             $this->getLine(),
-            ltrim(str_replace(array(_PS_ROOT_DIR_, '\\'), array('', '/'), $this->getFile()), '/')
+            ltrim(str_replace([_PS_ROOT_DIR_, '\\'], ['', '/'], $this->getFile()), '/')
         );
     }
 }

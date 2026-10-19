@@ -1,40 +1,28 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 class PdfOrderSlipControllerCore extends FrontController
 {
+    /** @var string */
     public $php_self = 'pdf-order-slip';
+    /** @var bool */
     protected $display_header = false;
+    /** @var bool */
     protected $display_footer = false;
 
     protected $order_slip;
 
-    public function postProcess()
+    public function postProcess(): void
     {
         if (!$this->context->customer->isLogged()) {
-            Tools::redirect('index.php?controller=authentication&back=order-follow');
+            Tools::redirect($this->context->link->getPageLink(
+                'authentication',
+                null,
+                null,
+                ['back' => 'order-follow']
+            ));
         }
 
         if (isset($_GET['id_order_slip']) && Validate::isUnsignedId($_GET['id_order_slip'])) {
@@ -42,13 +30,18 @@ class PdfOrderSlipControllerCore extends FrontController
         }
 
         if (!isset($this->order_slip) || !Validate::isLoadedObject($this->order_slip)) {
-            die($this->trans('Order return not found.', array(), 'Shop.Notifications.Error'));
+            die($this->trans('Order return not found.', [], 'Shop.Notifications.Error'));
         } elseif ($this->order_slip->id_customer != $this->context->customer->id) {
-            die($this->trans('Order return not found.', array(), 'Shop.Notifications.Error'));
+            die($this->trans('Order return not found.', [], 'Shop.Notifications.Error'));
         }
     }
 
-    public function display()
+    /**
+     * @return void
+     *
+     * @throws PrestaShopException
+     */
+    public function display(): void
     {
         $pdf = new PDF($this->order_slip, PDF::TEMPLATE_ORDER_SLIP, $this->context->smarty);
         $pdf->render();

@@ -1,34 +1,17 @@
 <?php
-
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Translation\Provider;
 
 use Symfony\Component\Translation\MessageCatalogue;
+use Symfony\Component\Translation\MessageCatalogueInterface;
 
+/**
+ * Define contract to retrieve translations.
+ */
 interface ProviderInterface
 {
     /**
@@ -37,12 +20,16 @@ interface ProviderInterface
     public function getDirectories();
 
     /**
-     * @return string[] List of patterns for Database filtering
+     * Returns a list of patterns for catalogue domain filtering (including XLF file lookup)
+     *
+     * @return string[]
      */
     public function getFilters();
 
     /**
-     * @return string[] List of translation domains to get in database
+     * Returns a list of patterns for translation domains to get from database.
+     *
+     * @return string[] List of Mysql compatible regexes (no regex delimiter)
      */
     public function getTranslationDomains();
 
@@ -52,7 +39,7 @@ interface ProviderInterface
     public function getLocale();
 
     /**
-     * @return MessageCatalogue A provider must return a MessageCatalogue
+     * @return MessageCatalogueInterface A provider must return a MessageCatalogue
      */
     public function getMessageCatalogue();
 

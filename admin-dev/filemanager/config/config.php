@@ -1,23 +1,61 @@
 <?php
+/**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 
 session_start();
 
 if (!defined('_PS_ADMIN_DIR_')) {
-    define('_PS_ADMIN_DIR_', dirname(__FILE__).'/../../');
+    // Properly assign admin directory path, we don't want to use relative traversal here,
+    // it creates problems in some methods that use basename(_PS_ADMIN_DIR_), like Link class.
+    define('_PS_ADMIN_DIR_', dirname(__DIR__, 2));
 }
 
 require_once _PS_ADMIN_DIR_.'/../config/config.inc.php';
+
+// Boot the Symfony kernel
+global $kernel;
+
+if (!$kernel) {
+    require_once _PS_ROOT_DIR_ . '/app/AdminKernel.php';
+
+    $kernel = new AdminKernel(
+        _PS_ENV_,
+        _PS_MODE_DEV_
+    );
+    $kernel->boot();
+}
+
 require_once _PS_ADMIN_DIR_.'/init.php';
 
-if (function_exists('mb_internal_encoding')) {
-    mb_internal_encoding('UTF-8');
-}
+mb_internal_encoding('UTF-8');
 
 $products_accesses = Profile::getProfileAccess(Context::getContext()->employee->id_profile, Tab::getIdFromClassName('AdminProducts'));
 $cms_accesses = Profile::getProfileAccess(Context::getContext()->employee->id_profile, Tab::getIdFromClassName('AdminCmsContent'));
 
 if (!$products_accesses['edit'] && !$cms_accesses['edit']) {
-    die(Tools::displayError());
+    throw new PrestaShopException('Access forbidden.');
 }
 //------------------------------------------------------------------------------
 // DON'T COPY THIS VARIABLES IN FOLDERS config.php FILES
@@ -38,7 +76,7 @@ if (!$products_accesses['edit'] && !$cms_accesses['edit']) {
 //    |   |   |   |   |- plugin.min.js
 
 $base_url = Tools::getHttpHost(true);  // DON'T TOUCH (base url (only domain) of site (without final /)).
-$base_url = Configuration::get('PS_SSL_ENABLED') && Configuration::get('PS_SSL_ENABLED_EVERYWHERE') ? $base_url : str_replace('https', 'http', $base_url);
+$base_url = Configuration::get('PS_SSL_ENABLED') ? $base_url : str_replace('https', 'http', $base_url);
 $upload_dir = Context::getContext()->shop->getBaseURI().'img/cms/'; // path from base_url to base of upload folder (with start and final /)
 $current_path = _PS_ROOT_DIR_.'/img/cms/'; // relative path from filemanager folder to upload folder (with final /)
 //thumbs folder can't put inside upload folder
@@ -51,11 +89,11 @@ $thumbs_base_path = _PS_ROOT_DIR_.'/img/tmp/cms/'; // relative path from fileman
 $MaxSizeUpload=100; //Mb
 
 $default_language="en"; //default language file name
-$icon_theme="ico"; //ico or ico_dark you can cusatomize just putting a folder inside filemanager/img
+$icon_theme="ico"; //ico or ico_dark you can customize just putting a folder inside filemanager/img
 $show_folder_size=true; //Show or not show folder size in list view feature in filemanager (is possible, if there is a large folder, to greatly increase the calculations)
 $show_sorting_bar=true; //Show or not show sorting feature in filemanager
 $loading_bar=true; //Show or not show loading bar
-$transliteration=false; //active or deactive the transliteration (mean convert all strange characters in A..Za..z0..9 characters)
+$transliteration=false; //enable or disable the transliteration (mean convert all strange characters in A..Za..z0..9 characters)
 
 //*******************************************
 //Images limit and resizing configuration
@@ -103,35 +141,26 @@ $duplicate_files=true;
 //**********************
 //Allowed extensions (lowercase insert)
 //**********************
-$ext_img = array('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg'); //Images
+$ext_img = array('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg', 'webp'); //Images
 $ext_file = array('pdf'); //array('doc', 'docx','rtf', 'pdf', 'xls', 'xlsx', 'txt', 'csv','html','xhtml','psd','sql','log','fla','xml','ade','adp','mdb','accdb','ppt','pptx','odt','ots','ott','odb','odg','otp','otg','odf','ods','odp','css','ai'); //Files
 $ext_video = array('mov', 'mpeg', 'mp4', 'avi', 'mpg', 'wma', 'flv', 'webm'); //Video
-$ext_music = array();//array('mp3', 'm4a', 'ac3', 'aiff', 'mid','ogg','wav'); //Audio
-$ext_misc = array();// array('zip', 'rar','gz','tar','iso','dmg'); //Archives
+$ext_music = array(); //array('mp3', 'm4a', 'ac3', 'aiff', 'mid','ogg','wav'); //Audio
+$ext_misc = array(); // array('zip', 'rar','gz','tar','iso','dmg'); //Archives
 
 $ext=array_merge($ext_img, $ext_file, $ext_misc, $ext_video, $ext_music); //allowed extensions
 
 //**********************
 //Allowed mime types
 //**********************
-$mime_img = array('image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/tiff', 'image/svg');
+$mime_img = array('image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/tiff', 'image/svg', 'image/svg+xml', 'image/webp');
 $mime_file = array('application/pdf');
 $mime_video = array('video/mpeg', 'video/mp4', 'video/x-msvideo', 'audio/x-ms-wma', 'video/x-flv', 'video/webm');
 
 $mime = array_merge($mime_img, $mime_file, $mime_video);
 
-/******************
- * AVIARY config
-*******************/
-$aviary_active=false;
-$aviary_key="dvh8qudbp6yx2bnp";
-$aviary_secret="m6xaym5q42rpw433";
-$aviary_version=3;
-$aviary_language='en';
-
 //The filter and sorter are managed through both javascript and php scripts because if you have a lot of
 //file in a folder the javascript script can't sort all or filter all, so the filemanager switch to php script.
-//The plugin automatic swich javascript to php when the current folder exceeds the below limit of files number
+//The plugin automatic switch javascript to php when the current folder exceeds the below limit of files number
 $file_number_limit_js=500;
 
 //**********************
@@ -161,14 +190,14 @@ $JAVAMaxSizeUpload=200; //Gb
 $fixed_image_creation                   = false; //activate or not the creation of one or more image resized with fixed path from filemanager folder
 $fixed_path_from_filemanager            = array('../test/','../test1/'); //fixed path of the image folder from the current position on upload folder
 $fixed_image_creation_name_to_prepend   = array('','test_'); //name to prepend on filename
-$fixed_image_creation_to_append         = array('_test',''); //name to appendon filename
+$fixed_image_creation_to_append         = array('_test',''); //name to append on filename
 $fixed_image_creation_width             = array(300,400); //width of image (you can leave empty if you set height)
 $fixed_image_creation_height            = array(200,''); //height of image (you can leave empty if you set width)
 
 // New image resized creation with relative path inside to upload folder after uploading (thumbnails in relative mode)
 // With Responsive filemanager you can create automatically resized image inside the upload folder, also more than one at a time
 // just simply add a value in the array
-// The image creation path is always relative so if i'm inside source/test/test1 and I upload an image, the path start from here
+// The image creation path is always relative so if I'm inside source/test/test1 and I upload an image, the path start from here
 $relative_image_creation                = false; //activate or not the creation of one or more image resized with relative path from upload folder
 $relative_path_from_current_pos         = array('thumb/','thumb/'); //relative path of the image folder from the current position on upload folder
 $relative_image_creation_name_to_prepend= array('','test_'); //name to prepend on filename

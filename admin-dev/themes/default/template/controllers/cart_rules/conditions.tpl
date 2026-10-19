@@ -1,31 +1,11 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 <div class="form-group">
 	<label class="control-label col-lg-3">
 		<span class="label-tooltip" data-toggle="tooltip"
-			title="{l s='Optional: The cart rule will be available to everyone if you leave this field blank.' d='Admin.Catalog.Help'}">
+			title="{l|escape s='Optional: The cart rule will be available to everyone if you leave this field blank.' d='Admin.Catalog.Help'}">
 			{l s='Limit to a single customer' d='Admin.Catalog.Feature'}
 		</span>
 	</label>
@@ -42,7 +22,7 @@
 <div class="form-group">
 	<label class="control-label col-lg-3">
 		<span class="label-tooltip" data-toggle="tooltip"
-			title="{l s='The default period is one month.' d='Admin.Catalog.Help'}">
+			title="{l|escape s='The default period is one month.' d='Admin.Catalog.Help'}">
 			{l s='Valid' d='Admin.Catalog.Feature'}
 		</span>
 	</label>
@@ -71,7 +51,7 @@
 <div class="form-group">
 	<label class="control-label col-lg-3">
 		<span class="label-tooltip" data-toggle="tooltip"
-			title="{l s='You can choose a minimum amount for the cart either with or without the taxes and shipping.' d='Admin.Catalog.Help'}">
+			title="{l|escape s='You can choose a minimum amount for the cart either with or without the taxes and shipping.' d='Admin.Catalog.Help'}">
 			{l s='Minimum amount' d='Admin.Catalog.Feature'}
 		</span>
 	</label>
@@ -89,21 +69,21 @@
 						selected="selected"
 					{/if}
 					>
-						{$currency.iso_code}
+						{$currency.iso_code|escape:'html':'UTF-8'}
 					</option>
 				{/foreach}
 				</select>
 			</div>
 			<div class="col-lg-3">
 				<select name="minimum_amount_tax">
-					<option value="0" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_tax') == 0}selected="selected"{/if}>{l s='Tax excluded' d='Admin.Global'}</option>
-					<option value="1" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_tax') == 1}selected="selected"{/if}>{l s='Tax included' d='Admin.Global'}</option>
+					<option value="0" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_tax') === '0'}selected="selected"{/if}>{l s='Tax excluded' d='Admin.Global'}</option>
+					<option value="1" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_tax') === '1' || $currentTab->getFieldValue($currentObject, 'minimum_amount_tax') === false}selected="selected"{/if}>{l s='Tax included' d='Admin.Global'}</option>
 				</select>
 			</div>
 			<div class="col-lg-4">
 				<select name="minimum_amount_shipping">
-					<option value="0" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_shipping') == 0}selected="selected"{/if}>{l s='Shipping excluded' d='Admin.Catalog.Feature'}</option>
-					<option value="1" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_shipping') == 1}selected="selected"{/if}>{l s='Shipping included' d='Admin.Catalog.Feature'}</option>
+					<option value="0" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_shipping') === '0'}selected="selected"{/if}>{l s='Shipping excluded' d='Admin.Catalog.Feature'}</option>
+					<option value="1" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_shipping') === '1'}selected="selected"{/if}>{l s='Shipping included' d='Admin.Catalog.Feature'}</option>
 				</select>
 			</div>
 		</div>
@@ -113,7 +93,7 @@
 <div class="form-group">
 	<label class="control-label col-lg-3">
 		<span class="label-tooltip" data-toggle="tooltip"
-			title="{l s='The cart rule will be applied to the first "X" customers only.' d='Admin.Catalog.Help'}">
+			title="{l|escape s='The cart rule will be applied to the first "X" customers only.' d='Admin.Catalog.Help'}">
 			{l s='Total available' d='Admin.Catalog.Feature'}
 		</span>
 	</label>
@@ -125,7 +105,7 @@
 <div class="form-group">
 	<label class="control-label col-lg-3">
 		<span class="label-tooltip" data-toggle="tooltip"
-			title="{l s='A customer will only be able to use the cart rule "X" time(s).' d='Admin.Catalog.Help'}">
+			title="{l|escape s='A customer will only be able to use the cart rule "X" time(s).' d='Admin.Catalog.Help'}">
 			{l s='Total available for each user' d='Admin.Catalog.Feature'}
 		</span>
 	</label>
@@ -258,7 +238,7 @@
 						<td>
 							<p>{l s='Uncombinable cart rules' d='Admin.Catalog.Feature'}</p>
 							<input id="cart_rule_select_1_filter" autocomplete="off" class="form-control uncombinable_search_filter" type="text" name="uncombinable_filter" placeholder="{l s='Search' d='Admin.Actions'}" value="">
-							<select id="cart_rule_select_1" class="jscroll" multiple="">
+							<select id="cart_rule_select_1" class="jscroll" multiple="" name="cart_rule_unselected[]">
 							</select>
 							<a class="jscroll-next btn btn-default btn-block clearfix" href="">{l s='Next' d='Admin.Global'}</a>
 							<a id="cart_rule_select_add" class="btn btn-default btn-block clearfix">{l s='Add' d='Admin.Actions'} <i class="icon-arrow-right"></i></a>
@@ -294,11 +274,11 @@
 				</a>
 			</div>
 
-		{if ($shops.unselected|@count) + ($shops.selected|@count) > 1}
+		{if ($all_shops|@count) > 1}
 			<p class="checkbox">
 				<label>
-					<input type="checkbox" id="shop_restriction" name="shop_restriction" value="1" {if $shops.unselected|@count}checked="checked"{/if} />
-					{l s='Shop selection' d='Admin.Catalog.Feature'}
+					<input type="checkbox" id="shop_restriction" name="shop_restriction" value="1" {if $shops.selected|@count || ($shops.selected|@count + $shops.unselected|@count < $all_shops|@count)}checked="checked"{/if} />
+					{l s='Store selection' d='Admin.Catalog.Feature'}
 				</label>
 			</p>
 			<div id="shop_restriction_div">

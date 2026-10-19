@@ -1,28 +1,10 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShopBundle\Form\Admin\Type\FormattedTextareaType;
 
 /**
  * Class StoreCore.
@@ -32,19 +14,22 @@ class StoreCore extends ObjectModel
     /** @var int Store id */
     public $id;
 
+    /** @var int|bool Store id */
+    public $id_image;
+
     /** @var int Country id */
     public $id_country;
 
-    /** @var int State id */
+    /** @var int|null State id */
     public $id_state;
 
-    /** @var string Store name */
+    /** @var string|array<string> Name */
     public $name;
 
-    /** @var string Address first line */
+    /** @var string|array<string> Address first line */
     public $address1;
 
-    /** @var string Address second line (optional) */
+    /** @var string|array<string> Address second line (optional) */
     public $address2;
 
     /** @var string Postal code */
@@ -53,13 +38,13 @@ class StoreCore extends ObjectModel
     /** @var string City */
     public $city;
 
-    /** @var float Latitude */
+    /** @var string|null Latitude */
     public $latitude;
 
-    /** @var float Longitude */
+    /** @var string|null Longitude */
     public $longitude;
 
-    /** @var string Store hours (PHP serialized) */
+    /** @var string|array Store hours (PHP serialized) */
     public $hours;
 
     /** @var string Phone number */
@@ -68,7 +53,7 @@ class StoreCore extends ObjectModel
     /** @var string Fax number */
     public $fax;
 
-    /** @var string Note */
+    /** @var string|array<string> Note */
     public $note;
 
     /** @var string e-mail */
@@ -86,46 +71,46 @@ class StoreCore extends ObjectModel
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'store',
         'primary' => 'id_store',
         'multilang' => true,
-        'fields' => array(
-            'id_country' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_state' => array('type' => self::TYPE_INT, 'validate' => 'isNullOrUnsignedId'),
-            'postcode' => array('type' => self::TYPE_STRING, 'size' => 12),
-            'city' => array('type' => self::TYPE_STRING, 'validate' => 'isCityName', 'required' => true, 'size' => 64),
-            'latitude' => array('type' => self::TYPE_FLOAT, 'validate' => 'isCoordinate', 'size' => 13),
-            'longitude' => array('type' => self::TYPE_FLOAT, 'validate' => 'isCoordinate', 'size' => 13),
-            'phone' => array('type' => self::TYPE_STRING, 'validate' => 'isPhoneNumber', 'size' => 16),
-            'fax' => array('type' => self::TYPE_STRING, 'validate' => 'isPhoneNumber', 'size' => 16),
-            'email' => array('type' => self::TYPE_STRING, 'validate' => 'isEmail', 'size' => 255),
-            'active' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool', 'required' => true),
-            'date_add' => array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
-            'date_upd' => array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
+        'fields' => [
+            'id_country' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_state' => ['type' => self::TYPE_INT, 'validate' => 'isNullOrUnsignedId'],
+            'postcode' => ['type' => self::TYPE_STRING, 'size' => 12],
+            'city' => ['type' => self::TYPE_STRING, 'validate' => 'isCityName', 'required' => true, 'size' => 64],
+            'latitude' => ['type' => self::TYPE_FLOAT, 'validate' => 'isCoordinate', 'size' => 13],
+            'longitude' => ['type' => self::TYPE_FLOAT, 'validate' => 'isCoordinate', 'size' => 13],
+            'phone' => ['type' => self::TYPE_STRING, 'validate' => 'isPhoneNumber', 'size' => 16],
+            'fax' => ['type' => self::TYPE_STRING, 'validate' => 'isPhoneNumber', 'size' => 16],
+            'email' => ['type' => self::TYPE_STRING, 'validate' => 'isEmail', 'size' => 255],
+            'active' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool', 'required' => true],
+            'date_add' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+            'date_upd' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
 
             /* Lang fields */
-            'name' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 255),
-            'address1' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isAddress', 'required' => true, 'size' => 255),
-            'address2' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isAddress', 'size' => 255),
-            'hours' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isJson', 'size' => 65000),
-            'note' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isCleanHtml', 'size' => 65000),
-        ),
-    );
+            'name' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 255],
+            'address1' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isAddress', 'required' => true, 'size' => 255],
+            'address2' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isAddress', 'size' => 255],
+            'hours' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isJson', 'size' => FormattedTextareaType::LIMIT_MEDIUMTEXT_UTF8_MB4],
+            'note' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isCleanHtml', 'size' => FormattedTextareaType::LIMIT_MEDIUMTEXT_UTF8_MB4],
+        ],
+    ];
 
-    protected $webserviceParameters = array(
-        'fields' => array(
-            'id_country' => array('xlink_resource' => 'countries'),
-            'id_state' => array('xlink_resource' => 'states'),
-            'hours' => array('getter' => 'getWsHours', 'setter' => 'setWsHours'),
-        ),
-    );
+    protected $webserviceParameters = [
+        'fields' => [
+            'id_country' => ['xlink_resource' => 'countries'],
+            'id_state' => ['xlink_resource' => 'states'],
+            'hours' => ['getter' => 'getWsHours', 'setter' => 'setWsHours'],
+        ],
+    ];
 
     /**
      * StoreCore constructor.
      *
-     * @param null $idStore
-     * @param null $idLang
+     * @param int|null $idStore
+     * @param int|null $idLang
      */
     public function __construct($idStore = null, $idLang = null)
     {
@@ -137,25 +122,19 @@ class StoreCore extends ObjectModel
     /**
      * Get Stores by language.
      *
-     * @param $idLang
+     * @param int $idLang
      *
-     * @return array|false|mysqli_result|null|PDOStatement|resource
+     * @return array
      */
     public static function getStores($idLang)
     {
-        $stores = Db::getInstance()->executeS(
-            '
-            SELECT s.id_store AS `id`, s.*, sl.*
-            FROM ' . _DB_PREFIX_ . 'store s
-            ' . Shop::addSqlAssociation('store', 's') . '
-            LEFT JOIN ' . _DB_PREFIX_ . 'store_lang sl ON (
-            sl.id_store = s.id_store
-            AND sl.id_lang = ' . (int) $idLang . '
-            )
-            WHERE s.active = 1'
+        return Db::getInstance()->executeS(
+            'SELECT s.`id_store` AS `id`, s.*, sl.*
+            FROM `' . _DB_PREFIX_ . 'store` s  ' . Shop::addSqlAssociation('store', 's') . '
+            LEFT JOIN `' . _DB_PREFIX_ . 'store_lang` sl ON (sl.`id_store` = s.`id_store` AND sl.`id_lang` = ' . (int) $idLang . ')
+            WHERE s.`active` = 1
+            ORDER BY sl.`name` ASC'
         );
-
-        return $stores;
     }
 
     /**
@@ -190,18 +169,25 @@ class StoreCore extends ObjectModel
      * This method is allow to know if a store exists for AdminImportController.
      *
      * @return bool
-     *
-     * @since 1.7.0
      */
     public static function storeExists($idStore)
     {
-        $row = Db::getInstance()->getRow(
+        return (bool) Db::getInstance()->getValue(
             '
             SELECT `id_store`
-            FROM ' . _DB_PREFIX_ . 'store a
-            WHERE a.`id_store` = ' . (int) $idStore
+            FROM `' . _DB_PREFIX_ . 'store` a
+            WHERE a.`id_store` = ' . (int) $idStore,
+            false
         );
+    }
 
-        return isset($row['id_store']);
+    /**
+     * This method checks if at least one store is configured
+     *
+     * @return bool
+     */
+    public static function atLeastOneStoreExists()
+    {
+        return (bool) Db::getInstance()->getValue('SELECT s.`id_store` FROM `' . _DB_PREFIX_ . 'store` s ' . Shop::addSqlAssociation('store', 's') . ' WHERE s.`active` = 1', false);
     }
 }

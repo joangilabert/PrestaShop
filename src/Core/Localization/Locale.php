@@ -1,35 +1,15 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Localization;
 
 use PrestaShop\PrestaShop\Core\Localization\Exception\LocalizationException;
 use PrestaShop\PrestaShop\Core\Localization\Number\Formatter as NumberFormatter;
-use PrestaShop\PrestaShop\Core\Localization\Specification\Number as NumberSpecification;
-use PrestaShop\PrestaShop\Core\Localization\Specification\NumberCollection as PriceSpecificationMap;
+use PrestaShop\PrestaShop\Core\Localization\Specification\NumberCollection;
+use PrestaShop\PrestaShop\Core\Localization\Specification\NumberInterface;
 
 /**
  * Locale entity.
@@ -39,12 +19,7 @@ use PrestaShop\PrestaShop\Core\Localization\Specification\NumberCollection as Pr
  */
 class Locale implements LocaleInterface
 {
-    /**
-     * Latin numbering system is the "occidental" numbering system. Number digits are 0123456789.
-     * This is the default numbering system in PrestaShop, even for arabian or asian languages, until we
-     * provide a way to configure this in admin.
-     */
-    const NUMBERING_SYSTEM_LATIN = 'latn';
+    public const NUMBERING_SYSTEM_LATIN = LocaleInterface::NUMBERING_SYSTEM_LATIN;
 
     /**
      * The locale code (simplified IETF tag syntax)
@@ -53,7 +28,7 @@ class Locale implements LocaleInterface
      *
      * @var string
      */
-    protected $code;
+    protected string $code;
 
     /**
      * Number formatter.
@@ -61,19 +36,17 @@ class Locale implements LocaleInterface
      *
      * @var NumberFormatter
      */
-    protected $numberFormatter;
+    protected NumberFormatter $numberFormatter;
 
     /**
      * Number formatting specification.
-     *
-     * @var NumberSpecification
      */
-    protected $numberSpecification;
+    protected NumberInterface $numberSpecification;
 
     /**
      * Price formatting specifications collection (one spec per currency).
      *
-     * @var PriceSpecificationMap
+     * @var NumberCollection
      */
     protected $priceSpecifications;
 
@@ -84,20 +57,20 @@ class Locale implements LocaleInterface
      *                           The locale code (simplified IETF tag syntax)
      *                           Combination of ISO 639-1 (2-letters language code) and ISO 3166-2 (2-letters region code)
      *                           eg: fr-FR, en-US
-     * @param NumberSpecification $numberSpecification
-     *                                                 Number specification used when formatting a number
-     * @param PriceSpecificationMap $priceSpecifications
-     *                                                   Collection of Price specifications (one per installed currency)
+     * @param NumberInterface $numberSpecification
+     *                                             Number specification used when formatting a number
+     * @param NumberCollection $priceSpecifications
+     *                                              Collection of Price specifications (one per installed currency)
      * @param NumberFormatter $formatter
      *                                   This number formatter will use stored number / price specs
      */
     public function __construct(
-        $localeCode,
-        NumberSpecification $numberSpecification,
-        PriceSpecificationMap $priceSpecifications,
+        string $localeCode,
+        NumberInterface $numberSpecification,
+        NumberCollection $priceSpecifications,
         NumberFormatter $formatter
     ) {
-        $this->code = (string) $localeCode;
+        $this->code = $localeCode;
         $this->numberSpecification = $numberSpecification;
         $this->priceSpecifications = $priceSpecifications;
         $this->numberFormatter = $formatter;
@@ -110,7 +83,7 @@ class Locale implements LocaleInterface
      *
      * @return string
      */
-    public function getCode()
+    public function getCode(): string
     {
         return $this->code;
     }
@@ -124,9 +97,9 @@ class Locale implements LocaleInterface
      * @return string
      *                The formatted number
      *
-     * @throws Exception\LocalizationException
+     * @throws LocalizationException
      */
-    public function formatNumber($number)
+    public function formatNumber(int|float|string $number): string
     {
         return $this->numberFormatter->format(
             $number,
@@ -142,24 +115,43 @@ class Locale implements LocaleInterface
      * @param string $currencyCode
      *                             Currency of the price
      *
-     * @return string
-     *                The formatted price
+     * @return string The formatted price
      *
-     * @throws Exception\LocalizationException
+     * @throws LocalizationException
      */
-    public function formatPrice($number, $currencyCode)
+    public function formatPrice(int|float|string $number, string $currencyCode): string
+    {
+        return $this->numberFormatter->format(
+            $number,
+            $this->getPriceSpecification($currencyCode)
+        );
+    }
+
+    /**
+     * Get price specification
+     *
+     * @param string $currencyCode Currency of the price
+     *
+     * @return NumberInterface
+     */
+    public function getPriceSpecification(string $currencyCode): NumberInterface
     {
         $currencyCode = (string) $currencyCode;
         $priceSpec = $this->priceSpecifications->get($currencyCode);
         if (null === $priceSpec) {
-            throw new LocalizationException(
-                'Price specification not found for currency "' . $currencyCode . '"'
-            );
+            throw new LocalizationException('Price specification not found for currency: "' . $currencyCode . '"');
         }
 
-        return $this->numberFormatter->format(
-            $number,
-            $priceSpec
-        );
+        return $priceSpec;
+    }
+
+    /**
+     * Get number specification
+     *
+     * @return NumberInterface
+     */
+    public function getNumberSpecification(): NumberInterface
+    {
+        return $this->numberSpecification;
     }
 }

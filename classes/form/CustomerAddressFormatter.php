@@ -1,30 +1,10 @@
 <?php
-
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
-use Symfony\Component\Translation\TranslatorInterface;
+
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class CustomerAddressFormatterCore implements FormFormatterInterface
 {
@@ -66,12 +46,6 @@ class CustomerAddressFormatterCore implements FormFormatterInterface
         $required = array_flip(AddressFormat::getFieldsRequired());
 
         $format = [
-            'id_address' => (new FormField())
-                ->setName('id_address')
-                ->setType('hidden'),
-            'id_customer' => (new FormField())
-                ->setName('id_customer')
-                ->setType('hidden'),
             'back' => (new FormField())
                 ->setName('back')
                 ->setType('hidden'),
@@ -96,8 +70,16 @@ class CustomerAddressFormatterCore implements FormFormatterInterface
                     if ($this->country->need_zip_code) {
                         $formField->setRequired(true);
                     }
+
+                    $formField->setMinLength(
+                        strlen($this->country->zip_code_format)
+                    );
                 } elseif ($field === 'phone') {
                     $formField->setType('tel');
+                } elseif ($field === 'dni' && null !== $this->country) {
+                    if ($this->country->need_identification_number) {
+                        $formField->setRequired(true);
+                    }
                 }
             } elseif (count($fieldParts) === 2) {
                 list($entity, $entityField) = $fieldParts;
@@ -121,7 +103,7 @@ class CustomerAddressFormatterCore implements FormFormatterInterface
                     }
                 } elseif ($entity === 'State') {
                     if ($this->country->contains_states) {
-                        $states = State::getStatesByIdCountry($this->country->id, true);
+                        $states = State::getStatesByIdCountry($this->country->id, true, 'name', 'asc');
                         foreach ($states as $state) {
                             $formField->addAvailableValue(
                                 $state['id_state'],
@@ -148,8 +130,9 @@ class CustomerAddressFormatterCore implements FormFormatterInterface
             $format[$formField->getName()] = $formField;
         }
 
-        //To add the extra fields in address form
-        $additionalAddressFormFields = Hook::exec('additionalCustomerAddressFields', array(), null, true);
+        // To add the extra fields in address form
+        // An array [module_name => module_output] will be returned
+        $additionalAddressFormFields = Hook::exec('additionalCustomerAddressFields', ['fields' => &$format], null, true);
         if (is_array($additionalAddressFormFields)) {
             foreach ($additionalAddressFormFields as $moduleName => $additionnalFormFields) {
                 if (!is_array($additionnalFormFields)) {
@@ -164,9 +147,9 @@ class CustomerAddressFormatterCore implements FormFormatterInterface
         }
 
         return $this->addConstraints(
-                $this->addMaxLength(
-                    $format
-                )
+            $this->addMaxLength(
+                $format
+            )
         );
     }
 

@@ -1,28 +1,11 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShopBundle\Form\Admin\Type\FormattedTextareaType;
+
 class OrderDetailCore extends ObjectModel
 {
     /** @var int */
@@ -64,22 +47,26 @@ class OrderDetailCore extends ObjectModel
     /** @var int */
     public $product_quantity_reinjected;
 
-    /** @var float */
-    public $product_price;
+    /**
+     * @deprecated since 1.5 Use unit_price_tax_excl instead
+     *
+     * @var float Without taxes, includes ecotax
+     */
+    public $product_price = 0;
 
     /** @var float */
     public $original_product_price;
 
-    /** @var float */
+    /** @var float With taxes, includes ecotax */
     public $unit_price_tax_incl;
 
-    /** @var float */
+    /** @var float Without taxes, includes ecotax */
     public $unit_price_tax_excl;
 
-    /** @var float */
+    /** @var float With taxes, includes ecotax */
     public $total_price_tax_incl;
 
-    /** @var float */
+    /** @var float Without taxes, includes ecotax */
     public $total_price_tax_excl;
 
     /** @var float */
@@ -110,6 +97,9 @@ class OrderDetailCore extends ObjectModel
     public $product_upc;
 
     /** @var string */
+    public $product_mpn;
+
+    /** @var string */
     public $product_reference;
 
     /** @var string */
@@ -127,29 +117,40 @@ class OrderDetailCore extends ObjectModel
     /** @var int */
     public $discount_quantity_applied;
 
-    /** @var string */
+    /** @var string|null */
     public $download_hash;
 
     /** @var int */
     public $download_nb;
 
-    /** @var datetime */
+    /** @var string */
     public $download_deadline;
 
-    /** @var string $tax_name * */
-    public $tax_name;
+    /**
+     * @var string
+     *
+     * @deprecated Order Detail Tax is saved in order_detail_tax table now
+     */
+    public $tax_name = 'deprecated';
 
-    /** @var float $tax_rate * */
+    /**
+     * @var float
+     *
+     * @deprecated Order Detail Tax is saved in order_detail_tax table now
+     */
     public $tax_rate;
 
-    /** @var float $tax_computation_method * */
+    /** @var float */
     public $tax_computation_method;
 
     /** @var int Id tax rules group */
     public $id_tax_rules_group;
 
-    /** @var int Id warehouse */
-    public $id_warehouse;
+    /** @var int Id warehouse
+     *
+     * @deprecated since 9.0, advanced stock management has been completely removed
+     */
+    public $id_warehouse = 0;
 
     /** @var float additional shipping price tax excl */
     public $total_shipping_price_tax_excl;
@@ -163,90 +164,99 @@ class OrderDetailCore extends ObjectModel
     /** @var float */
     public $original_wholesale_price;
 
+    /** @var float */
+    public $total_refunded_tax_excl;
+
+    /** @var float */
+    public $total_refunded_tax_incl;
+
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'order_detail',
         'primary' => 'id_order_detail',
-        'fields' => array(
-            'id_order' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_order_invoice' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'id_warehouse' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_shop' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'product_id' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'product_attribute_id' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'id_customization' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'product_name' => array('type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'required' => true),
-            'product_quantity' => array('type' => self::TYPE_INT, 'validate' => 'isInt', 'required' => true),
-            'product_quantity_in_stock' => array('type' => self::TYPE_INT, 'validate' => 'isInt'),
-            'product_quantity_return' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'),
-            'product_quantity_refunded' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'),
-            'product_quantity_reinjected' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'),
-            'product_price' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice', 'required' => true),
-            'reduction_percent' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'reduction_amount' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-            'reduction_amount_tax_incl' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-            'reduction_amount_tax_excl' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-            'group_reduction' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'product_quantity_discount' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'product_ean13' => array('type' => self::TYPE_STRING, 'validate' => 'isEan13'),
-            'product_isbn' => array('type' => self::TYPE_STRING, 'validate' => 'isIsbn'),
-            'product_upc' => array('type' => self::TYPE_STRING, 'validate' => 'isUpc'),
-            'product_reference' => array('type' => self::TYPE_STRING, 'validate' => 'isReference'),
-            'product_supplier_reference' => array('type' => self::TYPE_STRING, 'validate' => 'isReference'),
-            'product_weight' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'tax_name' => array('type' => self::TYPE_STRING, 'validate' => 'isGenericName'),
-            'tax_rate' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'tax_computation_method' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'id_tax_rules_group' => array('type' => self::TYPE_INT, 'validate' => 'isInt'),
-            'ecotax' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'ecotax_tax_rate' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'discount_quantity_applied' => array('type' => self::TYPE_INT, 'validate' => 'isInt'),
-            'download_hash' => array('type' => self::TYPE_STRING, 'validate' => 'isGenericName'),
-            'download_nb' => array('type' => self::TYPE_INT, 'validate' => 'isInt'),
-            'download_deadline' => array('type' => self::TYPE_DATE, 'validate' => 'isDateFormat'),
-            'unit_price_tax_incl' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-            'unit_price_tax_excl' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-            'total_price_tax_incl' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-            'total_price_tax_excl' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-            'total_shipping_price_tax_excl' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-            'total_shipping_price_tax_incl' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-            'purchase_supplier_price' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-            'original_product_price' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-            'original_wholesale_price' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-        ),
-    );
+        'fields' => [
+            'id_order' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_order_invoice' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'id_warehouse' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_shop' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'product_id' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'product_attribute_id' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'id_customization' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'product_name' => ['type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'required' => true, 'size' => FormattedTextareaType::LIMIT_MEDIUMTEXT_UTF8_MB4],
+            'product_quantity' => ['type' => self::TYPE_INT, 'validate' => 'isInt', 'required' => true],
+            'product_quantity_in_stock' => ['type' => self::TYPE_INT, 'validate' => 'isInt'],
+            'product_quantity_return' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'],
+            'product_quantity_refunded' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'],
+            'product_quantity_reinjected' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'],
+            'product_price' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice', 'required' => true],
+            'reduction_percent' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'reduction_amount' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'reduction_amount_tax_incl' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'reduction_amount_tax_excl' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'group_reduction' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'product_quantity_discount' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'product_ean13' => ['type' => self::TYPE_STRING, 'validate' => 'isEan13', 'size' => 13],
+            'product_isbn' => ['type' => self::TYPE_STRING, 'validate' => 'isIsbn', 'size' => 32],
+            'product_upc' => ['type' => self::TYPE_STRING, 'validate' => 'isUpc', 'size' => 12],
+            'product_mpn' => ['type' => self::TYPE_STRING, 'validate' => 'isMpn', 'size' => 40],
+            'product_reference' => ['type' => self::TYPE_STRING, 'validate' => 'isReference', 'size' => 64],
+            'product_supplier_reference' => ['type' => self::TYPE_STRING, 'validate' => 'isReference', 'size' => 64],
+            'product_weight' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'tax_name' => ['type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'size' => 16],
+            'tax_rate' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'tax_computation_method' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'id_tax_rules_group' => ['type' => self::TYPE_INT, 'validate' => 'isInt'],
+            'ecotax' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'ecotax_tax_rate' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'discount_quantity_applied' => ['type' => self::TYPE_INT, 'validate' => 'isInt'],
+            'download_hash' => ['type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'size' => 255],
+            'download_nb' => ['type' => self::TYPE_INT, 'validate' => 'isInt'],
+            'download_deadline' => ['type' => self::TYPE_DATE, 'validate' => 'isDateFormat'],
+            'unit_price_tax_incl' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'unit_price_tax_excl' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'total_price_tax_incl' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'total_price_tax_excl' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'total_shipping_price_tax_excl' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'total_shipping_price_tax_incl' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'purchase_supplier_price' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'original_product_price' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'original_wholesale_price' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'total_refunded_tax_excl' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'total_refunded_tax_incl' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+        ],
+    ];
 
-    protected $webserviceParameters = array(
-        'fields' => array(
-            'id_order' => array('xlink_resource' => 'orders'),
-            'product_id' => array('xlink_resource' => 'products'),
-            'product_attribute_id' => array('xlink_resource' => 'combinations'),
-            'product_quantity_reinjected' => array(),
-            'group_reduction' => array(),
-            'discount_quantity_applied' => array(),
-            'download_hash' => array(),
-            'download_deadline' => array(),
-        ),
-        'hidden_fields' => array('tax_rate', 'tax_name'),
-        'associations' => array(
-            'taxes' => array('resource' => 'tax', 'getter' => 'getWsTaxes', 'setter' => false,
-                'fields' => array('id' => array()),
-            ),
-        ),
-    );
+    protected $webserviceParameters = [
+        'fields' => [
+            'id_order' => ['xlink_resource' => 'orders'],
+            'product_id' => ['xlink_resource' => 'products'],
+            'product_attribute_id' => ['xlink_resource' => 'combinations'],
+            'product_quantity_reinjected' => [],
+            'group_reduction' => [],
+            'discount_quantity_applied' => [],
+            'download_hash' => [],
+            'download_deadline' => [],
+        ],
+        'hidden_fields' => ['tax_rate', 'tax_name'],
+        'associations' => [
+            'taxes' => ['resource' => 'tax', 'getter' => 'getWsTaxes', 'setter' => false,
+                'fields' => ['id' => []],
+            ],
+        ],
+    ];
 
     /** @var bool */
     protected $outOfStock = false;
 
-    /** @var TaxCalculator object */
+    /** @var TaxCalculator|null object */
     protected $tax_calculator = null;
 
     /** @var Address object */
     protected $vat_address = null;
 
-    /** @var Address object */
+    /** @var array|null */
     protected $specificPrice = null;
 
     /** @var Customer object */
@@ -315,8 +325,6 @@ class OrderDetailCore extends ObjectModel
     /**
      * Returns the tax calculator associated to this order detail.
      *
-     * @since 1.5.0.1
-     *
      * @return TaxCalculator
      */
     public function getTaxCalculator()
@@ -326,8 +334,6 @@ class OrderDetailCore extends ObjectModel
 
     /**
      * Return the tax calculator associated to this order_detail.
-     *
-     * @since 1.5.0.1
      *
      * @param int $id_order_detail
      *
@@ -341,13 +347,12 @@ class OrderDetailCore extends ObjectModel
                 WHERE d.`id_order_detail` = ' . (int) $id_order_detail;
 
         $computation_method = 1;
-        $taxes = array();
+        $taxes = [];
         if ($results = Db::getInstance()->executeS($sql)) {
             foreach ($results as $result) {
                 $taxes[] = new Tax((int) $result['id_tax']);
+                $computation_method = $result['tax_computation_method'];
             }
-
-            $computation_method = $result['tax_computation_method'];
         }
 
         return new TaxCalculator($taxes, $computation_method);
@@ -356,10 +361,12 @@ class OrderDetailCore extends ObjectModel
     /**
      * Save the tax calculator.
      *
-     * @since 1.5.0.1
      * @deprecated Functionality moved to Order::updateOrderDetailTax
      *             because we need the full order object to do a good job here.
      *             Will no longer be supported after 1.6.1
+     *             (Note: this one is not that deprecated because Order::updateOrderDetailTax
+     *             performs no update unless order_detail_tax is filled. So we rely on updateTaxAmount
+     *             which correctly builds the TaxCalculator with up to date taxes unlike getTaxCalculatorStatic)
      *
      * @return bool
      */
@@ -374,14 +381,6 @@ class OrderDetailCore extends ObjectModel
             return false;
         }
 
-        if (count($this->tax_calculator->taxes) == 0) {
-            return true;
-        }
-
-        if ($order->total_products <= 0) {
-            return true;
-        }
-
         $shipping_tax_amount = 0;
 
         foreach ($order->getCartRules() as $cart_rule) {
@@ -392,21 +391,23 @@ class OrderDetailCore extends ObjectModel
             }
         }
 
-        $ratio = $this->unit_price_tax_excl / $order->total_products;
+        $ratio = ($order->total_products > 0) ? ($this->unit_price_tax_excl / $order->total_products) : 1;
+
         $order_reduction_amount = ($order->total_discounts_tax_excl - $shipping_tax_amount) * $ratio;
         $discounted_price_tax_excl = $this->unit_price_tax_excl - $order_reduction_amount;
 
         $values = '';
         foreach ($this->tax_calculator->getTaxesAmount($discounted_price_tax_excl) as $id_tax => $amount) {
+            $unit_amount = $total_amount = 0;
             switch (Configuration::get('PS_ROUND_TYPE')) {
                 case Order::ROUND_ITEM:
-                    $unit_amount = (float) Tools::ps_round($amount, _PS_PRICE_COMPUTE_PRECISION_);
+                    $unit_amount = (float) Tools::ps_round($amount, Context::getContext()->getComputingPrecision());
                     $total_amount = $unit_amount * $this->product_quantity;
 
                     break;
                 case Order::ROUND_LINE:
                     $unit_amount = $amount;
-                    $total_amount = Tools::ps_round($unit_amount * $this->product_quantity, _PS_PRICE_COMPUTE_PRECISION_);
+                    $total_amount = Tools::ps_round($unit_amount * $this->product_quantity, Context::getContext()->getComputingPrecision());
 
                     break;
                 case Order::ROUND_TOTAL:
@@ -423,21 +424,48 @@ class OrderDetailCore extends ObjectModel
             Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'order_detail_tax` WHERE id_order_detail=' . (int) $this->id);
         }
 
-        $values = rtrim($values, ',');
-        $sql = 'INSERT INTO `' . _DB_PREFIX_ . 'order_detail_tax` (id_order_detail, id_tax, unit_amount, total_amount)
+        if (!empty($values)) {
+            $values = rtrim($values, ',');
+            $sql = 'INSERT INTO `' . _DB_PREFIX_ . 'order_detail_tax` (id_order_detail, id_tax, unit_amount, total_amount)
                 VALUES ' . $values;
 
-        return Db::getInstance()->execute($sql);
+            return Db::getInstance()->execute($sql);
+        }
+
+        return true;
     }
 
     public function updateTaxAmount($order)
     {
-        $this->setContext((int) $this->id_shop);
         $address = new Address((int) $order->{Configuration::get('PS_TAX_ADDRESS_TYPE')});
-        $tax_manager = TaxManagerFactory::getManager($address, (int) Product::getIdTaxRulesGroupByIdProduct((int) $this->product_id, $this->context));
-        $this->tax_calculator = $tax_manager->getTaxCalculator();
+        $this->tax_calculator = $this->getTaxCalculatorByAddress($address);
 
         return $this->saveTaxCalculator($order, true);
+    }
+
+    /**
+     * Get a TaxCalculator adapted for the OrderDetail's product and the specified address
+     *
+     * @param Address $address
+     *
+     * @return TaxCalculator
+     */
+    public function getTaxCalculatorByAddress(Address $address): TaxCalculator
+    {
+        $this->setContext((int) $this->id_shop);
+        $tax_manager = TaxManagerFactory::getManager($address, $this->getTaxRulesGroupId());
+
+        return $tax_manager->getTaxCalculator();
+    }
+
+    /**
+     * Dynamically get the taxRulesGroupId instead of relying one the one saved in database
+     *
+     * @return int
+     */
+    public function getTaxRulesGroupId(): int
+    {
+        return (int) Product::getIdTaxRulesGroupByIdProduct((int) $this->product_id, $this->context);
     }
 
     /**
@@ -454,7 +482,7 @@ class OrderDetailCore extends ObjectModel
 
     public function getTaxList()
     {
-        return self::getTaxList($this->id);
+        return self::getTaxListStatic($this->id);
     }
 
     public static function getTaxListStatic($id_order_detail)
@@ -486,48 +514,62 @@ class OrderDetailCore extends ObjectModel
     }
 
     /**
-     * Check the order status.
+     * Updates product quantity in stock, according to order status.
      *
      * @param array $product
-     * @param int $id_order_state
+     * @param int $orderStateId
      */
-    protected function checkProductStock($product, $id_order_state)
+    protected function updateProductQuantityInStock($product, $orderStateId): void
     {
-        if ($id_order_state != Configuration::get('PS_OS_CANCELED') && $id_order_state != Configuration::get('PS_OS_ERROR')) {
-            $update_quantity = true;
-            if (!StockAvailable::dependsOnStock($product['id_product'])) {
-                $update_quantity = StockAvailable::updateQuantity($product['id_product'], $product['id_product_attribute'], -(int) $product['cart_quantity']);
-            }
-
-            if ($update_quantity) {
-                $product['stock_quantity'] -= $product['cart_quantity'];
-            }
-
-            if ($product['stock_quantity'] < 0 && Configuration::get('PS_STOCK_MANAGEMENT')) {
-                $this->outOfStock = true;
-            }
-            Product::updateDefaultAttribute($product['id_product']);
+        $dismissOrderStateIds = Configuration::getMultiple([
+            'PS_OS_CANCELED',
+            'PS_OS_ERROR',
+        ]);
+        if (in_array($orderStateId, $dismissOrderStateIds)) {
+            return;
         }
+        $orderState = new OrderState($orderStateId, $this->id_lang);
+        $isQuantityUpdated = StockAvailable::updateQuantity(
+            $product['id_product'],
+            $product['id_product_attribute'],
+            -(int) $product['cart_quantity'],
+            $product['id_shop'],
+            // Add stock movement only if order state is flagged as shipped
+            true === (bool) $orderState->shipped,
+            [
+                'id_order' => $this->id_order,
+                // Only one stock movement reason fits a new order creation
+                'id_stock_mvt_reason' => Configuration::get('PS_STOCK_CUSTOMER_ORDER_REASON'),
+            ]
+        );
+        if ($isQuantityUpdated === true) {
+            $product['stock_quantity'] -= $product['cart_quantity'];
+        }
+        if ($product['stock_quantity'] < 0 && Configuration::get('PS_STOCK_MANAGEMENT')) {
+            $this->outOfStock = true;
+        }
+        Product::updateDefaultAttribute($product['id_product']);
     }
 
     /**
      * Apply tax to the product.
      *
-     * @param object $order
+     * @param Order $order
      * @param array $product
      */
     protected function setProductTax(Order $order, $product)
     {
-        $this->ecotax = Tools::convertPrice((float) ($product['ecotax']), (int) ($order->id_currency));
+        $this->ecotax = Tools::convertPrice((float) $product['ecotax'], (int) $order->id_currency);
 
-        // Exclude VAT
-        if (!Tax::excludeTaxeOption()) {
+        // Include VAT
+        if (Configuration::get('PS_TAX')) {
             $this->setContext((int) $product['id_shop']);
             $this->id_tax_rules_group = (int) Product::getIdTaxRulesGroupByIdProduct((int) $product['id_product'], $this->context);
 
             $tax_manager = TaxManagerFactory::getManager($this->vat_address, $this->id_tax_rules_group);
             $this->tax_calculator = $tax_manager->getTaxCalculator();
             $this->tax_computation_method = (int) $this->tax_calculator->computation_method;
+            $this->tax_rate = (float) $this->tax_calculator->getTotalRate();
         }
 
         $this->ecotax_tax_rate = 0;
@@ -539,7 +581,8 @@ class OrderDetailCore extends ObjectModel
     /**
      * Set specific price of the product.
      *
-     * @param object $order
+     * @param Order $order
+     * @param array|null $product
      */
     protected function setSpecificPrice(Order $order, $product = null)
     {
@@ -567,9 +610,9 @@ class OrderDetailCore extends ObjectModel
 
                     if ($this->specificPrice['reduction_tax']) {
                         $this->reduction_amount_tax_incl = $this->reduction_amount;
-                        $this->reduction_amount_tax_excl = Tools::ps_round($this->tax_calculator->removeTaxes($this->reduction_amount), _PS_PRICE_COMPUTE_PRECISION_);
+                        $this->reduction_amount_tax_excl = Tools::ps_round($this->tax_calculator->removeTaxes($this->reduction_amount), Context::getContext()->getComputingPrecision());
                     } else {
-                        $this->reduction_amount_tax_incl = Tools::ps_round($this->tax_calculator->addTaxes($this->reduction_amount), _PS_PRICE_COMPUTE_PRECISION_);
+                        $this->reduction_amount_tax_incl = Tools::ps_round($this->tax_calculator->addTaxes($this->reduction_amount), Context::getContext()->getComputingPrecision());
                         $this->reduction_amount_tax_excl = $this->reduction_amount;
                     }
 
@@ -581,19 +624,39 @@ class OrderDetailCore extends ObjectModel
     /**
      * Set detailed product price to the order detail.
      *
-     * @param object $order
-     * @param object $cart
-     * @param array $product
+     * @param Order $order
+     * @param Cart $cart
+     * @param array<string, int|float> $product
      */
     protected function setDetailProductPrice(Order $order, Cart $cart, $product)
     {
         $this->setContext((int) $product['id_shop']);
         Product::getPriceStatic((int) $product['id_product'], true, (int) $product['id_product_attribute'], 6, null, false, true, $product['cart_quantity'], false, (int) $order->id_customer, (int) $order->id_cart, (int) $order->{Configuration::get('PS_TAX_ADDRESS_TYPE')}, $specific_price, true, true, $this->context);
         $this->specificPrice = $specific_price;
-        $this->original_product_price = Product::getPriceStatic($product['id_product'], false, (int) $product['id_product_attribute'], 6, null, false, false, 1, false, null, null, null, $null, true, true, $this->context);
+        $this->original_product_price = Product::getPriceStatic($product['id_product'], false, (int) $product['id_product_attribute'], 6, null, false, false, 1, false, null, null, null, $null, true, true, $this->context, true, $product['id_customization']);
         $this->product_price = $this->original_product_price;
+        $this->original_product_price = Product::getPriceStatic(
+            $product['id_product'],
+            false,
+            (int) $product['id_product_attribute'],
+            6,
+            null,
+            false,
+            false,
+            1,
+            false,
+            null,
+            null,
+            null,
+            $null,
+            true,
+            true,
+            $this->context,
+            true,
+            $product['id_customization']
+        );
         $this->unit_price_tax_incl = (float) $product['price_wt'];
-        $this->unit_price_tax_excl = (float) $product['price'];
+        $this->product_price = $this->unit_price_tax_excl = (float) $product['price'];
         $this->total_price_tax_incl = (float) $product['total_wt'];
         $this->total_price_tax_excl = (float) $product['total'];
 
@@ -616,19 +679,14 @@ class OrderDetailCore extends ObjectModel
             (int) $this->customer->id_default_group,
             (int) $product['cart_quantity'],
             false,
-            null,
-            null,
-            $null,
-            true,
-            true,
-            $this->context
+            null
         );
 
         $unit_price = Product::getPriceStatic(
             (int) $product['id_product'],
             true,
-            ($product['id_product_attribute'] ? (int) ($product['id_product_attribute']) : null),
-            2,
+            $product['id_product_attribute'] ? (int) ($product['id_product_attribute']) : null,
+            6,
             null,
             false,
             true,
@@ -640,13 +698,15 @@ class OrderDetailCore extends ObjectModel
             $null,
             true,
             true,
-            $this->context
+            $this->context,
+            true,
+            $product['id_customization']
         );
         $this->product_quantity_discount = 0.00;
         if ($quantity_discount) {
             $this->product_quantity_discount = $unit_price;
             if (Product::getTaxCalculationMethod((int) $order->id_customer) == PS_TAX_EXC) {
-                $this->product_quantity_discount = Tools::ps_round($unit_price, 2);
+                $this->product_quantity_discount = Tools::ps_round($unit_price, Context::getContext()->getComputingPrecision());
             }
 
             if (isset($this->tax_calculator)) {
@@ -660,12 +720,13 @@ class OrderDetailCore extends ObjectModel
     /**
      * Create an order detail liable to an id_order.
      *
-     * @param object $order
-     * @param object $cart
+     * @param Order $order
+     * @param Cart $cart
      * @param array $product
-     * @param int $id_order_status
+     * @param int $id_order_state
      * @param int $id_order_invoice
      * @param bool $use_taxes set to false if you don't want to use taxes
+     * @param int $id_warehouse - not used anymore
      */
     protected function create(Order $order, Cart $cart, $product, $id_order_state, $id_order_invoice, $use_taxes = true, $id_warehouse = 0)
     {
@@ -680,23 +741,28 @@ class OrderDetailCore extends ObjectModel
         $this->id_customization = $product['id_customization'] ? (int) $product['id_customization'] : 0;
         $this->product_name = $product['name'] .
             ((isset($product['attributes']) && $product['attributes'] != null) ?
-                ' - ' . $product['attributes'] : '');
+                ' (' . $product['attributes'] . ')' : '');
 
         $this->product_quantity = (int) $product['cart_quantity'];
         $this->product_ean13 = empty($product['ean13']) ? null : pSQL($product['ean13']);
         $this->product_isbn = empty($product['isbn']) ? null : pSQL($product['isbn']);
         $this->product_upc = empty($product['upc']) ? null : pSQL($product['upc']);
+        $this->product_mpn = empty($product['mpn']) ? null : pSQL($product['mpn']);
         $this->product_reference = empty($product['reference']) ? null : pSQL($product['reference']);
         $this->product_supplier_reference = empty($product['supplier_reference']) ? null : pSQL($product['supplier_reference']);
-        $this->product_weight = $product['id_product_attribute'] ? (float) $product['weight_attribute'] : (float) $product['weight'];
-        $this->id_warehouse = $id_warehouse;
+        $product_weight = $product['id_product_attribute'] ? (float) $product['weight_attribute'] : (float) $product['weight'];
+        $this->product_weight = $product_weight + Customization::getCustomizationWeight($product['id_customization']);
 
-        $product_quantity = (int) Product::getQuantity($this->product_id, $this->product_attribute_id, null, $cart);
-        $this->product_quantity_in_stock = ($product_quantity - (int) $product['cart_quantity'] < 0) ?
-            $product_quantity : (int) $product['cart_quantity'];
+        // We get the real quantity of the product in stock and save how much of the ordered quantity was in stock
+        $product_quantity_in_stock = (int) Product::getQuantity($this->product_id, $this->product_attribute_id);
+
+        // Ordered 3 pcs, in stock 10 pcs, result is 3
+        // Ordered 3 pcs, in stock 1 pcs, result is 1
+        $this->product_quantity_in_stock = ($product_quantity_in_stock - (int) $product['cart_quantity'] < 0) ?
+            $product_quantity_in_stock : (int) $product['cart_quantity'];
 
         $this->setVirtualProductInformation($product);
-        $this->checkProductStock($product, $id_order_state);
+        $this->updateProductQuantityInStock($product, $id_order_state);
 
         if ($use_taxes) {
             $this->setProductTax($order, $product);
@@ -711,22 +777,26 @@ class OrderDetailCore extends ObjectModel
         $this->id_shop = (int) $product['id_shop'];
 
         // Add new entry to the table
-        $this->save();
+        $result = $this->save();
 
         if ($use_taxes) {
             $this->saveTaxCalculator($order);
         }
         unset($this->tax_calculator);
+
+        return (bool) $result;
     }
 
     /**
      * Create a list of order detail for a specified id_order using cart.
      *
-     * @param object $order
-     * @param object $cart
-     * @param int $id_order_status
+     * @param Order $order
+     * @param Cart $cart
+     * @param int $id_order_state
+     * @param array $product_list
      * @param int $id_order_invoice
      * @param bool $use_taxes set to false if you don't want to use taxes
+     * @param int $id_warehouse - not used anymore
      */
     public function createList(Order $order, Cart $cart, $id_order_state, $product_list, $id_order_invoice = 0, $use_taxes = true, $id_warehouse = 0)
     {
@@ -737,19 +807,23 @@ class OrderDetailCore extends ObjectModel
         $this->outOfStock = false;
 
         foreach ($product_list as $product) {
-            $this->create($order, $cart, $product, $id_order_state, $id_order_invoice, $use_taxes, $id_warehouse);
+            if (!$this->create($order, $cart, $product, $id_order_state, $id_order_invoice, $use_taxes)) {
+                throw new PrestaShopException(
+                    sprintf('Failed to create order detail for product id %d', (int) $product['id_product'])
+                );
+            }
         }
 
         unset(
             $this->vat_address,
-            $products, $this->customer
+            $this->customer
         );
     }
 
     /**
      * Get the state of the current stock product.
      *
-     * @return array
+     * @return bool
      */
     public function getStockState()
     {
@@ -760,7 +834,7 @@ class OrderDetailCore extends ObjectModel
      * Set the additional shipping information.
      *
      * @param Order $order
-     * @param $product
+     * @param array $product
      */
     public function setShippingCost(Order $order, $product)
     {
@@ -773,7 +847,7 @@ class OrderDetailCore extends ObjectModel
 
         $this->total_shipping_price_tax_excl = (float) $product['additional_shipping_cost'];
         $this->total_shipping_price_tax_incl = (float) ($this->total_shipping_price_tax_excl * (1 + ($tax_rate / 100)));
-        $this->total_shipping_price_tax_incl = Tools::ps_round($this->total_shipping_price_tax_incl, 2);
+        $this->total_shipping_price_tax_incl = Tools::ps_round($this->total_shipping_price_tax_incl, Context::getContext()->getComputingPrecision());
     }
 
     public function getWsTaxes()
@@ -794,7 +868,7 @@ class OrderDetailCore extends ObjectModel
         }
 
         $front = true;
-        if (!in_array(Context::getContext()->controller->controller_type, array('front', 'modulefront'))) {
+        if (!in_array(Context::getContext()->controller->controller_type, ['front', 'modulefront'])) {
             $front = false;
         }
 
@@ -838,7 +912,7 @@ class OrderDetailCore extends ObjectModel
                 foreach ($order_products as &$order_product) {
                     $order_product['image'] = Context::getContext()->link->getImageLink(
                         $order_product['link_rewrite'],
-                        (int) $order_product['product_id'] . '-' . (int) $order_product['id_image'],
+                        (int) $order_product['id_image'],
                         ImageType::getFormattedName('medium')
                     );
                     $order_product['link'] = Context::getContext()->link->getProductLink(
@@ -854,7 +928,7 @@ class OrderDetailCore extends ObjectModel
                     }
                 }
 
-                return Product::getProductsProperties($id_lang, $order_products);
+                return $order_products;
             }
         }
     }
@@ -875,7 +949,7 @@ class OrderDetailCore extends ObjectModel
         return parent::add($autodate = true, $null_values = false);
     }
 
-    //return the product OR product attribute whole sale price
+    // return the product OR product attribute whole sale price
     public function getWholeSalePrice()
     {
         $product = new Product($this->product_id);
@@ -883,7 +957,7 @@ class OrderDetailCore extends ObjectModel
 
         if ($this->product_attribute_id) {
             $combination = new Combination((int) $this->product_attribute_id);
-            if ($combination && $combination->wholesale_price != '0.000000') {
+            if ($combination->wholesale_price != '0.000000') {
                 $wholesale_price = $combination->wholesale_price;
             }
         }

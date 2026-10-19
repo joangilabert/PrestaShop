@@ -1,37 +1,17 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter\Module\Tab;
 
-use PrestaShop\PrestaShop\Adapter\Module\Module;
+use PrestaShop\PrestaShop\Core\Module\ModuleInterface;
 use PrestaShopBundle\Entity\Repository\LangRepository;
 use PrestaShopBundle\Entity\Repository\TabRepository;
 use PrestaShopBundle\Entity\Tab;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Tab as TabClass;
 
 /**
@@ -72,9 +52,9 @@ class ModuleTabUnregister
      *
      * This is done automatically as part of the module uninstallation.
      *
-     * @return bool returns true if the module tabs were successfully uninstalled, false if any of them failed to do so
+     * @return void
      */
-    public function unregisterTabs(Module $module)
+    public function unregisterTabs(ModuleInterface $module)
     {
         // We use the Tab repository to have only
         // installed tabs related to the module
@@ -84,6 +64,14 @@ class ModuleTabUnregister
             $this->unregisterTab($tab);
             $this->removeDuplicatedParent($tab);
         }
+    }
+
+    /**
+     * @param ModuleInterface $module
+     */
+    public function disableTabs(ModuleInterface $module)
+    {
+        $this->tabRepository->changeEnabledByModuleName($module->get('name'), false);
     }
 
     /**
@@ -100,9 +88,9 @@ class ModuleTabUnregister
             $this->logger->warning(
                 $this->translator->trans(
                     'Failed to uninstall admin tab "%name%".',
-                    array(
+                    [
                         '%name%' => $tab->getClassName(),
-                    ),
+                    ],
                     'Admin.Modules.Notification'
                 )
             );

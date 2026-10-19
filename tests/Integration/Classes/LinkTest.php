@@ -1,0 +1,119 @@
+<?php
+/**
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
+ */
+
+declare(strict_types=1);
+
+namespace Tests\Integration\Classes;
+
+use Context;
+use Dispatcher;
+use PHPUnit\Framework\TestCase;
+use ReflectionClass;
+use ReflectionProperty;
+
+class LinkTest extends TestCase
+{
+    private $originalUseRoutes;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->originalUseRoutes = $this->getUseRoutesProperty()->getValue(Dispatcher::getInstance());
+    }
+
+    protected function tearDown(): void
+    {
+        // Restore the Dispatcher singleton state mutated by the tests, otherwise the forced
+        // use_routes value leaks into other test classes and changes their generated URLs.
+        $this->getUseRoutesProperty()->setValue(Dispatcher::getInstance(), $this->originalUseRoutes);
+        parent::tearDown();
+    }
+
+    private function getUseRoutesProperty(): ReflectionProperty
+    {
+        $property = (new ReflectionClass('Dispatcher'))->getProperty('use_routes');
+
+        return $property;
+    }
+
+    private function getProductLink(
+        bool $statusUseRoutes,
+        int $id_product,
+        ?int $id_product_attribute,
+        ?string $ean13 = null
+    ): array {
+        $reflectionDispatcher = new ReflectionClass('Dispatcher');
+        $property = $reflectionDispatcher->getProperty('use_routes');
+        $property->setValue(Dispatcher::getInstance(), $statusUseRoutes);
+
+        $url = Context::getContext()->link->getProductLink(
+            $id_product,
+            null,
+            null,
+            $ean13,
+            Context::getContext()->language->id,
+            null,
+            $id_product_attribute,
+            false,
+            false,
+            true
+        );
+
+        return parse_url($url);
+    }
+
+    public function testUrlTakesVariantIntoAccountWithUrlRewriting(): void
+    {
+        $filename = basename($this->getProductLink(true, 1, 2)['path']);
+
+        $this->assertEquals('1-2-hummingbird-printed-t-shirt.html', $filename);
+    }
+
+    public function testUrlIgnoresVariantIfNotSpecifiedWithUrlRewriting(): void
+    {
+        $filename = basename($this->getProductLink(true, 1, null)['path']);
+
+        $this->assertEquals('1-hummingbird-printed-t-shirt.html', $filename);
+    }
+
+    public function testUrlTakesVariantIntoAccountWithoutUrlRewriting(): void
+    {
+        parse_str($this->getProductLink(false, 1, 6)['query'], $query);
+
+        $this->assertEquals(1, $query['id_product']);
+        $this->assertEquals(6, $query['id_product_attribute']);
+    }
+
+    public function testUrlIgnoresVariantIfNotSpecifiedWithoutUrlRewriting(): void
+    {
+        parse_str($this->getProductLink(false, 1, null)['query'], $query);
+
+        $this->assertEquals(1, $query['id_product']);
+        $this->assertArrayNotHasKey('id_product_attribute', $query);
+    }
+
+    public function testSupplierUrlOmitsMetaTitleWhenRouteHasNoMetaTitleKeyword(): void
+    {
+        $reflectionDispatcher = new ReflectionClass('Dispatcher');
+        $property = $reflectionDispatcher->getProperty('use_routes');
+        $property->setValue(Dispatcher::getInstance(), true);
+
+        $url = Context::getContext()->link->getSupplierLink(1);
+        parse_str(parse_url($url)['query'] ?? '', $query);
+
+        $this->assertArrayNotHasKey('meta_title', $query);
+    }
+
+    public function testProductUrlOmitsEan13WhenRouteHasNoEan13Keyword(): void
+    {
+        parse_str(
+            $this->getProductLink(true, 1, null, '1234567890128')['query'] ?? '',
+            $query
+        );
+
+        $this->assertArrayNotHasKey('ean13', $query);
+    }
+}

@@ -1,27 +1,10 @@
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+var currencyFormatter;
+var numberFormatter;
 
 var Tools = {
 
@@ -108,11 +91,7 @@ function formatedNumberToFloat(price, currencyFormat, currencySign)
  */
 function formatNumber(value, numberOfDecimal, thousenSeparator, virgule)
 {
-	var globalize = cldrForNumber();
-	return globalize.numberFormatter({
-			minimumFractionDigits: 2,
-			maximumFractionDigits: numberOfDecimal
-	})(value);
+	return getNumberFormatter(numberOfDecimal).format(value);
 }
 
 /**
@@ -124,15 +103,7 @@ function formatNumber(value, numberOfDecimal, thousenSeparator, virgule)
  * @param numberOfDecimal Size of fractionnal part in the number
  */
 function formatNumberCldr(value, callback, numberOfDecimal) {
-	if (typeof numberOfDecimal === 'undefined') numberOfDecimal = 2;
-
-	cldrForNumber(function(globalize) {
-		var result = globalize.numberFormatter({
-			minimumFractionDigits: 2,
-			maximumFractionDigits: numberOfDecimal
-		})(value);
-		callback(result);
-	});
+  callback(getNumberFormatter(numberOfDecimal).format(value));
 }
 
 /**
@@ -173,12 +144,40 @@ function formatCurrency(price, currencyFormat, currencySign, currencyBlank)
  * @param callback The function to call with the resulting formatted price as unique parameter
  */
 function formatCurrencyCldr(price, callback) {
-	cldrForCurrencyFormatterWrapper(function(formatter) {
-		callback(formatter(price));
-	}, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: typeof priceDisplayPrecision != 'undefined' ? priceDisplayPrecision : 2,
-  });
+	callback(getCurrencyFormatter().format(price));
+}
+
+/**
+ * Simple function to generate global NumberFormatter
+ * with a price specification
+ * based one global currency_specifications
+ */
+function getCurrencyFormatter() {
+	if (currencyFormatter === undefined) {
+		currencyFormatter = window.cldr.NumberFormatter.build(currency_specifications);
+	}
+
+	return currencyFormatter;
+}
+
+/**
+ * Simple function to generate global NumberFormatter
+ * based one global currency_specifications
+ * @param numberOfDecimal Size of fractionnal part in the number
+ */
+function getNumberFormatter(numberOfDecimal) {
+  if (numberFormatter === undefined) {
+    numberFormatter = window.cldr.NumberFormatter.build(number_specifications);
+  }
+
+  if (numberOfDecimal === undefined) {
+    numberOfDecimal = 2;
+  }
+
+  numberFormatter.numberSpecification.maxFractionDigits = numberOfDecimal;
+  numberFormatter.numberSpecification.minFractionDigits = numberOfDecimal;
+
+  return numberFormatter;
 }
 
 function ps_round_helper(value, mode)
@@ -686,20 +685,26 @@ function in_array(value, array)
 
 function isCleanHtml(content)
 {
-	var events = 'onmousedown|onmousemove|onmmouseup|onmouseover|onmouseout|onload|onunload|onfocus|onblur|onchange';
-	events += '|onsubmit|ondblclick|onclick|onkeydown|onkeyup|onkeypress|onmouseenter|onmouseleave|onerror|onselect|onreset|onabort|ondragdrop|onresize|onactivate|onafterprint|onmoveend';
-	events += '|onafterupdate|onbeforeactivate|onbeforecopy|onbeforecut|onbeforedeactivate|onbeforeeditfocus|onbeforepaste|onbeforeprint|onbeforeunload|onbeforeupdate|onmove';
-	events += '|onbounce|oncellchange|oncontextmenu|oncontrolselect|oncopy|oncut|ondataavailable|ondatasetchanged|ondatasetcomplete|ondeactivate|ondrag|ondragend|ondragenter|onmousewheel';
-	events += '|ondragleave|ondragover|ondragstart|ondrop|onerrorupdate|onfilterchange|onfinish|onfocusin|onfocusout|onhashchange|onhelp|oninput|onlosecapture|onmessage|onmouseup|onmovestart';
-	events += '|onoffline|ononline|onpaste|onpropertychange|onreadystatechange|onresizeend|onresizestart|onrowenter|onrowexit|onrowsdelete|onrowsinserted|onscroll|onsearch|onselectionchange';
-	events += '|onselectstart|onstart|onstop';
+  var events = 'onmousedown|onmousemove|onmmouseup|onmouseover|onmouseout|onload|onunload|onfocus|onblur|onchange';
+  events += '|onsubmit|ondblclick|onclick|onkeydown|onkeyup|onkeypress|onmouseenter|onmouseleave|onerror|onselect|onreset|onabort|ondragdrop|onresize|onactivate|onafterprint|onmoveend';
+  events += '|onafterupdate|onbeforeactivate|onbeforecopy|onbeforecut|onbeforedeactivate|onbeforeeditfocus|onbeforepaste|onbeforeprint|onbeforeunload|onbeforeupdate|onmove';
+  events += '|onbounce|oncellchange|oncontextmenu|oncontrolselect|oncopy|oncut|ondataavailable|ondatasetchanged|ondatasetcomplete|ondeactivate|ondrag|ondragend|ondragenter|ondragexit|onmousewheel';
+  events += '|ondragleave|ondragover|ondragstart|ondrop|onerrorupdate|onfilterchange|onfinish|onfocusin|onfocusout|onhashchange|onhelp|oninput|onlosecapture|onmessage|onmouseup|onmovestart';
+  events += '|onoffline|ononline|onpaste|onpropertychange|onreadystatechange|onresizeend|onresizestart|onrowenter|onrowexit|onrowsdelete|onrowsinserted|onscroll|onsearch|onselectionchange';
+  events += '|onselectstart|onstart|onstop|onanimationcancel|onanimationend|onanimationiteration|onanimationstart';
+  events += '|onpointerover|onpointerenter|onpointerdown|onpointermove|onpointerup|onpointerout|onpointerleave|onpointercancel|ongotpointercapture|onlostpointercapture';
+  events += '|onpagehide|onpageshow|onautocomplete|onautocompleteerror|oncanplay|oncanplaythrough|onclose|oncuechange|ondurationchange|onemptied|onended|oninvalid|onloadeddata';
+  events += '|onloadedmetadata|onloadstart|onpause|onplay|onplaying|onpopstate|onprogress|onratechange|onreset|onseeked|onseeking|onshow|onsort|onstalled|onstorage|onsuspend|ontimeupdate';
+  events += '|ontoggle|onvolumechange|onwaiting';
 
 	var script1 = /<[\s]*script/im;
 	var script2 = new RegExp('('+events+')[\s]*=', 'im');
 	var script3 = /.*script\:/im;
 	var script4 = /<[\s]*(i?frame|embed|object)/im;
+  var script5 = /<\s*\w+[^>]*\s(on\w+)=["'][^"']*["']/ims;
+  var rloCharacter = "\xE2\x80\xAE";
 
-	if (script1.test(content) || script2.test(content) || script3.test(content) || script4.test(content))
+	if (script1.test(content) || script2.test(content) || script3.test(content) || script4.test(content) || script5.test(content) || content.indexOf(rloCharacter) !== -1)
 		return false;
 
 	return true;
@@ -718,10 +723,10 @@ function getStorageAvailable() {
 	}
 }
 
-$(document).ready(function()
+$(function()
 {
 	// Hide all elements with .hideOnSubmit class when parent form is submit
-	$('form').submit(function() {
+	$('form').on('submit', function() {
 		$(this).find('.hideOnSubmit').hide();
 	});
 

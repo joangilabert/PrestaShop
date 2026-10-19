@@ -1,48 +1,27 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 class ConfigurationTestCore
 {
-    public static $test_files = array(
+    public static $test_files = [
         '/classes/log/index.php',
         '/classes/cache/index.php',
         '/config/index.php',
-        '/controllers/admin/AdminLoginController.php',
         '/download/index.php',
         '/js/tools.js',
         '/js/jquery/plugins/fancybox/jquery.fancybox.js',
         '/localization/fr.xml',
         '/mails/index.php',
         '/modules/index.php',
-        '/override/controllers/front/index.php',
+        '/override/index.php',
         '/pdf/order-return.tpl',
         '/translations/export/index.php',
         '/webservice/dispatcher.php',
         '/index.php',
         '/vendor/autoload.php',
-    );
+    ];
 
     /**
      * getDefaultTests return an array of tests to executes.
@@ -53,7 +32,7 @@ class ConfigurationTestCore
      */
     public static function getDefaultTests()
     {
-        $tests = array(
+        return [
             'upload' => false,
             'cache_dir' => 'var/cache',
             'log_dir' => 'var/logs',
@@ -66,33 +45,30 @@ class ConfigurationTestCore
             'customizable_products_dir' => 'upload',
             'virtual_products_dir' => 'download',
             'config_sf2_dir' => 'app/config',
-            'translations_sf2' => 'app/Resources/translations',
-        );
-
-        if (!defined('_PS_HOST_MODE_')) {
-            $tests = array_merge($tests, array(
-                'system' => array(
-                    'fopen', 'fclose', 'fread', 'fwrite',
-                    'rename', 'file_exists', 'unlink', 'rmdir', 'mkdir',
-                    'getcwd', 'chdir', 'chmod',
-                ),
-                'phpversion' => false,
-                'apache_mod_rewrite' => false,
-                'curl' => false,
-                'gd' => false,
-                'json' => false,
-                'pdo_mysql' => false,
-                'config_dir' => 'config',
-                'files' => false,
-                'mails_dir' => 'mails',
-                'openssl' => 'false',
-                'simplexml' => false,
-                'zip' => false,
-                'fileinfo' => false,
-            ));
-        }
-
-        return $tests;
+            'translations_sf2' => 'translations',
+            'system' => [
+                'fopen', 'fclose', 'fread', 'fwrite',
+                'rename', 'file_exists', 'unlink', 'rmdir', 'mkdir',
+                'getcwd', 'chdir', 'chmod',
+            ],
+            'phpversion' => false,
+            'apache_mod_rewrite' => false,
+            'curl' => false,
+            'gd' => false,
+            'json' => false,
+            'pdo_mysql' => false,
+            'config_dir' => 'config',
+            'files' => false,
+            'mails_dir' => 'mails',
+            'openssl' => false,
+            'openssl_key_generation' => false,
+            'simplexml' => false,
+            'zip' => false,
+            'fileinfo' => false,
+            'intl' => false,
+            'memory_limit' => false,
+            'mbstring' => false,
+        ];
     }
 
     /**
@@ -103,14 +79,16 @@ class ConfigurationTestCore
      */
     public static function getDefaultTestsOp()
     {
-        return array(
+        return [
             'new_phpversion' => false,
             'gz' => false,
             'mbstring' => false,
             'dom' => false,
             'pdo_mysql' => false,
             'fopen' => false,
-        );
+            'intl' => false,
+            'memory_limit' => false,
+        ];
     }
 
     /**
@@ -122,7 +100,7 @@ class ConfigurationTestCore
      */
     public static function check($tests)
     {
-        $res = array();
+        $res = [];
         foreach ($tests as $key => $test) {
             $res[$key] = ConfigurationTest::run($key, $test);
         }
@@ -132,7 +110,7 @@ class ConfigurationTestCore
 
     public static function run($ptr, $arg = 0)
     {
-        if (call_user_func(array('ConfigurationTest', 'test_' . $ptr), $arg)) {
+        if (call_user_func(['ConfigurationTest', 'test_' . $ptr], $arg)) {
             return 'ok';
         }
 
@@ -141,7 +119,7 @@ class ConfigurationTestCore
 
     public static function test_phpversion()
     {
-        return version_compare(substr(PHP_VERSION, 0, 5), '5.6.0', '>=');
+        return version_compare(PHP_VERSION, '7.1.3', '>=');
     }
 
     public static function test_apache_mod_rewrite()
@@ -156,12 +134,24 @@ class ConfigurationTestCore
 
     public static function test_new_phpversion()
     {
-        return version_compare(substr(PHP_VERSION, 0, 5), '5.6.0', '>=');
+        return static::test_phpversion();
     }
 
     public static function test_mysql_support()
     {
         return extension_loaded('mysql') || extension_loaded('mysqli') || extension_loaded('pdo_mysql');
+    }
+
+    public static function test_intl()
+    {
+        return extension_loaded('intl');
+    }
+
+    public static function test_memory_limit()
+    {
+        $memoryLimit = Tools::getMemoryLimit();
+
+        return $memoryLimit === '-1' || $memoryLimit >= Tools::getOctets('256M');
     }
 
     public static function test_pdo_mysql()
@@ -176,7 +166,7 @@ class ConfigurationTestCore
 
     public static function test_fopen()
     {
-        return in_array(ini_get('allow_url_fopen'), array('On', 'on', '1'));
+        return in_array(ini_get('allow_url_fopen'), ['On', 'on', '1']);
     }
 
     public static function test_system($funcs)
@@ -197,7 +187,13 @@ class ConfigurationTestCore
 
     public static function test_gd()
     {
-        return function_exists('imagecreatetruecolor');
+        if (function_exists('gd_info')) {
+            $gd = gd_info();
+
+            return !empty($gd['JPEG Support']);
+        }
+
+        return false;
     }
 
     public static function test_json()
@@ -234,6 +230,7 @@ class ConfigurationTestCore
         $dir = rtrim(_PS_ROOT_DIR_, '\\/') . DIRECTORY_SEPARATOR . trim($relative_dir, '\\/');
         if (!file_exists($dir) || !$dh = @opendir($dir)) {
             $full_report = sprintf('Directory %s does not exist or is not writable', $dir); // sprintf for future translation
+
             return false;
         }
         closedir($dh);
@@ -245,6 +242,7 @@ class ConfigurationTestCore
             }
         } elseif (!is_writable($dir)) {
             $full_report = sprintf('Directory %s is not writable', $dir); // sprintf for future translation
+
             return false;
         }
 
@@ -378,7 +376,7 @@ class ConfigurationTestCore
 
     public static function test_mbstring()
     {
-        return function_exists('mb_strtolower');
+        return extension_loaded('mbstring');
     }
 
     public static function test_openssl()
@@ -386,13 +384,23 @@ class ConfigurationTestCore
         return function_exists('openssl_encrypt');
     }
 
-    public static function test_sessions()
+    public static function test_openssl_key_generation()
     {
-        if (!$path = @ini_get('session.save_path')) {
-            return true;
+        $privateKey = openssl_pkey_new([
+            'private_key_bits' => 2048,
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+        ]);
+
+        if ($privateKey === false) {
+            return false;
         }
 
-        return is_writable($path);
+        return true;
+    }
+
+    public static function test_sessions()
+    {
+        return in_array(session_status(), [PHP_SESSION_ACTIVE, PHP_SESSION_NONE], true);
     }
 
     public static function test_dom()
@@ -402,7 +410,7 @@ class ConfigurationTestCore
 
     public static function test_files($full = false)
     {
-        $return = array();
+        $return = [];
         foreach (ConfigurationTest::$test_files as $file) {
             if (!file_exists(rtrim(_PS_ROOT_DIR_, DIRECTORY_SEPARATOR) . str_replace('/', DIRECTORY_SEPARATOR, $file))) {
                 if ($full) {

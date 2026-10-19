@@ -1,39 +1,25 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter\Shop;
 
+use Context as LegacyContext;
+use PrestaShop\PrestaShop\Core\Domain\Shop\ValueObject\ShopConstraint;
 use PrestaShop\PrestaShop\Core\Multistore\MultistoreContextCheckerInterface;
+use PrestaShop\PrestaShop\Core\Shop\ShopConstraintContextInterface;
+use PrestaShop\PrestaShop\Core\Shop\ShopContextInterface;
 use Shop;
 use ShopGroup;
 
 /**
  * This class will provide legacy shop context.
+ *
+ * @deprecated: Will be removed in next major, please use PrestaShop\PrestaShop\Core\Context\ShopContext instead
  */
-class Context implements MultistoreContextCheckerInterface
+class Context implements MultistoreContextCheckerInterface, ShopContextInterface, ShopConstraintContextInterface
 {
     /**
      * Get shops list.
@@ -58,6 +44,13 @@ class Context implements MultistoreContextCheckerInterface
         return Shop::getContextShopID($null_value_without_multishop);
     }
 
+    public function getContextShopIds(): array
+    {
+        return array_map(static function ($shopId): int {
+            return (int) $shopId;
+        }, $this->getContextListShopID());
+    }
+
     /**
      * Get a list of ID concerned by the shop context (E.g. if context is shop group, get list of children shop ID).
      *
@@ -71,15 +64,20 @@ class Context implements MultistoreContextCheckerInterface
     }
 
     /**
-     * Get if it's a GroupShop context.
+     * Return the result of getContextListShopID() for customers usecase
+     * This handles the "multishop sharing customer" feature setting
      *
-     * @return bool
-     *
-     * @deprecated since 1.7.6.0, to be removed in 1.8. Use $this->isGroupShopContext() instead.
+     * @return array
      */
-    public function isShopGroupContext()
+    public function getContextListShopIDUsingCustomerSharingSettings()
     {
-        return $this->isGroupShopContext();
+        $groupSettings = Shop::getGroupFromShop(Shop::getContextShopID(), false);
+
+        if (!empty($groupSettings['share_customer'])) {
+            return Shop::getContextListShopID(Shop::SHARE_CUSTOMER);
+        } else {
+            return Shop::getContextListShopID();
+        }
     }
 
     /**
@@ -90,18 +88,6 @@ class Context implements MultistoreContextCheckerInterface
     public function isShopContext()
     {
         return Shop::getContext() === Shop::CONTEXT_SHOP;
-    }
-
-    /**
-     * Get if it's a All context.
-     *
-     * @return bool
-     *
-     * @deprecated since 1.7.6.0, to be removed in 1.8. Use $this->isAllShopContext() instead.
-     */
-    public function isAllContext()
-    {
-        return $this->isAllShopContext();
     }
 
     /**
@@ -156,7 +142,7 @@ class Context implements MultistoreContextCheckerInterface
     /**
      * Retrieve group ID of a shop.
      *
-     * @param $shopId
+     * @param int $shopId
      * @param bool $asId
      *
      * @return int
@@ -167,7 +153,7 @@ class Context implements MultistoreContextCheckerInterface
     }
 
     /**
-     * @param $shopGroupId
+     * @param int $shopGroupId
      *
      * @return ShopGroup
      */
@@ -190,5 +176,39 @@ class Context implements MultistoreContextCheckerInterface
     public function isGroupShopContext()
     {
         return Shop::getContext() === Shop::CONTEXT_GROUP;
+    }
+
+    /**
+     * Get list of all shop IDs.
+     *
+     * @return array
+     */
+    public function getAllShopIds()
+    {
+        return Shop::getCompleteListOfShopsID();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getShopName()
+    {
+        return LegacyContext::getContext()->shop->name;
+    }
+
+    /**
+     * @param bool $strict
+     *
+     * @return ShopConstraint
+     */
+    public function getShopConstraint(bool $strict = false): ShopConstraint
+    {
+        if ($this->isShopContext()) {
+            return ShopConstraint::shop((int) $this->getContextShopID(), $strict);
+        } elseif ($this->isGroupShopContext()) {
+            return ShopConstraint::shopGroup((int) $this->getContextShopGroup()->id, $strict);
+        }
+
+        return ShopConstraint::allShops();
     }
 }

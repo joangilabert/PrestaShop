@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Routing\Converter;
@@ -39,6 +19,8 @@ abstract class AbstractLegacyRouteProvider implements LegacyRouteProviderInterfa
     protected $controllersActions;
 
     /**
+     * This is the only method that child classes need to implement.
+     *
      * @return LegacyRoute[]
      */
     abstract public function getLegacyRoutes();
@@ -60,40 +42,65 @@ abstract class AbstractLegacyRouteProvider implements LegacyRouteProviderInterfa
     {
         $this->initControllerActions();
 
-        if (!isset($this->controllersActions[$controller])) {
-            throw new RouteNotFoundException(
-                sprintf('Could not find a route matching for legacy controller: %s', $controller)
-            );
+        $controllerActions = $this->getControllerActions($controller);
+        if (null === $controllerActions) {
+            throw new RouteNotFoundException(sprintf('Could not find a route matching for legacy controller: %s', $controller));
         }
 
-        return array_keys($this->controllersActions[$controller]);
+        return array_keys($controllerActions);
     }
 
     /**
-     * {@inheritdoc}
+     * Return the LegacyRoute object matching $controller and $action.
+     *
+     * @param string $controller
+     * @param string|null $action
+     *
+     * @return LegacyRoute
+     *
+     * @throws RouteNotFoundException
      */
     public function getLegacyRouteByAction($controller, $action)
     {
         $this->initControllerActions();
 
-        if (!isset($this->controllersActions[$controller])) {
-            throw new RouteNotFoundException(
-                sprintf('Could not find a route matching for legacy controller: %s', $controller)
-            );
+        $controllerActions = $this->getControllerActions($controller);
+        if (null === $controllerActions) {
+            throw new RouteNotFoundException(sprintf('Could not find a route matching for legacy controller: %s', $controller));
         }
 
-        $controllerActions = $this->controllersActions[$controller];
         $action = LegacyRoute::isIndexAction($action) ? 'index' : $action;
-        if (!isset($controllerActions[$action])) {
-            throw new RouteNotFoundException(
-                sprintf('Could not find a route matching for legacy action: %s', $controller . ':' . $action)
-            );
+        $routeName = $this->getRouteName($controllerActions, $action);
+        if (null === $routeName) {
+            throw new RouteNotFoundException(sprintf('Could not find a route matching for legacy action: %s', $controller . ':' . $action));
         }
 
-        $routeName = $controllerActions[$action];
-        $legacyRoutes = $this->getLegacyRoutes();
+        return $this->getLegacyRoutes()[$routeName];
+    }
 
-        return $legacyRoutes[$routeName];
+    /**
+     * Get the route name.
+     *
+     * @param array $controllerActions
+     * @param string $action
+     *
+     * @return string|null
+     */
+    private function getRouteName(array $controllerActions, $action)
+    {
+        $routeName = null;
+        foreach ($controllerActions as $controllerAction => $actionRoute) {
+            if (strtolower($controllerAction) == strtolower($action)) {
+                $routeName = $actionRoute;
+                break;
+            }
+        }
+
+        if (is_array($routeName)) {
+            return $routeName[0];
+        }
+
+        return $routeName;
     }
 
     /**
@@ -108,5 +115,23 @@ abstract class AbstractLegacyRouteProvider implements LegacyRouteProviderInterfa
                 $this->controllersActions = array_merge_recursive($this->controllersActions, $legacyRoute->getControllersActions());
             }
         }
+    }
+
+    /**
+     * @param string $controller
+     *
+     * @return array|null
+     */
+    private function getControllerActions($controller)
+    {
+        $controllerActions = null;
+        foreach ($this->controllersActions as $listController => $actions) {
+            if (strtolower($listController) == strtolower($controller)) {
+                $controllerActions = $actions;
+                break;
+            }
+        }
+
+        return $controllerActions;
     }
 }

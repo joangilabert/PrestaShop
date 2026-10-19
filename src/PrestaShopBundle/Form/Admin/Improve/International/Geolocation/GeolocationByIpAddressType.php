@@ -1,40 +1,20 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Form\Admin\Improve\International\Geolocation;
 
 use PrestaShopBundle\Form\Admin\Type\SwitchType;
-use Symfony\Component\Form\AbstractType;
+use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
 use Symfony\Component\Form\FormBuilderInterface;
 
 /**
  * Class GeolocationByIpAddressType is responsible for handling "Improve > International > Localization > Geolocation"
  * IP addresses whitelist form.
  */
-class GeolocationByIpAddressType extends AbstractType
+class GeolocationByIpAddressType extends TranslatorAwareType
 {
     /**
      * {@inheritdoc}
@@ -42,6 +22,15 @@ class GeolocationByIpAddressType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
         $builder
-            ->add('geolocation_enabled', SwitchType::class);
+            ->add('geolocation_enabled', SwitchType::class, [
+                'label' => $this->trans(
+                    'Geolocation by IP address',
+                    'Admin.International.Feature'
+                ),
+                'help' => $this->trans(
+                    'This option allows you, among other things, to restrict access to your shop for certain countries. See below.',
+                    'Admin.International.Help'
+                ),
+            ]);
     }
 }

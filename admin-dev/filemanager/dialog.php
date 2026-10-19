@@ -1,4 +1,29 @@
 <?php
+/**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
+
 include 'config/config.php';
 
 $_SESSION["verify"] = "RESPONSIVEfilemanager";
@@ -212,21 +237,6 @@ if (isset($_POST['submit'])) {
 		<script type="text/javascript" src="jPlayer/jquery.jplayer.min.js"></script>
 		<script type="text/javascript" src="js/imagesloaded.pkgd.min.js"></script>
 		<script type="text/javascript" src="js/jquery.queryloader2.min.js"></script>
-		<?php
-        if ($aviary_active) {
-            if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) {
-                ?>
-				<script type="text/javascript" src="https://dme0ih8comzn4.cloudfront.net/js/feather.js"></script>
-			<?php
-            } else {
-                ?>
-				<script type="text/javascript" src="http://feather.aviary.com/js/feather.js "></script>
-			<?php
-
-            }
-        }
-    ?>
-
 		<!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
 		<!--[if lt IE 9]>
 		<script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.6.2/html5shiv.js"></script>
@@ -238,8 +248,6 @@ if (isset($_POST['submit'])) {
 			var ext_img = new Array('<?php echo implode("','", $ext_img)?>');
 			var allowed_ext = new Array('<?php echo implode("','", $ext)?>');
 			var loading_bar =<?php echo $loading_bar?"true":"false";
-    ?>;
-			var image_editor =<?php echo $aviary_active?"true":"false";
     ?>;
 			//dropzone config
 			Dropzone.options.myAwesomeDropzone = {
@@ -264,43 +272,6 @@ if (isset($_POST['submit'])) {
 					}
 				}
 			};
-			if (image_editor) {
-				var featherEditor = new Aviary.Feather({
-					apiKey: "<?php echo $aviary_key;
-    ?>",
-					apiVersion: <?php echo $aviary_version;
-    ?>,
-					language: "<?php echo $aviary_language;
-    ?>",
-					theme: 'light',
-					tools: 'all',
-					onSave: function (imageID, newURL) {
-						show_animation();
-						var img = document.getElementById(imageID);
-						img.src = newURL;
-						$.ajax({
-							type: "POST",
-							url: "ajax_calls.php?action=save_img",
-							data: { url: newURL, path: $('#sub_folder').val() + $('#fldr_value').val(), name: $('#aviary_img').data('name') }
-						}).done(function (msg) {
-							featherEditor.close();
-							d = new Date();
-							$("figure[data-name='" + $('#aviary_img').data('name') + "']").find('img').each(function () {
-								$(this).attr('src', $(this).attr('src') + "?" + d.getTime());
-							});
-							$("figure[data-name='" + $('#aviary_img').data('name') + "']").find('figcaption a.preview').each(function () {
-								$(this).data('url', $(this).data('url') + "?" + d.getTime());
-							});
-							hide_animation();
-						});
-						return false;
-					},
-					onError: function (errorObj) {
-						bootbox.alert(errorObj.message);
-					}
-
-				});
-			}
 		</script>
 		<script type="text/javascript" src="js/include.min.js"></script>
 	</head>
@@ -350,7 +321,7 @@ if (isset($_POST['submit'])) {
     ?>"/>
 	<input type="hidden" id="lang_extract" value="<?php echo Tools::safeOutput(lang_Extract);
     ?>"/>
-	<input type="hidden" id="lang_file_info" value="<?php echo fix_strtoupper(lang_File_info);
+	<input type="hidden" id="lang_file_info" value="<?php echo mb_strtoupper(lang_File_info);
     ?>"/>
 	<input type="hidden" id="lang_edit_image" value="<?php echo Tools::safeOutput(lang_Edit_image);
     ?>"/>
@@ -478,12 +449,12 @@ if (isset($_POST['submit'])) {
 
     function filenameSort($x, $y)
     {
-        return $x['file'] < $y['file'];
+        return $x['file'] <=> $y['file'];
     }
 
     function dateSort($x, $y)
     {
-        return $x['date'] < $y['date'];
+        return $x['date'] <=> $y['date'];
     }
 
     function sizeSort($x, $y)
@@ -493,7 +464,7 @@ if (isset($_POST['submit'])) {
 
     function extensionSort($x, $y)
     {
-        return $x['extension'] < $y['extension'];
+        return $x['extension'] <=> $y['extension'];
     }
 
     switch ($sort_by) {
@@ -619,7 +590,7 @@ if (isset($_POST['submit'])) {
 								<?php
 }
     ?>
-								<input accesskey="f" type="text" class="filter-input" id="filter-input" name="filter" placeholder="<?php echo fix_strtolower(lang_Text_filter);
+								<input accesskey="f" type="text" class="filter-input" id="filter-input" name="filter" placeholder="<?php echo mb_strtolower(lang_Text_filter);
     ?>..." value="<?php echo Tools::safeOutput($filter);
     ?>"/><?php if ($n_files > $file_number_limit_js) {
     ?><label id="filter" class="btn"><i class="icon-play"></i></label><?php
@@ -924,12 +895,12 @@ if (isset($_POST['submit'])) {
     foreach ($files as $nu => $file_array) {
         $file = $file_array['file'];
 
-        if ($file == '.' || $file == '..' || is_dir($current_path.$subfolder.$subdir.$file) || in_array($file, $hidden_files) || !in_array(fix_strtolower($file_array['extension']), $ext) || ($filter != '' && strpos($file, $filter) === false)) {
+        if ($file == '.' || $file == '..' || is_dir($current_path.$subfolder.$subdir.$file) || in_array($file, $hidden_files) || !in_array(mb_strtolower($file_array['extension']), $ext) || ($filter != '' && strpos($file, $filter) === false)) {
             continue;
         }
 
         $file_path = $current_path.$subfolder.$subdir.$file;
-    //check if file have illegal caracter
+    //check if file have illegal character
 
     $filename = substr($file, 0, '-'.(strlen($file_array['extension']) + 1));
 
@@ -960,7 +931,7 @@ if (isset($_POST['submit'])) {
         $show_original_mini = false;
         $mini_src = "";
         $src_thumb = "";
-        $extension_lower = fix_strtolower($file_array['extension']);
+        $extension_lower = mb_strtolower($file_array['extension']);
         if (in_array($extension_lower, $ext_img)) {
             $src = $base_url.$cur_dir.rawurlencode($file);
             $mini_src = $src_thumb = $thumbs_path.$subdir.$file;

@@ -1,32 +1,12 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 class HelperCalendarCore extends Helper
 {
-    const DEFAULT_DATE_FORMAT = 'Y-mm-dd';
-    const DEFAULT_COMPARE_OPTION = 1;
+    public const DEFAULT_DATE_FORMAT = 'Y-mm-dd';
+    public const DEFAULT_COMPARE_OPTION = 1;
 
     private $_actions;
     private $_compare_actions;
@@ -59,7 +39,7 @@ class HelperCalendarCore extends Helper
     public function getActions()
     {
         if (!isset($this->_actions)) {
-            $this->_actions = array();
+            $this->_actions = [];
         }
 
         return $this->_actions;
@@ -79,7 +59,7 @@ class HelperCalendarCore extends Helper
     public function getCompareActions()
     {
         if (!isset($this->_compare_actions)) {
-            $this->_compare_actions = array();
+            $this->_compare_actions = [];
         }
 
         return $this->_compare_actions;
@@ -145,17 +125,17 @@ class HelperCalendarCore extends Helper
         return $this->_date_format;
     }
 
-    public function setDateFrom($value)
+    public function setDateFrom($value = '')
     {
-        if (!isset($value) || $value == '') {
-            $value = date('Y-m-d', strtotime('-31 days'));
+        if (empty($value)) {
+            $value = strtotime('-31 days');
         }
 
         if (!is_string($value)) {
             throw new PrestaShopException('Date must be a string');
         }
 
-        $this->_date_from = $value;
+        $this->_date_from = date('Y-m-d', strtotime($value));
 
         return $this;
     }
@@ -163,23 +143,23 @@ class HelperCalendarCore extends Helper
     public function getDateFrom()
     {
         if (!isset($this->_date_from)) {
-            $this->_date_from = date('Y-m-d', strtotime('-31 days'));
+            $this->setDateFrom();
         }
 
         return $this->_date_from;
     }
 
-    public function setDateTo($value)
+    public function setDateTo($value = '')
     {
-        if (!isset($value) || $value == '') {
-            $value = date('Y-m-d');
+        if (empty($value)) {
+            $value = strtotime('-31 days');
         }
 
         if (!is_string($value)) {
             throw new PrestaShopException('Date must be a string');
         }
 
-        $this->_date_to = $value;
+        $this->_date_to = date('Y-m-d', strtotime($value));
 
         return $this;
     }
@@ -187,7 +167,7 @@ class HelperCalendarCore extends Helper
     public function getDateTo()
     {
         if (!isset($this->_date_to)) {
-            $this->_date_to = date('Y-m-d');
+            $this->setDateTo();
         }
 
         return $this->_date_to;
@@ -203,7 +183,7 @@ class HelperCalendarCore extends Helper
     public function addAction($action)
     {
         if (!isset($this->_actions)) {
-            $this->_actions = array();
+            $this->_actions = [];
         }
 
         $this->_actions[] = $action;
@@ -214,7 +194,7 @@ class HelperCalendarCore extends Helper
     public function addCompareAction($action)
     {
         if (!isset($this->_compare_actions)) {
-            $this->_compare_actions = array();
+            $this->_compare_actions = [];
         }
 
         $this->_compare_actions[] = $action;
@@ -249,7 +229,7 @@ class HelperCalendarCore extends Helper
         }
 
         $this->tpl = $this->createTemplate($this->base_tpl);
-        $this->tpl->assign(array(
+        $this->tpl->assign([
             'date_format' => $this->getDateFormat(),
             'date_from' => $this->getDateFrom(),
             'date_to' => $this->getDateTo(),
@@ -259,7 +239,7 @@ class HelperCalendarCore extends Helper
             'compare_actions' => $this->getCompareActions(),
             'compare_option' => $this->getCompareOption(),
             'is_rtl' => $this->isRTL(),
-        ));
+        ]);
 
         $html .= parent::generate();
 

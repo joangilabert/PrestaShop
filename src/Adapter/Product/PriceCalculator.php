@@ -1,32 +1,13 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter\Product;
 
 use Context;
+use PrestaShopDatabaseException;
 use Product;
 
 /**
@@ -52,8 +33,8 @@ class PriceCalculator
      *                         (e.g., inside a payment module, a cron task...)
      * @param int|null $idAddress Customer address ID. Required for price (tax included)
      *                            calculation regarding the guest localization
-     * @param null $specificPriceOutput If a specific price applies regarding the previous parameters,
-     *                                  this variable is filled with the corresponding SpecificPrice object
+     * @param array|null $specificPriceOutput If a specific price applies regarding the previous parameters,
+     *                                        this variable is filled with the corresponding SpecificPrice object
      * @param bool $withEcotax insert ecotax in price output
      * @param bool $useGroupReduction
      * @param Context|null $context
@@ -78,7 +59,7 @@ class PriceCalculator
         &$specificPriceOutput = null,
         $withEcotax = true,
         $useGroupReduction = true,
-        Context $context = null,
+        ?Context $context = null,
         $useCustomerPrice = true,
         $idCustomization = null
     ) {
@@ -121,8 +102,8 @@ class PriceCalculator
      * @param bool $onlyReduc Returns only the reduction amount
      * @param bool $useReduc Set if the returned amount will include reduction
      * @param bool $withEcotax insert ecotax in price output
-     * @param null $specificPrice If a specific price applies regarding the previous parameters,
-     *                            this variable is filled with the corresponding SpecificPrice object
+     * @param array|null $specificPrice If a specific price applies regarding the previous parameters,
+     *                                  this variable is filled with the corresponding SpecificPrice object
      * @param bool $useGroupReduction
      * @param int $idCustomer
      * @param bool $useCustomerPrice
@@ -177,6 +158,38 @@ class PriceCalculator
             $idCart,
             $realQuantity,
             $idCustomization
+        );
+    }
+
+    /**
+     * @param int $orderId Order id
+     * @param int $productId Product id
+     * @param int $combinationId Combination (Product attribute) id
+     * @param bool $withTaxes With or without taxes
+     * @param bool $useReduction With or without reduction
+     * @param bool $withEcoTax With or without ecto tax
+     *
+     * @return float|null
+     *
+     * @throws PrestaShopDatabaseException
+     */
+    public function getOrderPrice(
+        int $orderId,
+        int $productId,
+        int $combinationId,
+        bool $withTaxes,
+        bool $useReduction,
+        bool $withEcoTax,
+        int $customizationId = 0
+    ): ?float {
+        return Product::getPriceFromOrder(
+            $orderId,
+            $productId,
+            $combinationId,
+            $withTaxes,
+            $useReduction,
+            $withEcoTax,
+            $customizationId
         );
     }
 }

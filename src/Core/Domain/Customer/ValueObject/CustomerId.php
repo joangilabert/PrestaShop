@@ -1,37 +1,19 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+declare(strict_types=1);
 
 namespace PrestaShop\PrestaShop\Core\Domain\Customer\ValueObject;
 
-use PrestaShop\PrestaShop\Core\Domain\Customer\Exception\InvalidCustomerIdException;
+use PrestaShop\PrestaShop\Core\Domain\Customer\Exception\CustomerConstraintException;
 
 /**
- * Class CustomerId.
+ * Defines Customer ID with it's constraints
  */
-class CustomerId
+class CustomerId implements CustomerIdInterface
 {
     /**
      * @var int
@@ -41,15 +23,16 @@ class CustomerId
     /**
      * @param int $customerId
      */
-    public function __construct($customerId)
+    public function __construct(int $customerId)
     {
-        $this->setCustomerId($customerId);
+        $this->assertIntegerIsGreaterThanZero($customerId);
+        $this->customerId = $customerId;
     }
 
     /**
      * @return int
      */
-    public function getValue()
+    public function getValue(): int
     {
         return $this->customerId;
     }
@@ -57,15 +40,13 @@ class CustomerId
     /**
      * @param int $customerId
      */
-    private function setCustomerId($customerId)
+    private function assertIntegerIsGreaterThanZero(int $customerId): void
     {
-        if (!is_int($customerId) || 0 > $customerId) {
-            throw new InvalidCustomerIdException(sprintf(
-                'Invalid Customer id value %s supplied. Customer id should be positive integer.',
-                var_export($customerId, true)
-            ));
+        if (0 >= $customerId) {
+            throw new CustomerConstraintException(
+                sprintf('Customer id %s is invalid.', $customerId),
+                CustomerConstraintException::INVALID_ID
+            );
         }
-
-        $this->customerId = $customerId;
     }
 }

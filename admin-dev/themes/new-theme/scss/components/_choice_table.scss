@@ -1,5 +1,24 @@
+/**
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
+ */
 .choice-table {
   max-height: 300px;
   overflow-y: auto;
 }
 
+.choice-table-headers-fixed {
+  table {
+    tbody {
+      display: block;
+      @extend .choice-table;
+    }
+
+    thead,
+    tbody tr {
+      display: table;
+      width: 100%;
+      table-layout: fixed;
+    }
+  }
+}

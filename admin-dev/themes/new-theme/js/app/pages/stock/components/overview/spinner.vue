@@ -1,26 +1,6 @@
-<!--**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+<!--*
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *-->
 <template>
   <form
@@ -36,39 +16,45 @@
       placeholder="0"
       pattern="\d*"
       step="1"
-      buttons="true"
-      hoverButtons="true"
-      :value="qty"
-      @change="onChange"
+      :buttons="true"
+      :hover-buttons="true"
+      :value="getQuantity()"
+      @change="onChange($event)"
       @keyup="onKeyup($event)"
+      @keydown="onKeydown($event)"
       @focus="focusIn"
       @blur="focusOut($event)"
     />
     <transition name="fade">
-      <button v-if="isActive" class="check-button"><i class="material-icons">check</i></button>
+      <button
+        v-if="isActive"
+        class="check-button"
+      >
+        <i class="material-icons">check</i>
+      </button>
     </transition>
   </form>
 </template>
 
-<script>
-  import PSNumber from 'app/widgets/ps-number';
+<script lang="ts">
+  import PSNumber from '@app/widgets/ps-number.vue';
+  import isNumber from 'lodash/isNumber';
+  import {defineComponent} from 'vue';
 
-  const $ = global.$;
+  const {$} = window;
 
-  export default {
-    props: ['product'],
-    computed: {
-      qty() {
-        if (!this.product.qty) {
-          this.isEnabled = false;
-          this.value = '';
-        }
-        return this.product.qty;
+  export default defineComponent({
+    props: {
+      product: {
+        type: Object,
+        required: true,
       },
-      id() {
+    },
+    computed: {
+      id(): string {
         return `qty-${this.product.product_id}-${this.product.combination_id}`;
       },
-      classObject() {
+      classObject(): {active: boolean, disabled: boolean} {
         return {
           active: this.isActive,
           disabled: !this.isEnabled,
@@ -76,39 +62,62 @@
       },
     },
     methods: {
-      onChange(val) {
-        this.value = val;
-        this.isEnabled = !!val;
+      getQuantity(): number | string {
+        if (!this.product.qty) {
+          this.isEnabled = false;
+          this.value = '';
+        }
+        return <string> this.value === '' ? '' : Number.parseInt(<string> this.value, 10);
       },
-      deActivate() {
+      onChange(event: Event): void {
+        this.value = parseInt((<HTMLInputElement>event.target).value, 10);
+        this.isEnabled = !!parseInt((<HTMLInputElement>event.target).value, 10);
+      },
+      deActivate(): void {
         this.isActive = false;
         this.isEnabled = false;
-        this.value = null;
+        this.value = '';
         this.product.qty = null;
       },
-      onKeyup(event) {
-        const val = event.target.value;
-        if (val === 0) {
+      // @see Preventing decimal numbers inside input: https://github.com/PrestaShop/PrestaShop/pull/28510
+      onKeydown(event: KeyboardEvent): void {
+        if (event.key === '.' || event.key === ',') {
+          event.preventDefault();
+        }
+      },
+      onKeyup(event: Event): void {
+        const val = (<HTMLInputElement>event.target).value;
+
+        if (parseInt(val, 10) === 0) {
           this.deActivate();
         } else {
           this.isActive = true;
           this.isEnabled = true;
-          this.value = val;
+          this.value = parseInt(val, 10);
         }
       },
-      focusIn() {
+      focusIn(): void {
         this.isActive = true;
       },
-      focusOut(event) {
-        const value = parseInt(this.value, 10);
-        if (!$(event.target).hasClass('ps-number') && (isNaN(value) || value === 0)) {
+      focusOut(event: Event): void {
+        const value = isNumber(this.value) ? Math.round(this.value) : 0;
+
+        if (
+          !$(<HTMLElement>event.target).hasClass('ps-number')
+          && (Number.isNaN(value) || value === 0)
+        ) {
           this.isActive = false;
         }
         this.isEnabled = !!this.value;
       },
-      sendQty() {
+      sendQty(): void {
         const postUrl = this.product.edit_url;
-        if (parseInt(this.product.qty, 10) !== 0 && !isNaN(parseInt(this.value, 10))) {
+
+        if (
+          this.value !== ''
+          && parseInt(this.product.qty, 10) !== 0
+          && !Number.isNaN(Math.round(<number> this.value))
+        ) {
           this.$store.dispatch('updateQtyByProductId', {
             url: postUrl,
             delta: this.value,
@@ -118,34 +127,39 @@
       },
     },
     watch: {
-      value(val) {
-        this.$emit('updateProductQty', {
-          product: this.product,
-          delta: val,
-        });
+      value(val: number): void {
+        if (isNumber(val)) {
+          this.$emit('updateProductQty', {
+            product: this.product,
+            delta: val,
+          });
+        }
       },
     },
     components: {
       PSNumber,
     },
-    data: () => ({
-      value: null,
-      isActive: false,
-      isEnabled: false,
-    }),
-  };
+    data() {
+      return {
+        value: '' as string | number,
+        isActive: false,
+        isEnabled: false,
+      };
+    },
+  });
 </script>
 
-<style lang="sass" type="text/scss" scoped>
+<style lang="scss" type="text/scss" scoped>
   @import "~jquery-ui-dist/jquery-ui.css";
-  *{
+  * {
     outline: none;
   }
-  .fade-enter-active, .fade-leave-active {
+  .fade-enter-active,
+  .fade-leave-active {
     transition: opacity 0.2s ease;
   }
-  .fade-enter, .fade-leave-to {
-    opacity: 0
+  .fade-enter,
+  .fade-leave-to {
+    opacity: 0;
   }
-
 </style>

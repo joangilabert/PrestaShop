@@ -1,29 +1,10 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
-use Symfony\Component\Translation\TranslatorInterface;
+use PrestaShop\PrestaShop\Core\Util\InternationalizedDomainNameConverter;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class CustomerLoginFormCore extends AbstractForm
 {
@@ -31,6 +12,11 @@ class CustomerLoginFormCore extends AbstractForm
     private $urls;
 
     protected $template = 'customer/_partials/login-form.tpl';
+
+    /**
+     * @var InternationalizedDomainNameConverter
+     */
+    private $IDNConverter;
 
     public function __construct(
         Smarty $smarty,
@@ -52,6 +38,7 @@ class CustomerLoginFormCore extends AbstractForm
         $this->constraintTranslator = new ValidateConstraintTranslator(
             $this->translator
         );
+        $this->IDNConverter = new InternationalizedDomainNameConverter();
     }
 
     public function submit()
@@ -81,6 +68,25 @@ class CustomerLoginFormCore extends AbstractForm
         }
 
         return !$this->hasErrors();
+    }
+
+    public function fillWith(array $params = [])
+    {
+        if (!empty($params['email'])) {
+            if (!is_string($params['email'])) {
+                $params['email'] = '';
+            } else {
+                // In some cases, browsers convert non ASCII chars (from input type="email") to "punycode",
+                // we need to convert it back
+                $params['email'] = $this->IDNConverter->emailToUtf8($params['email']);
+            }
+        }
+
+        if (isset($params['password']) && !is_string($params['password'])) {
+            $params['password'] = '';
+        }
+
+        return parent::fillWith($params);
     }
 
     public function getTemplateVariables()

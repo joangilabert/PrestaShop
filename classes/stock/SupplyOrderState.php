@@ -1,31 +1,11 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 /**
- * @since 1.5.0
+ * @deprecated since 9.0 and will be removed in 10.0
  */
 class SupplyOrderStateCore extends ObjectModel
 {
@@ -67,30 +47,30 @@ class SupplyOrderStateCore extends ObjectModel
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'supply_order_state',
         'primary' => 'id_supply_order_state',
         'multilang' => true,
-        'fields' => array(
-            'delivery_note' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'editable' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'receipt_state' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'pending_receipt' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'enclosed' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'color' => array('type' => self::TYPE_STRING, 'validate' => 'isColor'),
-            'name' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 128),
-        ),
-    );
+        'fields' => [
+            'delivery_note' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'editable' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'receipt_state' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'pending_receipt' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'enclosed' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'color' => ['type' => self::TYPE_STRING, 'validate' => 'isColor'],
+            'name' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 128],
+        ],
+    ];
 
     /**
      * @see ObjectModel::$webserviceParameters
      */
-    protected $webserviceParameters = array(
+    protected $webserviceParameters = [
         'objectsNodeName' => 'supply_order_states',
         'objectNodeName' => 'supply_order_state',
-        'fields' => array(
-        ),
-    );
+        'fields' => [
+        ],
+    ];
 
     /**
      * Gets the list of supply order statuses.
@@ -111,13 +91,13 @@ class SupplyOrderStateCore extends ObjectModel
         $query->from('supply_order_state', 's');
         $query->leftjoin('supply_order_state_lang', 'sl', 's.id_supply_order_state = sl.id_supply_order_state AND sl.id_lang=' . (int) $id_lang);
 
-        if (!is_null($id_state_referrer)) {
+        if (null !== $id_state_referrer) {
             $is_receipt_state = false;
             $is_editable = false;
             $is_delivery_note = false;
             $is_pending_receipt = false;
 
-            //check current state to see what state is available
+            // check current state to see what state is available
             $state = new SupplyOrderState((int) $id_state_referrer);
             if (Validate::isLoadedObject($state)) {
                 $is_receipt_state = $state->receipt_state;
@@ -128,14 +108,14 @@ class SupplyOrderStateCore extends ObjectModel
 
             $query->where('s.id_supply_order_state <> ' . (int) $id_state_referrer);
 
-            //check first if the order is editable
+            // check first if the order is editable
             if ($is_editable) {
                 $query->where('s.editable = 1 OR s.delivery_note = 1 OR s.enclosed = 1');
             } elseif ($is_delivery_note || $is_pending_receipt) {
-                //check if the delivery note is available or if the state correspond to a pending receipt state
+                // check if the delivery note is available or if the state correspond to a pending receipt state
                 $query->where('(s.delivery_note = 0 AND s.editable = 0) OR s.enclosed = 1');
             } elseif ($is_receipt_state) {
-                //check if the state correspond to a receipt state
+                // check if the state correspond to a receipt state
                 $query->where('s.receipt_state = 1');
             }
         }
@@ -146,7 +126,7 @@ class SupplyOrderStateCore extends ObjectModel
     /**
      * Gets the list of supply order statuses.
      *
-     * @param array $ids Optional Do not include these ids in the result
+     * @param array|null $ids Optional Do not include these ids in the result
      * @param int $id_lang Optional
      *
      * @return array
@@ -157,8 +137,8 @@ class SupplyOrderStateCore extends ObjectModel
             $id_lang = Context::getContext()->language->id;
         }
 
-        if ($ids && !is_array($ids)) {
-            $ids = array();
+        if (!is_array($ids)) {
+            $ids = [];
         }
 
         $query = new DbQuery();

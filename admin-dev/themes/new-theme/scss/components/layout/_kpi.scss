@@ -1,78 +1,149 @@
-.kpi-container {
+/**
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
+ */
+.kpi-row {
   position: relative;
+  display: flex;
+  align-items: stretch;
   text-decoration: none;
-  background: $gray-soft;
-  padding-top: .9375rem;
-  padding-bottom: .9375rem;
-  text-align: center;
-  display: block;
 
-  &:hover {
-    text-decoration: none;
+  @include media-breakpoint-up(xl) {
+    padding: var(--#{$cdk}size-16) var(--#{$cdk}size-60);
+    margin: 0 auto;
+    text-align: center;
+
+    .box-stats {
+      margin: 0 auto;
+    }
+  }
+
+  @include media-breakpoint-down(lg) {
+    overflow-x: auto;
+
+    .box-stats {
+      width: max-content;
+      min-width: var(--#{$cdk}size-208);
+      padding: var(--#{$cdk}size-16);
+      margin-right: var(--#{$cdk}size-16);
+      text-decoration: none;
+      background-color: var(--#{$cdk}white);
+      border: $card-border-width solid var(--#{$cdk}primary-400);
+    }
+
+    .box-stats:last-child {
+      margin-right: var(--#{$cdk}size-72);
+    }
+
+    &:hover {
+      text-decoration: none;
+    }
+
+    .kpi-content {
+      padding-left: var(--#{$cdk}size-36);
+
+      .title {
+        font-size: var(--#{$cdk}size-14);
+      }
+
+      .kpi-description {
+        .value {
+          font-size: var(--#{$cdk}size-14);
+        }
+      }
+    }
   }
 }
 
 .kpi-refresh {
   position: absolute;
-  z-index: 1;
   top: 0;
   right: 0;
+  z-index: 1;
 }
+
 
 .kpi-content {
   position: relative;
+  padding-left: var(--#{$cdk}size-40);
   text-align: left;
-  padding-left: 40px;
 
   > .material-icons {
     position: absolute;
     top: 0;
     left: 0;
-    font-size: 2.25rem;
-    color: $primary;
+    font-size: var(--#{$cdk}size-36);
+    color: var(--#{$cdk}primary-800);
   }
 
   &.-color2 {
-    > .value,
+    .value,
     > .material-icons {
       color: $danger;
     }
   }
 
   &.-color3 {
-    > .value,
+    .value,
     > .material-icons {
       color: $success;
     }
   }
 
-  > .title,
-  > .subtitle,
-  > .value {
-    font-size: 0.75rem;
-    padding-left: .125rem;
-    color: $gray-dark;
+  &.-color4 {
+    .value,
+    > .material-icons {
+      color: var(--#{$cdk}purple-700);
+    }
   }
-  
-  > .title {
+
+  .title,
+  .subtitle,
+  .value {
+    padding-left: var(--#{$cdk}size-2);
+    font-size: var(--#{$cdk}size-12);
+    color: var(--#{$cdk}primary-800);
+  }
+
+  .title {
     display: inline-block;
   }
-  
-  > .subtitle {
+
+  .subtitle {
+    display: block;
+    color: var(--#{$cdk}primary-500);
     text-transform: uppercase;
-    color: $gray-medium;
-    display: block;
   }
-  > .value {
-    font-size: 1.25rem;
-    color: $primary;
+
+  .value {
     display: block;
+    font-size: var(--#{$cdk}size-20);
+    color: var(--#{$cdk}primary-800);
   }
 }
 
-.container-fluid {
-  > .kpi-container {
-    padding-left: 1rem;
-    padding-right: 1rem;
+// specific design for orders page. If design tends to repeat use this for all kpi's in all pages
+.adminorders {
+  .kpi-content {
+    .kpi-description {
+      display: flex;
+      flex-direction: row-reverse;
+      align-items: center;
+      justify-content: flex-end;
+
+      .value {
+        padding-right: var(--#{$cdk}size-8);
+        color: var(--#{$cdk}primary-800);
+      }
+    }
+  }
+}
+
+// Remove backgrounds from card below SM breakpoint
+.card-kpis {
+  @include media-breakpoint-down(lg) {
+    background-color: inherit;
+    border: none;
+    box-shadow: inherit;
   }
 }

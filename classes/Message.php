@@ -1,28 +1,10 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShopBundle\Form\Admin\Type\FormattedTextareaType;
 
 /**
  * Class MessageCore.
@@ -55,36 +37,36 @@ class MessageCore extends ObjectModel
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'message',
         'primary' => 'id_message',
-        'fields' => array(
-            'message' => array('type' => self::TYPE_STRING, 'validate' => 'isCleanHtml', 'required' => true, 'size' => 1600),
-            'id_cart' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'id_order' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'id_customer' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'id_employee' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'private' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'date_add' => array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
-        ),
-    );
+        'fields' => [
+            'message' => ['type' => self::TYPE_STRING, 'validate' => 'isCleanHtml', 'required' => true, 'size' => FormattedTextareaType::LIMIT_MEDIUMTEXT_UTF8_MB4],
+            'id_cart' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'id_order' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'id_customer' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'id_employee' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'private' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'date_add' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+        ],
+    ];
 
-    protected $webserviceParameters = array(
-        'fields' => array(
-            'id_cart' => array(
+    protected $webserviceParameters = [
+        'fields' => [
+            'id_cart' => [
                 'xlink_resource' => 'carts',
-            ),
-            'id_order' => array(
+            ],
+            'id_order' => [
                 'xlink_resource' => 'orders',
-            ),
-            'id_customer' => array(
+            ],
+            'id_customer' => [
                 'xlink_resource' => 'customers',
-            ),
-            'id_employee' => array(
+            ],
+            'id_employee' => [
                 'xlink_resource' => 'employees',
-            ),
-        ),
-    );
+            ],
+        ],
+    ];
 
     /**
      * Return the last message from cart.
@@ -111,12 +93,8 @@ class MessageCore extends ObjectModel
      *
      * @return array Messages
      */
-    public static function getMessagesByOrderId($idOrder, $private = false, Context $context = null)
+    public static function getMessagesByOrderId($idOrder, bool $private = false, ?Context $context = null)
     {
-        if (!Validate::isBool($private)) {
-            die(Tools::displayError());
-        }
-
         if (!$context) {
             $context = Context::getContext();
         }
@@ -140,17 +118,14 @@ class MessageCore extends ObjectModel
     /**
      * Return messages from Cart ID.
      *
-     * @param int $id_order Order ID
+     * @param int $idCart Cart ID
      * @param bool $private return WITH private messages
+     * @param Context|null $context
      *
      * @return array Messages
      */
-    public static function getMessagesByCartId($idCart, $private = false, Context $context = null)
+    public static function getMessagesByCartId($idCart, bool $private = false, ?Context $context = null)
     {
-        if (!Validate::isBool($private)) {
-            die(Tools::displayError());
-        }
-
         if (!$context) {
             $context = Context::getContext();
         }
@@ -173,14 +148,17 @@ class MessageCore extends ObjectModel
      * Registered a message 'readed'.
      *
      * @param int $idMessage Message ID
-     * @param int $id_emplyee Employee ID
+     * @param int $idEmployee Employee ID
      *
      * @return bool
      */
     public static function markAsReaded($idMessage, $idEmployee)
     {
-        if (!Validate::isUnsignedId($idMessage) || !Validate::isUnsignedId($idEmployee)) {
-            die(Tools::displayError());
+        if (!Validate::isUnsignedId($idMessage)) {
+            throw new PrestaShopException('Message ID is invalid.');
+        }
+        if (!Validate::isUnsignedId($idEmployee)) {
+            throw new PrestaShopException('Employee ID is invalid.');
         }
 
         $result = Db::getInstance()->execute('

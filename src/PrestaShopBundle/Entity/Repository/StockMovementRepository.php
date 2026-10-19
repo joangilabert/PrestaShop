@@ -1,32 +1,12 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Entity\Repository;
 
-use Doctrine\DBAL\Driver\Connection;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManager;
 use PDO;
 use PrestaShop\PrestaShop\Adapter\ImageManager;
@@ -37,6 +17,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class StockMovementRepository extends StockManagementRepository
 {
     /**
+     * @var string
+     */
+    protected $dateFormatFull;
+
+    /**
      * StockMovementRepository constructor.
      *
      * @param ContainerInterface $container
@@ -44,7 +29,8 @@ class StockMovementRepository extends StockManagementRepository
      * @param EntityManager $entityManager
      * @param ContextAdapter $contextAdapter
      * @param ImageManager $imageManager
-     * @param $tablePrefix
+     * @param string $tablePrefix
+     * @param string $dateFormatFull
      */
     public function __construct(
         ContainerInterface $container,
@@ -52,7 +38,8 @@ class StockMovementRepository extends StockManagementRepository
         EntityManager $entityManager,
         ContextAdapter $contextAdapter,
         ImageManager $imageManager,
-        $tablePrefix
+        $tablePrefix,
+        string $dateFormatFull
     ) {
         parent::__construct(
             $container,
@@ -62,6 +49,8 @@ class StockMovementRepository extends StockManagementRepository
             $imageManager,
             $tablePrefix
         );
+
+        $this->dateFormatFull = $dateFormatFull;
     }
 
     /**
@@ -76,27 +65,30 @@ class StockMovementRepository extends StockManagementRepository
         $having = '',
         $orderByClause = null
     ) {
-        if (is_null($orderByClause)) {
+        if (null === $orderByClause) {
             $orderByClause = $this->orderByMovementsIds();
         }
 
         $combinationNameQuery = $this->getCombinationNameSubquery();
+        $attributeNameQuery = $this->getAttributeNameSubquery();
 
         return str_replace(
-            array(
+            [
                 '{and_where}',
                 '{having}',
                 '{order_by}',
                 '{table_prefix}',
                 '{combination_name}',
-            ),
-            array(
+                '{attribute_name}',
+            ],
+            [
                 $andWhereClause,
                 $having,
                 $orderByClause,
                 $this->tablePrefix,
                 $combinationNameQuery,
-            ),
+                $attributeNameQuery,
+            ],
             'SELECT SQL_CALC_FOUND_ROWS
               sm.id_stock_mvt,
               sm.id_stock,
@@ -117,10 +109,19 @@ class StockMovementRepository extends StockManagementRepository
                   CONCAT(p.reference, " ", pa.reference)
               )                                           AS product_reference,
               pl.name                                     AS product_name,
+              p.ean13                                     AS product_ean13,
+              p.isbn                                      AS product_isbn,
+              p.upc                                       AS product_upc,
+              p.mpn                                       AS product_mpn,
+              pa.ean13                                    AS combination_ean13,
+              pa.isbn                                     AS combination_isbn,
+              pa.upc                                      AS combination_upc,
+              pa.mpn                                      AS combination_mpn,
               p.id_supplier                               AS supplier_id,
               COALESCE(s.name, "N/A")                     AS supplier_name,
               COALESCE(ic.id_image, 0)                    AS product_cover_id,
-              {combination_name}
+              {combination_name},
+              {attribute_name}
            FROM {table_prefix}stock_mvt sm
             INNER JOIN {table_prefix}stock_mvt_reason_lang smrl ON (
               smrl.id_stock_mvt_reason = sm.id_stock_mvt_reason
@@ -182,9 +183,9 @@ class StockMovementRepository extends StockManagementRepository
      */
     protected function addAdditionalData(array $rows)
     {
-        $rows = $this->addCombinationsAndFeatures($rows);
-        $rows = $this->addImageThumbnailPaths($rows);
+        $rows = parent::addAdditionalData($rows);
         $rows = $this->addOrderLink($rows);
+        $rows = $this->addFormattedDate($rows);
 
         return $rows;
     }
@@ -198,11 +199,11 @@ class StockMovementRepository extends StockManagementRepository
     {
         foreach ($rows as &$row) {
             if ($row['id_order']) {
-                $row['order_link'] = $this->contextAdapter->getContext()->link->getAdminLink(
+                $row['order_link'] = $this->getCurrentContext()->link->getAdminLink(
                     'AdminOrders',
                     true,
-                    array(),
-                    array('vieworder' => true, 'id_order' => (int) $row['id_order'])
+                    [],
+                    ['vieworder' => true, 'id_order' => (int) $row['id_order']]
                 );
             } else {
                 $row['order_link'] = 'N/A';
@@ -231,11 +232,11 @@ class StockMovementRepository extends StockManagementRepository
         );
 
         $statement = $this->connection->prepare($query);
-        $statement->bindValue('shop_id', $this->shopId, PDO::PARAM_INT);
-        $statement->execute();
+        $statement->bindValue('shop_id', $this->getContextualShopId(), PDO::PARAM_INT);
+        $result = $statement->executeQuery();
 
-        $rows = $statement->fetchAll();
-        $statement->closeCursor();
+        $rows = $result->fetchAllAssociative();
+        $result->free();
         $employees = $this->castNumericToInt($rows);
 
         return $employees;
@@ -274,12 +275,12 @@ class StockMovementRepository extends StockManagementRepository
         );
 
         $statement = $this->connection->prepare($query);
-        $statement->bindValue('language_id', $this->languageId, PDO::PARAM_INT);
-        $statement->bindValue('shop_id', $this->shopId, PDO::PARAM_INT);
-        $statement->execute();
+        $statement->bindValue('language_id', $this->getCurrentLanguageId(), PDO::PARAM_INT);
+        $statement->bindValue('shop_id', $this->getContextualShopId(), PDO::PARAM_INT);
+        $result = $statement->executeQuery();
 
-        $rows = $statement->fetchAll();
-        $statement->closeCursor();
+        $rows = $result->fetchAllAssociative();
+        $result->free();
 
         if ($grouped) {
             $types = $this->castIdsToArray($rows);
@@ -301,5 +302,17 @@ class StockMovementRepository extends StockManagementRepository
         $this->em->flush();
 
         return $stockMvt->getIdStockMvt();
+    }
+
+    protected function addFormattedDate(array $rows): array
+    {
+        foreach ($rows as &$row) {
+            $row['date_add_formatted'] = date(
+                $this->dateFormatFull,
+                strtotime($row['date_add'])
+            );
+        }
+
+        return $rows;
     }
 }

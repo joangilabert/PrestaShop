@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter\Hosting;
@@ -39,7 +19,7 @@ class HostingInformation
      */
     public function getDatabaseInformation()
     {
-        return array(
+        return [
             'version' => Db::getInstance()->getVersion(),
             'server' => _DB_SERVER_,
             'name' => _DB_NAME_,
@@ -47,7 +27,7 @@ class HostingInformation
             'prefix' => _DB_PREFIX_,
             'engine' => _MYSQL_ENGINE_,
             'driver' => Db::getClass(),
-        );
+        ];
     }
 
     /**
@@ -66,12 +46,12 @@ class HostingInformation
      */
     private function getPhpInformation()
     {
-        return array(
+        return [
             'version' => PHP_VERSION,
             'memoryLimit' => ini_get('memory_limit'),
             'maxExecutionTime' => ini_get('max_execution_time'),
             'maxFileSizeUpload' => ini_get('upload_max_filesize'),
-        );
+        ];
     }
 
     /**
@@ -91,12 +71,10 @@ class HostingInformation
     }
 
     /**
-     * Check if the shop is hosted on PrestaCloud.
-     *
-     * @return bool
+     * @return string
      */
-    public function isHostMode()
+    public function getHostname(): string
     {
-        return defined('_PS_HOST_MODE_');
+        return gethostname();
     }
 }

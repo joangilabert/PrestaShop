@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Module;
@@ -60,16 +40,31 @@ class HookRepository
         return (int) $id_hook;
     }
 
+    /**
+     * Creates a new hook if not already existing and returns the hook id.
+     *
+     * @param string $hook_name The name of the hook
+     * @param string $title The title for the hook
+     * @param string $description The description for the hook
+     * @param int $position if the modules in the hook can be positioned
+     *
+     * @return int Hook ID
+     */
     public function createHook($hook_name, $title = '', $description = '', $position = 1)
     {
+        $id_hook = $this->getIdByName($hook_name);
+        if ($id_hook > 0) {
+            return $id_hook;
+        }
+
         $this->db->insert('hook', [
             'name' => $this->db->escape($hook_name),
             'title' => $this->db->escape($title),
             'description' => $this->db->escape($description),
             'position' => $this->db->escape($position),
-        ], false, true, Db::REPLACE);
+        ], false, true, Db::INSERT);
 
-        return $this->getIdByName($hook_name);
+        return $this->db->Insert_ID();
     }
 
     private function getIdModule($module_name)
@@ -94,6 +89,32 @@ class HookRepository
 
         $this->db->execute("DELETE FROM {$this->db_prefix}hook_module_exceptions
             WHERE id_hook = $id_hook AND id_shop = $id_shop
+        ");
+
+        return $this;
+    }
+
+    public function unHookSpecificModuleFromHook(string $hookName, string $moduleName): self
+    {
+        $hookId = $this->getIdByName($hookName);
+        if (!$hookId) {
+            return $this;
+        }
+        $moduleId = $this->getIdModule($moduleName);
+        if (!$moduleId) {
+            return $this;
+        }
+        $shopId = (int) $this->shop->id;
+        if (!$shopId) {
+            return $this;
+        }
+
+        $this->db->execute("DELETE FROM {$this->db_prefix}hook_module
+             WHERE id_hook = $hookId AND id_shop = $shopId AND id_module = $moduleId
+        ");
+
+        $this->db->execute("DELETE FROM {$this->db_prefix}hook_module_exceptions
+            WHERE id_hook = $hookId AND id_shop = $shopId AND id_module = $moduleId
         ");
 
         return $this;
@@ -126,15 +147,13 @@ class HookRepository
                 $id_hook = $this->createHook($hook_name);
             }
             if (!$id_hook) {
-                throw new Exception(
-                    sprintf('Could not create hook `%1$s`.', $hook_name)
-                );
+                throw new Exception(sprintf('Could not create hook `%1$s`.', $hook_name));
             }
 
             $this->unHookModulesFromHook($hook_name);
 
             $position = 0;
-            foreach ($module_names as $key => $module) {
+            foreach ($module_names as $module) {
                 if (is_array($module)) {
                     $module_name = key($module);
                     $extra_data = current($module);
@@ -164,6 +183,27 @@ class HookRepository
                         $id_hook,
                         $extra_data['except_pages']
                     );
+                }
+            }
+        }
+
+        return $this;
+    }
+
+    public function unHookModules(array $modulesToUnhook): self
+    {
+        foreach ($modulesToUnhook as $hookName => $moduleNames) {
+            $hookId = $this->getIdByName($hookName);
+            if (!$hookId) {
+                continue;
+            }
+
+            foreach ($moduleNames as $moduleName) {
+                // Null matches all hooked modules, so we remove all modules for this hook
+                if (null === $moduleName) {
+                    $this->unHookModulesFromHook($hookName);
+                } elseif (is_string($moduleName)) {
+                    $this->unHookSpecificModuleFromHook($hookName, $moduleName);
                 }
             }
         }

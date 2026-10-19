@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 use PrestaShop\PrestaShop\Adapter\Product\PriceFormatter;
 
@@ -102,17 +82,17 @@ class CheckoutDeliveryStepCore extends AbstractCheckoutStep
             $priceFormatter = new PriceFormatter();
 
             if ($this->getIncludeTaxes() && $this->getDisplayTaxesLabel()) {
-                $taxLabel .= ' tax incl.';
+                $taxLabel .= $this->getTranslator()->trans('tax incl.', [], 'Shop.Theme.Checkout');
             } elseif ($this->getDisplayTaxesLabel()) {
-                $taxLabel .= ' tax excl.';
+                $taxLabel .= $this->getTranslator()->trans('tax excl.', [], 'Shop.Theme.Checkout');
             }
 
             return $this->getTranslator()->trans(
-                ' (additional cost of %giftcost% %taxlabel%)',
-                array(
+                '(additional cost of %giftcost% %taxlabel%)',
+                [
                     '%giftcost%' => $priceFormatter->convertAndFormat($this->getGiftCost()),
                     '%taxlabel%' => $taxLabel,
-                ),
+                ],
                 'Shop.Theme.Checkout'
             );
         }
@@ -120,18 +100,21 @@ class CheckoutDeliveryStepCore extends AbstractCheckoutStep
         return '';
     }
 
-    public function handleRequest(array $requestParams = array())
+    public function handleRequest(array $requestParams = [])
     {
         if (isset($requestParams['delivery_option'])) {
+            $this->setComplete(false);
             $this->getCheckoutSession()->setDeliveryOption(
                 $requestParams['delivery_option']
             );
             $this->getCheckoutSession()->setRecyclable(
                 isset($requestParams['recyclable']) ? $requestParams['recyclable'] : false
             );
+
+            $useGift = isset($requestParams['gift']) ? $requestParams['gift'] : false;
             $this->getCheckoutSession()->setGift(
-                isset($requestParams['gift']) ? $requestParams['gift'] : false,
-                (isset($requestParams['gift']['gift_message'])) ? $requestParams['gift_message'] : ''
+                $useGift,
+                ($useGift && isset($requestParams['gift_message'])) ? $requestParams['gift_message'] : ''
             );
         }
 
@@ -139,7 +122,7 @@ class CheckoutDeliveryStepCore extends AbstractCheckoutStep
             $this->getCheckoutSession()->setMessage($requestParams['delivery_message']);
         }
 
-        if ($this->step_is_reachable && isset($requestParams['confirmDeliveryOption'])) {
+        if ($this->isReachable() && isset($requestParams['confirmDeliveryOption'])) {
             // we're done if
             // - the step was reached (= all previous steps complete)
             // - user has clicked on "continue"
@@ -147,40 +130,44 @@ class CheckoutDeliveryStepCore extends AbstractCheckoutStep
             // - the is a selected delivery option
             // - the module associated to the delivery option confirms
             $deliveryOptions = $this->getCheckoutSession()->getDeliveryOptions();
-            $this->step_is_complete =
-                !empty($deliveryOptions) && $this->getCheckoutSession()->getSelectedDeliveryOption() && $this->isModuleComplete($requestParams);
+            $this->setNextStepAsCurrent();
+            $this->setComplete(
+                !empty($deliveryOptions)
+                && $this->getCheckoutSession()->getSelectedDeliveryOption()
+                && $this->isModuleComplete($requestParams)
+            );
         }
 
-        $this->setTitle($this->getTranslator()->trans('Shipping Method', array(), 'Shop.Theme.Checkout'));
+        $this->setTitle($this->getTranslator()->trans('Shipping Method', [], 'Shop.Theme.Checkout'));
 
-        Hook::exec('actionCarrierProcess', array('cart' => $this->getCheckoutSession()->getCart()));
+        Hook::exec('actionCarrierProcess', ['cart' => $this->getCheckoutSession()->getCart()]);
     }
 
-    public function render(array $extraParams = array())
+    public function render(array $extraParams = [])
     {
         return $this->renderTemplate(
             $this->getTemplate(),
             $extraParams,
-            array(
-                'hookDisplayBeforeCarrier' => Hook::exec('displayBeforeCarrier', array('cart' => $this->getCheckoutSession()->getCart())),
-                'hookDisplayAfterCarrier' => Hook::exec('displayAfterCarrier', array('cart' => $this->getCheckoutSession()->getCart())),
+            [
+                'hookDisplayBeforeCarrier' => Hook::exec('displayBeforeCarrier', ['cart' => $this->getCheckoutSession()->getCart()]),
+                'hookDisplayAfterCarrier' => Hook::exec('displayAfterCarrier', ['cart' => $this->getCheckoutSession()->getCart()]),
                 'id_address' => $this->getCheckoutSession()->getIdAddressDelivery(),
                 'delivery_options' => $this->getCheckoutSession()->getDeliveryOptions(),
                 'delivery_option' => $this->getCheckoutSession()->getSelectedDeliveryOption(),
                 'recyclable' => $this->getCheckoutSession()->isRecyclable(),
                 'recyclablePackAllowed' => $this->isRecyclablePackAllowed(),
                 'delivery_message' => $this->getCheckoutSession()->getMessage(),
-                'gift' => array(
+                'gift' => [
                     'allowed' => $this->isGiftAllowed(),
                     'isGift' => $this->getCheckoutSession()->getGift()['isGift'],
                     'label' => $this->getTranslator()->trans(
                         'I would like my order to be gift wrapped %cost%',
-                        array('%cost%' => $this->getGiftCostForLabel()),
+                        ['%cost%' => $this->getGiftCostForLabel()],
                         'Shop.Theme.Checkout'
                     ),
                     'message' => $this->getCheckoutSession()->getGift()['message'],
-                ),
-            )
+                ],
+            ]
         );
     }
 
@@ -193,13 +180,14 @@ class CheckoutDeliveryStepCore extends AbstractCheckoutStep
         }
 
         $isComplete = true;
+        // Hook called only for the module concerned
         Hook::exec(
             'actionValidateStepComplete',
-            array(
+            [
                 'step_name' => 'delivery',
                 'request_params' => $requestParams,
                 'completed' => &$isComplete,
-            ),
+            ],
             Module::getModuleIdByName($currentDeliveryOption['external_module_name'])
         );
 

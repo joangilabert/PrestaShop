@@ -1,10 +1,11 @@
 /**
- * 2007-2018 PrestaShop
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
  *
  * NOTICE OF LICENSE
  *
  * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * that is bundled with this package in the file LICENSE.md.
  * It is also available through the world-wide-web at this URL:
  * https://opensource.org/licenses/OSL-3.0
  * If you did not receive a copy of the license and are unable to
@@ -15,12 +16,11 @@
  *
  * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
  * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
  *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
  */
 
 $(function(){
@@ -34,20 +34,7 @@ $(function(){
 		var panel_selection_single_selection = panel_selection.find("#modules-position-single-selection");
 		var panel_selection_multiple_selection = panel_selection.find("#modules-position-multiple-selection");
 
-		var panel_selection_original_y = panel_selection.offset().top;
-		var panel_selection_original_y_top_margin = 111;
-
-		panel_selection.css("position", "relative").hide();
-
-		$(window).on("scroll", function (event) {
-			var scroll_top = $(window).scrollTop();
-			panel_selection.css(
-				"top",
-				scroll_top < panel_selection_original_y_top_margin
-					? 0
-					: scroll_top - panel_selection_original_y + panel_selection_original_y_top_margin
-			);
-		});
+		panel_selection.hide();
 
 		var modules_list = $(".modules-position-checkbox");
 
@@ -72,7 +59,7 @@ $(function(){
 			}
 		});
 
-		panel_selection.find("button").click(function () {
+		panel_selection.find("button").on('click', function () {
 			$("button[name='unhookform']").trigger("click");
 		});
 
@@ -88,16 +75,16 @@ $(function(){
 
 		var show_modules = $("#show_modules");
 		show_modules.select2();
-		show_modules.bind("change", function () {
+		show_modules.on("change", function () {
 			modulesPositionFilterHooks();
 		});
 
 		var hook_position = $("#hook_position");
-		hook_position.bind("change", function () {
+		hook_position.on("change", function () {
 			modulesPositionFilterHooks();
 		});
 
-		$('#hook_search').bind('input', function () {
+		$('#hook_search').on('input', function () {
 			modulesPositionFilterHooks();
 		});
 
@@ -161,10 +148,12 @@ $(function(){
 	//
 	// Used for the anchor module page
 	//
-	$("#hook_module_form").find("select[name='id_module']").change(function(){
+	$("#hook_module_form").find("select[name='id_module']").on('change', function(){
 
 		var $this = $(this);
 		var hook_select = $("select[name='id_hook']");
+		var optgroup_unregistered = $('#hooks_unregistered');
+		var optgroup_registered = $('#hooks_registered');
 
 		if ($this.val() != 0)
 		{
@@ -177,7 +166,7 @@ $(function(){
 				dataType: 'json',
 				data: {
 					action: 'getPossibleHookingListForModule',
-					tab: 'AdminModulesPositions',
+					controller: 'AdminModulesPositions',
 					ajax: 1,
 					module_id: $this.val(),
 					token: token
@@ -197,7 +186,9 @@ $(function(){
 							var hook_description = '';
 							if(jsonData[current_hook].description != '')
 								hook_description = ' ('+jsonData[current_hook].description+')';
-							hook_select.append('<option value="'+jsonData[current_hook].id_hook+'">'+jsonData[current_hook].name+hook_description+'</option>');
+							var is_registered = jsonData[current_hook].registered;
+							var optgroup = is_registered ? optgroup_registered : optgroup_unregistered;
+							optgroup.append('<option value="'+jsonData[current_hook].id_hook+'">'+jsonData[current_hook].name+hook_description+'</option>');
 						}
 
 						hook_select.prop('disabled', false);

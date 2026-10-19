@@ -1,8 +1,10 @@
-parameters:
+imports:
+    - { resource: ../common.yml }
 
 services:
     filesystem:
         class: Symfony\Component\Filesystem\Filesystem
+
     finder:
         class: Symfony\Component\Finder\Finder
 
@@ -15,7 +17,7 @@ services:
 
     hook_configurator:
         class: PrestaShop\PrestaShop\Core\Module\HookConfigurator
-        arguments: ["@hook_repository"]
+        arguments: ["@hook_repository", "@logger", "@prestashop.module.manager"]
 
     theme_validator:
         class: PrestaShop\PrestaShop\Core\Addon\Theme\ThemeValidator
@@ -24,5 +26,5 @@ services:
         class: PrestaShop\PrestaShop\Core\Addon\Theme\ThemeManager
         arguments: ["@shop", "@configuration", "@theme_validator", "@employee", "@filesystem", "@finder", "@hook_configurator"]
 
-    hashing:
-        class: PrestaShop\PrestaShop\Core\Crypto\Hashing
+    context.static:
+        class: Context

@@ -1,26 +1,6 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 <div class="form-group">
 	<label class="control-label  col-lg-3">{l s='Free shipping' d='Admin.Shipping.Feature'}</label>
@@ -84,14 +64,14 @@
 			<div class="col-lg-4">
 				<select name="reduction_currency" >
 				{foreach from=$currencies item='currency'}
-					<option value="{$currency.id_currency|intval}" {if $currentTab->getFieldValue($currentObject, 'reduction_currency') == $currency.id_currency || (!$currentTab->getFieldValue($currentObject, 'reduction_currency') && $currency.id_currency == $defaultCurrency)}selected="selected"{/if}>{$currency.iso_code}</option>
+					<option value="{$currency.id_currency|intval}" {if $currentTab->getFieldValue($currentObject, 'reduction_currency') == $currency.id_currency || (!$currentTab->getFieldValue($currentObject, 'reduction_currency') && $currency.id_currency == $defaultCurrency)}selected="selected"{/if}>{$currency.iso_code|escape:'html':'UTF-8'}</option>
 				{/foreach}
 				</select>
 			</div>
 			<div class="col-lg-4">
 				<select name="reduction_tax" >
-					<option value="0" {if $currentTab->getFieldValue($currentObject, 'reduction_tax') == 0}selected="selected"{/if}>{l s='Tax excluded' d='Admin.Global'}</option>
-					<option value="1" {if $currentTab->getFieldValue($currentObject, 'reduction_tax') == 1}selected="selected"{/if}>{l s='Tax included' d='Admin.Global'}</option>
+					<option value="0" {if $currentTab->getFieldValue($currentObject, 'reduction_tax') === '0'}selected="selected"{/if}>{l s='Tax excluded' d='Admin.Global'}</option>
+					<option value="1" {if $currentTab->getFieldValue($currentObject, 'reduction_tax') === '1' || $currentTab->getFieldValue($currentObject, 'reduction_tax') === false}selected="selected"{/if}>{l s='Tax included' d='Admin.Global'}</option>
 				</select>
 			</div>
 		</div>
@@ -121,7 +101,7 @@
 		</p>
 		<p class="radio">
 			<label for="apply_discount_to_selection">
-				<input type="radio" name="apply_discount_to" id="apply_discount_to_selection" value="selection"{if $currentTab->getFieldValue($currentObject, 'reduction_product')|intval == -2} checked="checked"{/if}{if $product_rule_groups|@count == 0}disabled="disabled"{/if} />
+				<input type="radio" name="apply_discount_to" id="apply_discount_to_selection" value="selection"{if $currentTab->getFieldValue($currentObject, 'reduction_product')|intval == -2} checked="checked"{/if}{if $product_rule_groups|@count == 0} disabled="disabled"{/if} />
 				{l s='Selected product(s)' d='Admin.Catalog.Feature'}{if $product_rule_groups|@count == 0}&nbsp;<span id="apply_discount_to_selection_warning" class="text-muted clearfix"><i class="icon-warning-sign"></i> <a href="#" id="apply_discount_to_selection_shortcut">{l s='You must select some products before' d='Admin.Catalog.Notification'}</a></span>{/if}
 			</label>
 		</p>
@@ -142,7 +122,7 @@
 <div id="apply_discount_to_product_special" class="form-group">
  	<label class="control-label col-lg-3">
     <span class="label-tooltip" data-toggle="tooltip"
-        title="{l s='If enabled, the voucher will not apply to products already on sale.'}">
+        title="{l|escape s='If enabled, the voucher will not apply to products already on sale.'}">
     {l s='Exclude discounted products' d='Admin.Catalog.Feature'}
     </span>
   </label>

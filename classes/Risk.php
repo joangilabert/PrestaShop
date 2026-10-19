@@ -1,33 +1,11 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 /**
  * Class RiskCore.
- *
- * @since 1.5.0
  */
 class RiskCore extends ObjectModel
 {
@@ -37,16 +15,16 @@ class RiskCore extends ObjectModel
     public $color;
     public $percent;
 
-    public static $definition = array(
+    public static $definition = [
         'table' => 'risk',
         'primary' => 'id_risk',
         'multilang' => true,
-        'fields' => array(
-            'name' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isString', 'required' => true, 'size' => 20),
-            'color' => array('type' => self::TYPE_STRING, 'validate' => 'isColor', 'size' => 32),
-            'percent' => array('type' => self::TYPE_INT, 'validate' => 'isPercentage'),
-        ),
-    );
+        'fields' => [
+            'name' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isString', 'required' => true, 'size' => 20],
+            'color' => ['type' => self::TYPE_STRING, 'validate' => 'isColor', 'size' => 32],
+            'percent' => ['type' => self::TYPE_INT, 'validate' => 'isPercentage'],
+        ],
+    ];
 
     /**
      * Get fields.
@@ -72,7 +50,7 @@ class RiskCore extends ObjectModel
      */
     public static function getRisks($idLang = null)
     {
-        if (is_null($idLang)) {
+        if (null === $idLang) {
             $idLang = Context::getContext()->language->id;
         }
 

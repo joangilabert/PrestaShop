@@ -1,0 +1,16 @@
+/**
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
+ */
+/* stylelint-disable */
+// Config
+@import "@scss/config/_settings";
+@import "@scss/config/_keyframes";
+@import "@scss/config/_bootstrap";
+/* stylelint-enable */
+
+// Page specific
+@import "orders_main";
+@import "orders_view";
+@import "orders_create";
+@import "orders_shipment";

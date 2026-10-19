@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 /**
@@ -67,8 +47,7 @@ class ProductSaleCore
      * @param int $pageNumber Start from (optional)
      * @param int $nbProducts Number of products to return (optional)
      *
-     * @return array|bool from Product::getProductProperties
-     *                    `false` if failure
+     * @return array|bool
      */
     public static function getBestSales($idLang, $pageNumber = 0, $nbProducts = 10, $orderBy = null, $orderWay = null)
     {
@@ -83,7 +62,7 @@ class ProductSaleCore
         $orderTable = '';
 
         $invalidOrderBy = !Validate::isOrderBy($orderBy);
-        if ($invalidOrderBy || is_null($orderBy)) {
+        if ($invalidOrderBy || null === $orderBy) {
             $orderBy = 'quantity';
             $orderTable = 'ps';
         }
@@ -93,7 +72,7 @@ class ProductSaleCore
         }
 
         $invalidOrderWay = !Validate::isOrderWay($orderWay);
-        if ($invalidOrderWay || is_null($orderWay) || $orderBy == 'sales') {
+        if ($invalidOrderWay || null === $orderWay || $orderBy == 'sales') {
             $orderWay = 'DESC';
         }
 
@@ -104,10 +83,10 @@ class ProductSaleCore
         $sql = 'SELECT p.*, product_shop.*, stock.out_of_stock, IFNULL(stock.quantity, 0) as quantity,
 					' . (Combination::isFeatureActive() ? 'product_attribute_shop.minimal_quantity AS product_attribute_minimal_quantity,IFNULL(product_attribute_shop.id_product_attribute,0) id_product_attribute,' : '') . '
 					pl.`description`, pl.`description_short`, pl.`link_rewrite`, pl.`meta_description`,
-					pl.`meta_keywords`, pl.`meta_title`, pl.`name`, pl.`available_now`, pl.`available_later`,
+					pl.`meta_title`, pl.`name`, pl.`available_now`, pl.`available_later`,
 					m.`name` AS manufacturer_name, p.`id_manufacturer` as id_manufacturer,
 					image_shop.`id_image` id_image, il.`legend`,
-					ps.`quantity` AS sales, t.`rate`, pl.`meta_keywords`, pl.`meta_title`, pl.`meta_description`,
+					ps.`quantity` AS sales, t.`rate`, pl.`meta_title`, pl.`meta_description`,
 					DATEDIFF(p.`date_add`, DATE_SUB("' . date('Y-m-d') . ' 00:00:00",
 					INTERVAL ' . (int) $interval . ' DAY)) > 0 AS new'
             . ' FROM `' . _DB_PREFIX_ . 'product_sale` ps
@@ -138,8 +117,8 @@ class ProductSaleCore
         if (Group::isFeatureActive()) {
             $groups = FrontController::getCurrentCustomerGroups();
             $sql .= ' AND EXISTS(SELECT 1 FROM `' . _DB_PREFIX_ . 'category_product` cp
-					JOIN `' . _DB_PREFIX_ . 'category_group` cg ON (cp.id_category = cg.id_category AND cg.`id_group` ' . (count($groups) ? 'IN (' . implode(',', $groups) . ')' : '= 1') . ')
-					WHERE cp.`id_product` = p.`id_product`)';
+            JOIN `' . _DB_PREFIX_ . 'category_group` cg ON (cp.id_category = cg.id_category AND cg.`id_group` ' . (count($groups) ? 'IN (' . implode(',', $groups) . ')' : '=' . (int) Group::getCurrent()->id) . ')
+            WHERE cp.`id_product` = p.`id_product`)';
         }
 
         if ($finalOrderBy != 'price') {
@@ -158,7 +137,7 @@ class ProductSaleCore
             return false;
         }
 
-        return Product::getProductsProperties($idLang, $result);
+        return $result;
     }
 
     /**
@@ -168,9 +147,9 @@ class ProductSaleCore
      * @param int $pageNumber Start from (optional)
      * @param int $nbProducts Number of products to return (optional)
      *
-     * @return array keys : id_product, link_rewrite, name, id_image, legend, sales, ean13, upc, link
+     * @return bool|array keys : id_product, link_rewrite, name, id_image, legend, sales, ean13, upc, link
      */
-    public static function getBestSalesLight($idLang, $pageNumber = 0, $nbProducts = 10, Context $context = null)
+    public static function getBestSalesLight($idLang, $pageNumber = 0, $nbProducts = 10, ?Context $context = null)
     {
         if (!$context) {
             $context = Context::getContext();
@@ -215,7 +194,7 @@ class ProductSaleCore
         if (Group::isFeatureActive()) {
             $groups = FrontController::getCurrentCustomerGroups();
             $sql .= ' AND EXISTS(SELECT 1 FROM `' . _DB_PREFIX_ . 'category_product` cp
-				JOIN `' . _DB_PREFIX_ . 'category_group` cg ON (cp.id_category = cg.id_category AND cg.`id_group` ' . (count($groups) ? 'IN (' . implode(',', $groups) . ')' : '= 1') . ')
+				JOIN `' . _DB_PREFIX_ . 'category_group` cg ON (cp.id_category = cg.id_category AND cg.`id_group` ' . (count($groups) ? 'IN (' . implode(',', $groups) . ')' : '=' . (int) Group::getCurrent()->id) . ')
 				WHERE cp.`id_product` = p.`id_product`)';
         }
 
@@ -227,7 +206,7 @@ class ProductSaleCore
             return false;
         }
 
-        return Product::getProductsProperties($idLang, $result);
+        return $result;
     }
 
     /**
@@ -257,7 +236,7 @@ class ProductSaleCore
     public static function getNbrSales($idProduct)
     {
         $result = Db::getInstance()->getRow('SELECT `sale_nbr` FROM ' . _DB_PREFIX_ . 'product_sale WHERE `id_product` = ' . (int) $idProduct);
-        if (!$result || empty($result) || !array_key_exists('sale_nbr', $result)) {
+        if (empty($result) || !array_key_exists('sale_nbr', $result)) {
             return -1;
         }
 

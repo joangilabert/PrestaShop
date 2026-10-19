@@ -1,31 +1,12 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter\Admin;
 
+use Exception;
 use PrestaShopBundle\Service\Hook\RenderingHookEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
@@ -41,9 +22,9 @@ class LegacyBlockHelperSubscriber implements EventSubscriberInterface
      */
     public static function getSubscribedEvents()
     {
-        return array(
-            'legacy_block_kpi' => array('renderKpi', 0),
-        );
+        return [
+            'legacy_block_kpi' => ['renderKpi', 0],
+        ];
     }
 
     /**
@@ -51,12 +32,12 @@ class LegacyBlockHelperSubscriber implements EventSubscriberInterface
      *
      * @param RenderingHookEvent $event
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function renderKpi(RenderingHookEvent $event)
     {
         if (!array_key_exists('kpi_controller', $event->getHookParameters())) {
-            throw new \Exception('The legacy_kpi hook need a kpi_controller parameter (legacy controller full class name).');
+            throw new Exception('The legacy_kpi hook need a kpi_controller parameter (legacy controller full class name).');
         }
 
         $controller = $event->getHookParameters()['kpi_controller'];

@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Crypto;
@@ -32,7 +12,7 @@ namespace PrestaShop\PrestaShop\Core\Crypto;
 class Hashing
 {
     /** @var array should contain hashing methods */
-    private $hashMethods = array();
+    private $hashMethods = [];
 
     /**
      * Check if it's the first function of the array that was used for hashing.
@@ -42,6 +22,8 @@ class Hashing
      * @param string $staticSalt A static salt
      *
      * @return bool Result of the verify function
+     *
+     * @phpstan-ignore disallowed.constant
      */
     public function isFirstHash($passwd, $hash, $staticSalt = _COOKIE_KEY_)
     {
@@ -62,6 +44,8 @@ class Hashing
      * @param string $staticSalt A static salt
      *
      * @return bool `true` is returned if the function find a match else false
+     *
+     * @phpstan-ignore disallowed.constant
      */
     public function checkHash($passwd, $hash, $staticSalt = _COOKIE_KEY_)
     {
@@ -86,6 +70,8 @@ class Hashing
      * @param string $staticSalt The static salt
      *
      * @return string
+     *
+     * @phpstan-ignore disallowed.constant
      */
     public function hash($plaintextPassword, $staticSalt = _COOKIE_KEY_)
     {
@@ -103,25 +89,38 @@ class Hashing
      */
     private function initHashMethods()
     {
-        $this->hashMethods = array(
-            'bcrypt' => array(
-                'option' => array(),
+        $this->hashMethods = [
+            'bcrypt' => [
+                'option' => [],
                 'hash' => function ($passwd, $staticSalt, $option) {
+                    /* @phpstan-ignore-next-line */
                     return password_hash($passwd, PASSWORD_BCRYPT);
                 },
                 'verify' => function ($passwd, $hash, $staticSalt) {
+                    /*
+                     * Prevent enumeration because nothing happens
+                     * when there is no, or an invalid hash.
+                     * Also, change the password to be sure it's not maching
+                     * the new hash.
+                     * The new hash is equal to 'test' in BCRYPT context.
+                     */
+                    if (empty($hash)) {
+                        $hash = '$2y$10$azRqq.pN0OlWjeVfVMZXOOwqYAx1hMfme6ZnDV.27grGOEZvG.uAO';
+                        $passwd = 'wrongPassword';
+                    }
+
                     return password_verify($passwd, $hash);
                 },
-            ),
-            'md5' => array(
-                'option' => array(),
+            ],
+            'md5' => [
+                'option' => [],
                 'hash' => function ($passwd, $staticSalt, $option) {
                     return md5($staticSalt . $passwd);
                 },
                 'verify' => function ($passwd, $hash, $staticSalt) {
                     return md5($staticSalt . $passwd) === $hash;
                 },
-            ),
-        );
+            ],
+        ];
     }
 }

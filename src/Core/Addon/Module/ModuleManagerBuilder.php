@@ -1,59 +1,38 @@
 <?php
-
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Addon\Module;
 
 use Context;
-use Db;
-use Doctrine\Common\Cache\FilesystemCache;
-use GuzzleHttp\Client;
-use PrestaShop\PrestaShop\Adapter\Addons\AddonsDataProvider;
-use PrestaShop\PrestaShop\Adapter\Cache\CacheClearer;
-use PrestaShop\PrestaShop\Adapter\Cache\Clearer;
-use PrestaShop\PrestaShop\Adapter\Configuration;
-use PrestaShop\PrestaShop\Adapter\LegacyContext;
+use Doctrine\Common\Cache\Psr6\DoctrineProvider;
+use Language;
+use PrestaShop\Decimal\Operation\Rounding;
+use PrestaShop\PrestaShop\Adapter\HookManager;
 use PrestaShop\PrestaShop\Adapter\LegacyLogger;
 use PrestaShop\PrestaShop\Adapter\Module\AdminModuleDataProvider;
 use PrestaShop\PrestaShop\Adapter\Module\ModuleDataProvider;
-use PrestaShop\PrestaShop\Adapter\Module\ModuleDataUpdater;
-use PrestaShop\PrestaShop\Adapter\Module\ModuleZipManager;
 use PrestaShop\PrestaShop\Adapter\SymfonyContainer;
 use PrestaShop\PrestaShop\Adapter\Tools;
-use PrestaShop\PrestaShop\Core\Addon\Theme\ThemeManagerBuilder;
-use PrestaShop\PrestaShop\Core\Cache\Clearer\CacheClearerChain;
+use PrestaShop\PrestaShop\Core\Context\ApiClientContext;
+use PrestaShop\PrestaShop\Core\Context\LanguageContext;
+use PrestaShop\PrestaShop\Core\Localization\Locale;
+use PrestaShop\PrestaShop\Core\Localization\Number\Formatter as NumberFormatter;
+use PrestaShop\PrestaShop\Core\Localization\Specification\Number as NumberSpecification;
+use PrestaShop\PrestaShop\Core\Localization\Specification\NumberCollection;
+use PrestaShop\PrestaShop\Core\Localization\Specification\NumberSymbolList;
+use PrestaShop\PrestaShop\Core\Localization\Specification\Price as PriceSpecification;
+use PrestaShop\PrestaShop\Core\Module\ModuleManager;
+use PrestaShop\PrestaShop\Core\Module\ModuleRepository;
+use PrestaShop\PrestaShop\Core\Module\SourceHandler\SourceHandlerFactory;
 use PrestaShopBundle\Event\Dispatcher\NullDispatcher;
-use PrestaShopBundle\Service\DataProvider\Admin\CategoriesProvider;
-use PrestaShopBundle\Service\DataProvider\Marketplace\ApiClient;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\Config\FileLocator;
-use Symfony\Component\Filesystem\Exception\IOException;
-use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Routing\Loader\YamlFileLoader;
 use Symfony\Component\Routing\Router;
-use Symfony\Component\Yaml\Yaml;
+use Symfony\Component\Translation\Loader\XliffFileLoader;
 
 class ModuleManagerBuilder
 {
@@ -62,27 +41,35 @@ class ModuleManagerBuilder
      *
      * @var ModuleRepository
      */
-    public static $modulesRepository = null;
+    protected static $modulesRepository = null;
     /**
      * Singleton of ModuleManager.
      *
      * @var ModuleManager
      */
-    public static $moduleManager = null;
-    public static $adminModuleDataProvider = null;
-    public static $lecacyContext;
-    public static $legacyLogger = null;
-    public static $moduleDataProvider = null;
-    public static $moduleDataUpdater = null;
-    public static $moduleZipManager = null;
-    public static $translator = null;
-    public static $addonsDataProvider = null;
-    public static $categoriesProvider = null;
-    public static $instance = null;
-    public static $cacheProvider = null;
+    protected static $moduleManager = null;
+    protected static $adminModuleDataProvider = null;
+    protected static $legacyLogger = null;
+    protected static $moduleDataProvider = null;
+    protected static $translator = null;
+    protected static $instance = null;
+    protected static $cacheProvider = null;
+    /**
+     * @var ApiClientContext
+     */
+    protected static $apiClientContext;
+    /**
+     * @var LanguageContext|null
+     */
+    protected static $languageContext = null;
 
     /**
-     * @return null|ModuleManagerBuilder
+     * @var bool
+     */
+    private $isDebug;
+
+    /**
+     * @return ModuleManagerBuilder|null
      */
     public static function getInstance()
     {
@@ -103,22 +90,19 @@ class ModuleManagerBuilder
         if (null === self::$moduleManager) {
             $sfContainer = SymfonyContainer::getInstance();
             if (null !== $sfContainer) {
-                self::$moduleManager = $sfContainer->get('prestashop.module.manager');
+                self::$moduleManager = $sfContainer->get(ModuleManager::class);
             } else {
                 self::$moduleManager = new ModuleManager(
-                    self::$adminModuleDataProvider,
-                    self::$moduleDataProvider,
-                    self::$moduleDataUpdater,
                     $this->buildRepository(),
-                    self::$moduleZipManager,
+                    self::$moduleDataProvider,
+                    self::$adminModuleDataProvider,
+                    new SourceHandlerFactory(),
                     self::$translator,
                     new NullDispatcher(),
-                    new CacheClearer(
-                        new CacheClearerChain(),
-                        new Clearer\SymfonyCacheClearer(),
-                        new Clearer\MediaCacheClearer(),
-                        new Clearer\SmartyCacheClearer()
-                    )
+                    new HookManager(),
+                    _PS_MODULE_DIR_,
+                    new XliffFileLoader(),
+                    null
                 );
             }
         }
@@ -133,19 +117,18 @@ class ModuleManagerBuilder
      */
     public function buildRepository()
     {
-        if (is_null(self::$modulesRepository)) {
+        if (null === self::$modulesRepository) {
             $sfContainer = SymfonyContainer::getInstance();
-            if (!is_null($sfContainer)) {
-                self::$modulesRepository = $sfContainer->get('prestashop.core.admin.module.repository');
+            if (null !== $sfContainer) {
+                self::$modulesRepository = $sfContainer->get(ModuleRepository::class);
             } else {
                 self::$modulesRepository = new ModuleRepository(
-                    self::$adminModuleDataProvider,
                     self::$moduleDataProvider,
-                    self::$moduleDataUpdater,
-                    self::$legacyLogger,
-                    self::$translator,
+                    self::$adminModuleDataProvider,
+                    self::$cacheProvider,
+                    new HookManager(),
                     _PS_MODULE_DIR_,
-                    self::$cacheProvider
+                    $this->getLanguageContext(),
                 );
             }
         }
@@ -153,132 +136,134 @@ class ModuleManagerBuilder
         return self::$modulesRepository;
     }
 
-    private function __construct()
+    /**
+     * @param bool $isDebug
+     */
+    private function __construct(bool $isDebug = _PS_MODE_DEV_)
     {
+        $this->isDebug = $isDebug;
         /**
          * If the Symfony container is available, it will be used for the other methods
          * build & buildRepository. No need to init manually all the dependancies.
          */
         $sfContainer = SymfonyContainer::getInstance();
-        if (!is_null($sfContainer)) {
+        if (null !== $sfContainer) {
             return;
         }
 
-        $phpConfigFile = $this->getConfigDir() . '/config.php';
-        if (file_exists($phpConfigFile)
-            && filemtime($phpConfigFile) >= filemtime($this->getConfigDir() . DIRECTORY_SEPARATOR . 'config.yml')) {
-            $config = require $phpConfigFile;
-        } else {
-            $config = Yaml::parse(
-                file_get_contents(
-                    $this->getConfigDir() . DIRECTORY_SEPARATOR . 'config.yml'
-                )
-            );
-
-            try {
-                $filesystem = new Filesystem();
-                $filesystem->dumpFile($phpConfigFile, '<?php return ' . var_export($config, true) . ';' . "\n");
-            } catch (IOException $e) {
-                return false;
-            }
-        }
-
-        $prestashopAddonsConfig = Yaml::parse(
-            file_get_contents(
-                $this->getConfigDir() . DIRECTORY_SEPARATOR . 'addons/categories.yml'
-            )
-        );
-        $clientConfig = $config['csa_guzzle']['clients']['addons_api']['config'];
+        $tools = new Tools();
+        $tools->refreshCaCertFile();
 
         self::$translator = Context::getContext()->getTranslator();
 
-        $marketPlaceClient = new ApiClient(
-            new Client($clientConfig),
-            self::$translator->getLocale(),
-            $this->getCountryIso(),
-            new Tools(),
-            (new Configuration())->get('_PS_BASE_URL_'),
-            \AppKernel::VERSION
-        );
-
-        $marketPlaceClient->setSslVerification(_PS_CACHE_CA_CERT_FILE_);
-        if (file_exists($this->getConfigDir() . '/parameters.php')) {
-            $parameters = require $this->getConfigDir() . '/parameters.php';
-            if (array_key_exists('addons.api_client.verify_ssl', $parameters['parameters'])) {
-                $marketPlaceClient->setSslVerification($parameters['parameters']['addons.api_client.verify_ssl']);
-            }
-        }
-
-        self::$moduleZipManager = new ModuleZipManager(new Filesystem(), self::$translator, new NullDispatcher());
-        self::$addonsDataProvider = new AddonsDataProvider($marketPlaceClient, self::$moduleZipManager);
-
         $kernelDir = realpath($this->getConfigDir() . '/../../var');
-        self::$addonsDataProvider->cacheDir = $kernelDir . '/cache/prod';
-        if (_PS_MODE_DEV_) {
-            self::$addonsDataProvider->cacheDir = $kernelDir . '/cache/dev';
-        }
-
-        self::$cacheProvider = new FilesystemCache(self::$addonsDataProvider->cacheDir . '/doctrine');
-
-        $themeManagerBuilder = new ThemeManagerBuilder(Context::getContext(), Db::getInstance());
-        $themeName = Context::getContext()->shop->theme_name;
-        $themeModules = $themeName ?
-                        $themeManagerBuilder->buildRepository()->getInstanceByName($themeName)->getModulesToEnable() :
-                        [];
+        $cacheDir = $kernelDir . ($this->isDebug ? '/cache/dev' : '/cache/prod');
+        self::$cacheProvider = DoctrineProvider::wrap(
+            new FilesystemAdapter(
+                '',
+                0,
+                $cacheDir . '/doctrine'
+            )
+        );
 
         self::$legacyLogger = new LegacyLogger();
-        self::$categoriesProvider = new CategoriesProvider(
-            $marketPlaceClient,
-            self::$legacyLogger,
-            $prestashopAddonsConfig['prestashop']['addons']['categories'],
-            $themeModules
-        );
-        self::$lecacyContext = new LegacyContext();
 
-        if (is_null(self::$adminModuleDataProvider)) {
+        if (null === self::$adminModuleDataProvider) {
             self::$moduleDataProvider = new ModuleDataProvider(self::$legacyLogger, self::$translator);
+            self::$apiClientContext = new ApiClientContext(null);
             self::$adminModuleDataProvider = new AdminModuleDataProvider(
-                self::$translator,
-                self::$legacyLogger,
-                self::$addonsDataProvider,
-                self::$categoriesProvider,
                 self::$moduleDataProvider,
-                self::$cacheProvider,
-                Context::getContext()->employee
+                self::$translator,
+                Context::getContext()->employee,
+                self::$apiClientContext,
             );
             self::$adminModuleDataProvider->setRouter($this->getSymfonyRouter());
-
-            self::$translator = Context::getContext()->getTranslator();
-            self::$moduleDataUpdater = new ModuleDataUpdater(self::$addonsDataProvider, self::$adminModuleDataProvider);
         }
     }
 
     /**
      * Returns an instance of \Symfony\Component\Routing\Router from Symfony scope into Legacy.
      *
-     * @return \Symfony\Component\Routing\Router
+     * @return Router
      */
     private function getSymfonyRouter()
     {
         // get the environment to load the good routing file
-        $routeFileName = _PS_MODE_DEV_ === true ? 'routing_dev.yml' : 'routing.yml';
+        $routeFileName = $this->isDebug === true ? 'routing_dev.yml' : 'routing.yml';
         $routesDirectory = $this->getConfigDir();
-        $locator = new FileLocator(array($routesDirectory));
+        $locator = new FileLocator([$routesDirectory]);
         $loader = new YamlFileLoader($locator);
 
         return new Router($loader, $routeFileName);
     }
 
-    protected function getConfigDir()
+    private function getLanguageContext(): LanguageContext
     {
-        return _PS_ROOT_DIR_ . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'config';
+        if (self::$languageContext) {
+            return self::$languageContext;
+        }
+
+        /** @var Language $language */
+        $language = Context::getContext()->language;
+
+        // If locale is present in context we can use, if not we create a mock one
+        // the locale is not used by the ModuleRepository anyway only the language ID is relevant for its internal cache key generation
+        if (Context::getContext()->currentLocale) {
+            $locale = Context::getContext()->currentLocale;
+        } else {
+            $numberSymbolList = new NumberSymbolList(',', ' ', ';', '%', '-', '+', 'E', '^', '‰', '∞', 'NaN');
+            $priceSpecsCollection = new NumberCollection();
+            $priceSpecsCollection->add(
+                'EUR',
+                new PriceSpecification(
+                    '#,##0.## ¤',
+                    '-#,##0.## ¤',
+                    ['latn' => $numberSymbolList],
+                    2,
+                    2,
+                    true,
+                    3,
+                    3,
+                    'symbol',
+                    '€',
+                    'EUR'
+                )
+            );
+            $numberSpecification = new NumberSpecification(
+                '#,##0.###',
+                '-#,##0.###',
+                [$numberSymbolList],
+                3,
+                2,
+                true,
+                2,
+                3
+            );
+            $locale = new Locale(
+                $language->locale,
+                $numberSpecification,
+                $priceSpecsCollection,
+                new NumberFormatter(Rounding::ROUND_HALF_UP, 'latn')
+            );
+        }
+
+        self::$languageContext = new LanguageContext(
+            $language->id,
+            $language->name,
+            $language->iso_code,
+            $language->locale,
+            $language->language_code,
+            $language->is_rtl,
+            $language->date_format_lite,
+            $language->date_format_full,
+            $locale
+        );
+
+        return self::$languageContext;
     }
 
-    /**
-     * Returns country iso from context.
-     */
-    private function getCountryIso()
+    protected function getConfigDir()
     {
-        return \CountryCore::getIsoById(\Configuration::get('PS_COUNTRY_DEFAULT'));
+        return _PS_ROOT_DIR_ . '/app/config';
     }
 }

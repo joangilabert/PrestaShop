@@ -1,48 +1,32 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter\Upload;
 
 use Exception;
 use PrestaShop\PrestaShop\Adapter\Configuration;
-use PrestaShop\PrestaShop\Core\Configuration\DataConfigurationInterface;
+use PrestaShop\PrestaShop\Adapter\Shop\Context;
+use PrestaShop\PrestaShop\Core\Configuration\AbstractMultistoreConfiguration;
+use PrestaShop\PrestaShop\Core\Feature\FeatureInterface;
+use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
  * Manages the configuration data about upload quota options.
  */
-class UploadQuotaConfiguration implements DataConfigurationInterface
+class UploadQuotaConfiguration extends AbstractMultistoreConfiguration
 {
-    /**
-     * @var Configuration
-     */
-    private $configuration;
+    private const CONFIGURATION_FIELDS = [
+        'max_size_attached_files',
+        'max_size_downloadable_product',
+        'max_size_product_image',
+    ];
 
-    public function __construct(Configuration $configuration)
+    public function __construct(Configuration $configuration, Context $shopContext, FeatureInterface $multistoreFeature)
     {
-        $this->configuration = $configuration;
+        parent::__construct($configuration, $shopContext, $multistoreFeature);
     }
 
     /**
@@ -50,11 +34,13 @@ class UploadQuotaConfiguration implements DataConfigurationInterface
      */
     public function getConfiguration()
     {
-        return array(
-            'max_size_attached_files' => $this->configuration->get('PS_ATTACHMENT_MAXIMUM_SIZE'),
-            'max_size_downloadable_product' => $this->configuration->get('PS_LIMIT_UPLOAD_FILE_VALUE'),
-            'max_size_product_image' => $this->configuration->get('PS_LIMIT_UPLOAD_IMAGE_VALUE'),
-        );
+        $shopConstraint = $this->getShopConstraint();
+
+        return [
+            'max_size_attached_files' => (int) $this->configuration->get('PS_ATTACHMENT_MAXIMUM_SIZE', 0, $shopConstraint),
+            'max_size_downloadable_product' => (int) $this->configuration->get('PS_LIMIT_UPLOAD_FILE_VALUE', 0, $shopConstraint),
+            'max_size_product_image' => (int) $this->configuration->get('PS_LIMIT_UPLOAD_IMAGE_VALUE', 0, $shopConstraint),
+        ];
     }
 
     /**
@@ -62,7 +48,7 @@ class UploadQuotaConfiguration implements DataConfigurationInterface
      */
     public function updateConfiguration(array $configuration)
     {
-        $errors = array();
+        $errors = [];
 
         if ($this->validateConfiguration($configuration)) {
             $errors = $this->updateFileUploadConfiguration($configuration);
@@ -81,26 +67,29 @@ class UploadQuotaConfiguration implements DataConfigurationInterface
     private function updateFileUploadConfiguration(array $configuration)
     {
         $uploadMaxSize = (int) str_replace('M', '', ini_get('upload_max_filesize'));
+        $shopConstraint = $this->getShopConstraint();
         $sizes = [
             'max_size_attached_files' => $uploadMaxSize,
             'max_size_downloadable_product' => (int) str_replace('M', '', ini_get('post_max_size')),
             'max_size_product_image' => $uploadMaxSize,
         ];
 
-        $errors = array();
+        $errors = [];
         foreach ($configuration as $configurationKey => $configurationValue) {
             if (array_key_exists($configurationKey, $this->getConfiguration())) {
                 if ((int) $configurationValue > $sizes[$configurationKey]) {
-                    $errors[] = array(
+                    $errors[] = [
                         'key' => 'The limit chosen is larger than the server\'s maximum upload limit. Please increase the limits of your server.',
                         'domain' => 'Admin.Advparameters.Notification',
-                        'parameters' => array(),
-                    );
+                        'parameters' => [],
+                    ];
                 }
 
-                $this->configuration->set(
+                $this->updateConfigurationValue(
                     $this->getConfigurationKey($configurationKey),
-                    max((int) $configurationValue, 1)
+                    $configurationKey,
+                    array_map(static fn ($value): int => max((int) $value, 1), $configuration),
+                    $shopConstraint
                 );
             }
         }
@@ -111,17 +100,17 @@ class UploadQuotaConfiguration implements DataConfigurationInterface
     /**
      * Map array key to the related configuration property.
      *
-     * @param string the array key
+     * @param string $key
      *
      * @return string the related configuration key
      */
     private function getConfigurationKey($key)
     {
-        $properties = array(
+        $properties = [
             'max_size_attached_files' => 'PS_ATTACHMENT_MAXIMUM_SIZE',
             'max_size_downloadable_product' => 'PS_LIMIT_UPLOAD_FILE_VALUE',
             'max_size_product_image' => 'PS_LIMIT_UPLOAD_IMAGE_VALUE',
-        );
+        ];
 
         return $properties[$key];
     }
@@ -129,12 +118,12 @@ class UploadQuotaConfiguration implements DataConfigurationInterface
     /**
      * {@inheritdoc}
      */
-    public function validateConfiguration(array $configuration)
+    protected function buildResolver(): OptionsResolver
     {
-        return isset(
-            $configuration['max_size_attached_files'],
-            $configuration['max_size_downloadable_product'],
-            $configuration['max_size_product_image']
-        );
+        return (new OptionsResolver())
+            ->setDefined(self::CONFIGURATION_FIELDS)
+            ->setAllowedTypes('max_size_attached_files', 'int')
+            ->setAllowedTypes('max_size_downloadable_product', 'int')
+            ->setAllowedTypes('max_size_product_image', 'int');
     }
 }

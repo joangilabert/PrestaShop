@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Domain\Category\Command;
@@ -48,16 +28,17 @@ class BulkDeleteCategoriesCommand
 
     /**
      * @param int[] $categoryIds
-     * @param CategoryDeleteMode $deleteMode
+     * @param string $deleteMode
      *
      * @throws CategoryConstraintException
      * @throws CategoryException
      */
-    public function __construct(array $categoryIds, CategoryDeleteMode $deleteMode)
+    public function __construct(array $categoryIds, $deleteMode)
     {
         $this
             ->setCategoryIds($categoryIds)
-            ->setDeleteMode($deleteMode);
+            ->setDeleteMode($deleteMode)
+        ;
     }
 
     /**
@@ -77,13 +58,13 @@ class BulkDeleteCategoriesCommand
     }
 
     /**
-     * @param CategoryDeleteMode $mode
+     * @param string $mode
      *
      * @return self
      */
-    private function setDeleteMode(CategoryDeleteMode $mode)
+    private function setDeleteMode($mode)
     {
-        $this->deleteMode = $mode;
+        $this->deleteMode = new CategoryDeleteMode($mode);
 
         return $this;
     }
@@ -91,22 +72,19 @@ class BulkDeleteCategoriesCommand
     /**
      * @param int[] $categoryIds
      *
+     * @return self
+     *
      * @throws CategoryConstraintException
      * @throws CategoryException
-     *
-     * @return self
      */
     private function setCategoryIds(array $categoryIds)
     {
         if (empty($categoryIds)) {
-            throw new CategoryConstraintException(
-                'Missing Category data for bulk deleting',
-                CategoryConstraintException::EMPTY_BULK_DELETE_DATA
-            );
+            throw new CategoryConstraintException('Missing Category data for bulk deleting', CategoryConstraintException::EMPTY_BULK_DELETE_DATA);
         }
 
         foreach ($categoryIds as $categoryId) {
-            $this->categoryIds[] = new CategoryId($categoryId);
+            $this->categoryIds[] = new CategoryId((int) $categoryId);
         }
 
         return $this;

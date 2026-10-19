@@ -1,33 +1,16 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+use PrestaShop\PrestaShop\Adapter\CartRule\CartRuleDisablerService;
+use PrestaShop\PrestaShop\Adapter\SymfonyContainer;
+
 class GroupCore extends ObjectModel
 {
     public $id;
 
-    /** @var string Lastname */
+    /** @var string|array<int, string> */
     public $name;
 
     /** @var string Reduction */
@@ -37,7 +20,7 @@ class GroupCore extends ObjectModel
     public $price_display_method;
 
     /** @var bool Show prices */
-    public $show_prices = 1;
+    public $show_prices = true;
 
     /** @var string Object creation date */
     public $date_add;
@@ -48,30 +31,33 @@ class GroupCore extends ObjectModel
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'group',
         'primary' => 'id_group',
         'multilang' => true,
-        'fields' => array(
-            'reduction' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'price_display_method' => array('type' => self::TYPE_INT, 'validate' => 'isPriceDisplayMethod', 'required' => true),
-            'show_prices' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'date_add' => array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
-            'date_upd' => array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
+        'fields' => [
+            'reduction' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'price_display_method' => ['type' => self::TYPE_INT, 'validate' => 'isPriceDisplayMethod', 'required' => true],
+            'show_prices' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'date_add' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+            'date_upd' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
 
             /* Lang fields */
-            'name' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 32),
-        ),
-    );
+            'name' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 32],
+        ],
+    ];
 
-    protected static $cache_reduction = array();
-    protected static $group_price_display_method = array();
+    protected static $cache_reduction = [];
+    protected static $group_price_display_method = [];
     protected static $ps_group_feature_active = null;
-    protected static $groups = array();
+    protected static $groups = [];
     protected static $ps_unidentified_group = null;
     protected static $ps_customer_group = null;
 
-    protected $webserviceParameters = array();
+    protected $webserviceParameters = [];
+
+    public const PRICE_DISPLAY_METHOD_TAX_INCL = 0;
+    public const PRICE_DISPLAY_METHOD_TAX_EXCL = 1;
 
     public function __construct($id = null, $id_lang = null, $id_shop = null)
     {
@@ -86,10 +72,10 @@ class GroupCore extends ObjectModel
      */
     public static function clearCachedValues()
     {
-        self::$cache_reduction = array();
-        self::$group_price_display_method = array();
+        self::$cache_reduction = [];
+        self::$group_price_display_method = [];
         self::$ps_group_feature_active = null;
-        self::$groups = array();
+        self::$groups = [];
         self::$ps_unidentified_group = null;
         self::$ps_customer_group = null;
     }
@@ -206,21 +192,52 @@ class GroupCore extends ObjectModel
             Configuration::updateGlobalValue('PS_GROUP_FEATURE_ACTIVE', 1);
         }
 
-        return parent::update($autodate, $null_values);
+        return parent::update($null_values);
     }
 
     public function delete()
     {
-        if ($this->id == (int) Configuration::get('PS_CUSTOMER_GROUP')) {
+        // Prevent calling the logic in case of an invalid object
+        if (empty($this->id)) {
             return false;
         }
+
+        // Prevent deletion of groups currently used in configuration
+        if (in_array($this->id, [
+            (int) Configuration::get('PS_UNIDENTIFIED_GROUP'),
+            (int) Configuration::get('PS_GUEST_GROUP'),
+            (int) Configuration::get('PS_CUSTOMER_GROUP'),
+        ])) {
+            throw new PrestaShopException('You cannot delete a group that is used in the shop configuration.');
+        }
+
         if (parent::delete()) {
+            // Delegate to the disabler service so the legacy AdminGroupsController delete flow
+            // gets the same behavior as the CQRS DeleteCustomerGroupHandler. Must run before
+            // the cart_rule_group cleanup below, since the service uses those rows to find
+            // single-group cart rules.
+            $container = SymfonyContainer::getInstance();
+            if (null !== $container) {
+                $container->get(CartRuleDisablerService::class)
+                    ->disableCartRulesThatHadOnlyGroup((int) $this->id);
+            }
+
             Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'cart_rule_group` WHERE `id_group` = ' . (int) $this->id);
             Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'customer_group` WHERE `id_group` = ' . (int) $this->id);
             Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'category_group` WHERE `id_group` = ' . (int) $this->id);
             Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'group_reduction` WHERE `id_group` = ' . (int) $this->id);
             Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'product_group_reduction_cache` WHERE `id_group` = ' . (int) $this->id);
+
             $this->truncateModulesRestrictions($this->id);
+
+            // Delete specific prices associated to this group
+            if (!$this->truncateSpecificPrices()) {
+                return false;
+            }
+            // Delete specific price rules associated to this group
+            if (!$this->truncateSpecificPriceRules()) {
+                return false;
+            }
 
             // Add default group (id 3) to customers without groups
             Db::getInstance()->execute('INSERT INTO `' . _DB_PREFIX_ . 'customer_group` (
@@ -251,8 +268,6 @@ class GroupCore extends ObjectModel
     /**
      * This method is allow to know if a feature is used or active.
      *
-     * @since 1.5.0.1
-     *
      * @return bool
      */
     public static function isFeatureActive()
@@ -267,10 +282,8 @@ class GroupCore extends ObjectModel
     /**
      * This method is allow to know if there are other groups than the default ones.
      *
-     * @since 1.5.0.1
-     *
-     * @param $table
-     * @param $has_active_column
+     * @param string|null $table Name of table linked to entity
+     * @param bool $has_active_column True if the table has an active column
      *
      * @return bool
      */
@@ -310,13 +323,13 @@ class GroupCore extends ObjectModel
     /**
      * Adding restrictions modules to the group with id $id_group.
      *
-     * @param $id_group
-     * @param $modules
+     * @param int $id_group
+     * @param array $modules
      * @param array $shops
      *
      * @return bool
      */
-    public static function addModulesRestrictions($id_group, $modules, $shops = array(1))
+    public static function addModulesRestrictions($id_group, $modules, $shops = [1])
     {
         if (!is_array($modules) || !count($modules) || !is_array($shops) || !count($shops)) {
             return false;
@@ -327,7 +340,7 @@ class GroupCore extends ObjectModel
             'DELETE FROM `' . _DB_PREFIX_ . 'module_group`
             WHERE `id_group` = ' . (int) $id_group . '
             AND `id_shop` IN ('
-              . (implode(',', array_map('intval', $shops)))
+              . implode(',', array_map('intval', $shops))
             . ')'
         );
 
@@ -351,7 +364,7 @@ class GroupCore extends ObjectModel
      *
      * @return bool
      */
-    public static function addRestrictionsForModule($id_module, $shops = array(1))
+    public static function addRestrictionsForModule($id_module, $shops = [1])
     {
         if (!is_array($shops) || !count($shops)) {
             return false;
@@ -359,7 +372,7 @@ class GroupCore extends ObjectModel
 
         $res = true;
         foreach ($shops as $shop) {
-            $res &= Db::getInstance()->execute('
+            $res = $res && Db::getInstance()->execute('
 			INSERT INTO `' . _DB_PREFIX_ . 'module_group` (`id_module`, `id_shop`, `id_group`)
 			(SELECT ' . (int) $id_module . ', ' . (int) $shop . ', id_group FROM `' . _DB_PREFIX_ . 'group`)');
         }
@@ -404,6 +417,19 @@ class GroupCore extends ObjectModel
         return self::$groups[$id_group];
     }
 
+    public static function getAllGroupIds(): array
+    {
+        $query = new DbQuery();
+        $query
+            ->select('g.`id_group`')
+            ->from('group', 'g')
+            ->orderby('g.`id_group` ASC')
+        ;
+        $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($query);
+
+        return array_column($result, 'id_group');
+    }
+
     /**
      * Light back office search for Group.
      *
@@ -420,5 +446,37 @@ class GroupCore extends ObjectModel
 				ON (g.`id_group` = gl.`id_group`)
 			WHERE `name` = \'' . pSQL($query) . '\'
 		');
+    }
+
+    /**
+     * Delete all specific prices associated to this group.
+     *
+     * @return bool
+     */
+    public function truncateSpecificPrices(): bool
+    {
+        if (empty($this->id)) {
+            return false;
+        }
+
+        return Db::getInstance()->delete('specific_price', 'id_group = ' . (int) $this->id);
+    }
+
+    /**
+     * Delete all specific price rules associated to this group.
+     *
+     * @return bool
+     */
+    public function truncateSpecificPriceRules(): bool
+    {
+        if (empty($this->id)) {
+            return false;
+        }
+
+        $result_price_rule = Db::getInstance()->delete('specific_price_rule', 'id_group = ' . (int) $this->id);
+        $result_price_rule_condition_group = Db::getInstance()->delete('specific_price_rule_condition_group', 'id_specific_price_rule NOT IN (SELECT id_specific_price_rule FROM `' . _DB_PREFIX_ . 'specific_price_rule`)');
+        $result_price_rule_condition = Db::getInstance()->delete('specific_price_rule_condition', 'id_specific_price_rule_condition_group NOT IN (SELECT id_specific_price_rule_condition_group FROM `' . _DB_PREFIX_ . 'specific_price_rule_condition_group`)');
+
+        return $result_price_rule && $result_price_rule_condition_group && $result_price_rule_condition;
     }
 }

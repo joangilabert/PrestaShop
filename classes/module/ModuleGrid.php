@@ -1,34 +1,14 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 abstract class ModuleGridCore extends Module
 {
     protected $_employee;
 
     /** @var array of strings graph data */
-    protected $_values = array();
+    protected $_values = [];
 
     /** @var int total number of values * */
     protected $_totalCount = 0;
@@ -51,6 +31,12 @@ abstract class ModuleGridCore extends Module
     /** @var ModuleGridEngine grid engine */
     protected $_render;
 
+    /** @var int */
+    protected $_id_lang;
+
+    /** @var string */
+    protected $_csv;
+
     abstract protected function getData();
 
     public function setEmployee($id_employee)
@@ -66,10 +52,10 @@ abstract class ModuleGridCore extends Module
     public function create($render, $type, $width, $height, $start, $limit, $sort, $dir)
     {
         if (!Validate::isModuleName($render)) {
-            die(Tools::displayError());
+            throw new PrestaShopException('Invalid grid module name.');
         }
         if (!Tools::file_exists_cache($file = _PS_ROOT_DIR_ . '/modules/' . $render . '/' . $render . '.php')) {
-            die(Tools::displayError());
+            throw new PrestaShopException('Main grid module file does not exist.');
         }
         require_once $file;
         $this->_render = new $render($type);
@@ -96,16 +82,16 @@ abstract class ModuleGridCore extends Module
     public function engine($params)
     {
         if (!($render = Configuration::get('PS_STATS_GRID_RENDER'))) {
-            return Context::getContext()->getTranslator()->trans('No grid engine selected', array(), 'Admin.Modules.Notification');
+            return Context::getContext()->getTranslator()->trans('No grid engine selected', [], 'Admin.Modules.Notification');
         }
         if (!Validate::isModuleName($render)) {
-            die(Tools::displayError());
+            throw new PrestaShopException('Invalid grid module name.');
         }
         if (!file_exists(_PS_ROOT_DIR_ . '/modules/' . $render . '/' . $render . '.php')) {
-            return Context::getContext()->getTranslator()->trans('Grid engine selected is unavailable.', array(), 'Admin.Modules.Notification');
+            return Context::getContext()->getTranslator()->trans('Grid engine selected is unavailable.', [], 'Admin.Modules.Notification');
         }
 
-        $grider = 'grider.php?render=' . $render . '&module=' . Tools::safeOutput(Tools::getValue('module'));
+        $grider = Context::getContext()->link->getAdminLink('AdminStats', true, [], ['action' => 'graphGrid', 'ajax' => 1, 'render' => $render, 'module' => Tools::safeOutput(Tools::getValue('module'))]);
 
         $context = Context::getContext();
         $grider .= '&id_employee=' . (int) $context->employee->id;
@@ -147,7 +133,7 @@ abstract class ModuleGridCore extends Module
 
         require_once _PS_ROOT_DIR_ . '/modules/' . $render . '/' . $render . '.php';
 
-        return call_user_func(array($render, 'hookGridEngine'), $params, $grider);
+        return call_user_func([$render, 'hookGridEngine'], $params, $grider);
     }
 
     protected function csvExport($datas)
@@ -197,5 +183,12 @@ abstract class ModuleGridCore extends Module
     public function getLang()
     {
         return $this->_id_lang;
+    }
+
+    /**
+     * @todo Set this method as abstracted ? Quid of module compatibility.
+     */
+    public function setOption($option, $layers = 1)
+    {
     }
 }

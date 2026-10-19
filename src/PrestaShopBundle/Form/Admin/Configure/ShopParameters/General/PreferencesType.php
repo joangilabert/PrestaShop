@@ -1,39 +1,25 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Form\Admin\Configure\ShopParameters\General;
 
 use PrestaShop\PrestaShop\Adapter\Entity\Order;
+use PrestaShop\PrestaShop\Core\ConfigurationInterface;
+use PrestaShop\PrestaShop\Core\Feature\Enum\ShopModeEnum;
+use PrestaShop\PrestaShop\Core\FeatureFlag\FeatureFlagSettings;
+use PrestaShop\PrestaShop\Core\FeatureFlag\FeatureFlagStateCheckerInterface;
+use PrestaShopBundle\EventSubscriber\UpdateShopModeFieldListener;
 use PrestaShopBundle\Form\Admin\Type\SwitchType;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
-use Symfony\Component\Form\Extension\Core\Type\IntegerType;
+use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Class returning the content of the form in the maintenance page.
@@ -41,10 +27,12 @@ use Symfony\Component\Translation\TranslatorInterface;
  */
 class PreferencesType extends TranslatorAwareType
 {
+    public const SHOP_MODE = 'shop_mode';
+
     /**
      * @var bool
      */
-    private $isMultistoreUsed;
+    private $isShopFeatureEnabled;
 
     /**
      * @var bool
@@ -57,119 +45,177 @@ class PreferencesType extends TranslatorAwareType
     private $isAllShopContext;
 
     /**
+     * @var ConfigurationInterface
+     */
+    private $configuration;
+    /**
+     * @var RequestStack
+     */
+    private $requestStack;
+
+    /**
      * @param TranslatorInterface $translator
      * @param array $locales
-     * @param bool $isMultistoreUsed
+     * @param ConfigurationInterface $configuration
+     * @param bool $isShopFeatureEnabled
      * @param bool $isSingleShopContext
      * @param bool $isAllShopContext
+     * @param ?FeatureFlagStateCheckerInterface $featureFlagStateChecker
+     * @param ?UpdateShopModeFieldListener $updateShopModeFieldListener
      */
     public function __construct(
+        RequestStack $requestStack,
         TranslatorInterface $translator,
         array $locales,
-        $isMultistoreUsed,
-        $isSingleShopContext,
-        $isAllShopContext
+        ConfigurationInterface $configuration,
+        bool $isShopFeatureEnabled,
+        bool $isSingleShopContext,
+        bool $isAllShopContext,
+        private readonly ?FeatureFlagStateCheckerInterface $featureFlagStateChecker,
+        private readonly ?UpdateShopModeFieldListener $updateShopModeFieldListener,
     ) {
         parent::__construct($translator, $locales);
 
-        $this->isMultistoreUsed = $isMultistoreUsed;
+        $this->isShopFeatureEnabled = $isShopFeatureEnabled;
         $this->isSingleShopContext = $isSingleShopContext;
         $this->isAllShopContext = $isAllShopContext;
+        $this->configuration = $configuration;
+        $this->requestStack = $requestStack;
     }
-
-    /**
-     * @var bool
-     */
-    private $isSecure;
 
     /**
      * {@inheritdoc}
      */
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
-        $configuration = $this->getConfiguration();
-        $isSslEnabled = $configuration->getBoolean('PS_SSL_ENABLED');
+        $configuration = $this->configuration;
 
-        if ($this->isSecure) {
-            $builder->add('enable_ssl', SwitchType::class);
+        $showB2bShopMode = $this->featureFlagStateChecker?->isEnabled(FeatureFlagSettings::FEATURE_FLAG_IMPROVED_B2B) ?? false;
+
+        if ($this->requestStack->getCurrentRequest()->isSecure()) {
+            $builder->add('enable_ssl', SwitchType::class, [
+                'label' => $this->trans('Enable SSL', 'Admin.Shopparameters.Feature'),
+                'help' => $this->trans(
+                    'Enables or disables SSL encryption (https://) for your shop. This is a security standard and you should always keep this option enabled, unless there is a specific technical issue.',
+                    'Admin.Shopparameters.Help'
+                ),
+            ]);
         }
 
         $builder
-            ->add('enable_ssl_everywhere', SwitchType::class, [
-                'disabled' => !$isSslEnabled,
-            ])
             ->add('enable_token', SwitchType::class, [
                 'disabled' => !$this->isContextDependantOptionEnabled(),
+                'label' => $this->trans(
+                    'Increase front office security',
+                    'Admin.Shopparameters.Feature'
+                ),
+                'help' => $this->trans(
+                    'Enable or disable token in the Front Office to improve PrestaShop\'s security.',
+                    'Admin.Shopparameters.Help'
+                ),
+            ]);
+        if ($showB2bShopMode) {
+            $builder
+                ->add(self::SHOP_MODE, EnumType::class, [
+                    'class' => ShopModeEnum::class,
+                    'label' => $this->trans(
+                        'Shop mode',
+                        'Admin.Shopparameters.Feature'),
+                    'help' => $this->trans(
+                        'Choose which features are enabled in your shop: B2C only, B2B only, or both.',
+                        'Admin.Shopparameters.Help'
+                    ),
+                ]);
+
+            if (null !== $this->updateShopModeFieldListener) {
+                $builder->addEventSubscriber($this->updateShopModeFieldListener);
+            }
+        }
+
+        $builder
+            ->add('allow_html_iframes', SwitchType::class, [
+                'label' => $this->trans(
+                    'Allow iframes on HTML fields',
+                    'Admin.Shopparameters.Feature'
+                ),
+                'help' => $this->trans(
+                    'Allows the use of iframes in rich text fields such as product descriptions. It is recommended to keep this option disabled unless you specifically need iframes for video embeds or other external content.',
+                    'Admin.Shopparameters.Help'
+                ),
             ])
-            ->add('allow_html_iframes', SwitchType::class)
-            ->add('use_htmlpurifier', SwitchType::class)
-            ->add('price_round_mode', ChoiceType::class, [
-                'choices_as_values' => true,
-                'choices' => [
-                    'Round up away from zero, when it is half way there (recommended)' => $configuration->get('PS_ROUND_HALF_UP'),
-                    'Round down towards zero, when it is half way there' => $configuration->get('PS_ROUND_HALF_DOWN'),
-                    'Round towards the next even value' => $configuration->get('PS_ROUND_HALF_EVEN'),
-                    'Round towards the next odd value' => $configuration->get('PS_ROUND_HALF_ODD'),
-                    'Round up to the nearest value' => $configuration->get('PS_ROUND_UP'),
-                    'Round down to the nearest value' => $configuration->get('PS_ROUND_DOWN'),
-                ],
+            ->add('use_htmlpurifier', SwitchType::class, [
+                'label' => $this->trans(
+                    'Use HTMLPurifier Library',
+                    'Admin.Shopparameters.Feature'
+                ),
+                'help' => $this->trans(
+                    'Cleans the HTML content in rich text fields before saving. It is recommended to keep this option enabled to ensure safe and valid content is saved into the database.',
+                    'Admin.Shopparameters.Help'
+                ),
             ])
+            ->add(
+                'price_round_mode', ChoiceType::class, [
+                    'placeholder' => false,
+                    'choices' => [
+                        'Round up away from zero, when it is half way there (recommended)' => $configuration->get('PS_ROUND_HALF_UP'),
+                        'Round down towards zero, when it is half way there' => $configuration->get('PS_ROUND_HALF_DOWN'),
+                        'Round towards the next even value' => $configuration->get('PS_ROUND_HALF_EVEN'),
+                        'Round towards the next odd value' => $configuration->get('PS_ROUND_HALF_ODD'),
+                        'Round up to the nearest value' => $configuration->get('PS_ROUND_UP'),
+                        'Round down to the nearest value' => $configuration->get('PS_ROUND_DOWN'),
+                    ],
+                    'label' => $this->trans('Round mode', 'Admin.Shopparameters.Feature'),
+                    'help' => $this->trans(
+                        'You can choose among 6 different ways of rounding prices. "Round up away from zero ..." is the recommended behavior.',
+                        'Admin.Shopparameters.Help'
+                    ),
+                ])
             ->add('price_round_type', ChoiceType::class, [
-                'choices_as_values' => true,
+                'placeholder' => false,
                 'choices' => [
                     'Round on each item' => Order::ROUND_ITEM,
                     'Round on each line' => Order::ROUND_LINE,
                     'Round on the total' => Order::ROUND_TOTAL,
                 ],
+                'label' => $this->trans('Round type', 'Admin.Shopparameters.Feature'),
+                'help' => $this->trans(
+                    'You can choose when to round prices: either on each item, each line or the total (of an invoice, for example).',
+                    'Admin.Shopparameters.Help'
+                ),
             ])
-            ->add('price_display_precision', IntegerType::class, [
-                'attr' => [
-                    'min' => 0,
-                ],
-            ])
-            ->add('display_suppliers', SwitchType::class)
-            ->add('display_best_sellers', SwitchType::class)
+            ->add(
+                'display_suppliers', SwitchType::class, [
+                    'label' => $this->trans('Display suppliers', 'Admin.Shopparameters.Feature'),
+                    'help' => $this->trans(
+                        'Enables or disables the suppliers listing in your shop. When disabled, suppliers are also removed from the sitemap and other related sections.',
+                        'Admin.Shopparameters.Help'
+                    ),
+                ])
+            ->add(
+                'display_manufacturers', SwitchType::class, [
+                    'label' => $this->trans('Display brands', 'Admin.Shopparameters.Feature'),
+                    'help' => $this->trans(
+                        'Enables or disables the brands listing in your shop. When disabled, brands are also removed from the sitemap and other related sections.',
+                        'Admin.Shopparameters.Help'
+                    ),
+                ])
+            ->add(
+                'display_best_sellers', SwitchType::class, [
+                    'label' => $this->trans('Display best sellers', 'Admin.Shopparameters.Feature'),
+                    'help' => $this->trans(
+                        'Enables or disables the best sellers page in your shop. When disabled, the page and related links are also removed from the sitemap and other sections.',
+                        'Admin.Shopparameters.Help'
+                    ),
+                ])
             ->add('multishop_feature_active', SwitchType::class, [
-                'disabled' => !$this->isContextDependantOptionEnabled(),
-            ])
-            ->add('shop_activity', ChoiceType::class, [
-                'required' => false,
-                'choices_as_values' => true,
-                'placeholder' => $this->trans('-- Please choose your main activity --', 'Install'),
-                'choices' => [
-                    'Animals and Pets' => 2,
-                    'Art and Culture' => 3,
-                    'Babies' => 4,
-                    'Beauty and Personal Care' => 5,
-                    'Cars' => 6,
-                    'Computer Hardware and Software' => 7,
-                    'Download' => 8,
-                    'Fashion and accessories' => 9,
-                    'Flowers, Gifts and Crafts' => 10,
-                    'Food and beverage' => 11,
-                    'HiFi, Photo and Video' => 12,
-                    'Home and Garden' => 13,
-                    'Home Appliances' => 14,
-                    'Jewelry' => 15,
-                    'Lingerie and Adult' => 1,
-                    'Mobile and Telecom' => 16,
-                    'Services' => 17,
-                    'Shoes and accessories' => 18,
-                    'Sport and Entertainment' => 19,
-                    'Travel' => 20,
-                ],
-                'choice_translation_domain' => 'Install',
+                // Disable the checkbox if multistore feature is active and at least 2 shops exist (@see PrestaShop/PrestaShop/Adapter/Feature/MultistoreFeature)
+                'disabled' => $this->isShopFeatureEnabled,
+                'label' => $this->trans('Enable Multistore', 'Admin.Shopparameters.Feature'),
+                'help' => $this->trans(
+                    'The multistore feature allows you to manage several front offices from a single back office. If this feature is enabled, a Multistore page is available in the Advanced Parameters menu.',
+                    'Admin.Shopparameters.Help'
+                ),
             ]);
-    }
-
-    /**
-     * Enabled only if the form is accessed using HTTPS protocol.
-     *
-     * @var bool
-     */
-    public function setIsSecure($isSecure)
-    {
-        $this->isSecure = $isSecure;
     }
 
     /**
@@ -197,7 +243,7 @@ class PreferencesType extends TranslatorAwareType
      */
     protected function isContextDependantOptionEnabled()
     {
-        if (!$this->isMultistoreUsed && $this->isSingleShopContext) {
+        if (!$this->isShopFeatureEnabled && $this->isSingleShopContext) {
             return true;
         }
 

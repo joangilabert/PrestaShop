@@ -1,59 +1,36 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Translation\Provider;
 
+use Exception;
+use PrestaShop\PrestaShop\Core\Exception\FileNotFoundException;
+use PrestaShop\PrestaShop\Core\Translation\Exception\TranslationFilesNotFoundException;
+use Symfony\Component\Translation\Loader\LoaderInterface;
 use Symfony\Component\Translation\MessageCatalogue;
+use Symfony\Component\Translation\MessageCatalogueInterface;
 
-class SearchProvider extends AbstractProvider implements UseDefaultCatalogueInterface
+/**
+ * Able to search translations for a specific translation domains across multiple sources
+ */
+class SearchProvider extends AbstractProvider implements UseDefaultCatalogueInterface, UseModuleInterface
 {
-    private $domain;
-
     /**
-     * Set domain.
-     *
-     * @param $domain
-     *
-     * @return $this
+     * @var ExternalModuleLegacySystemProvider
      */
-    public function setDomain($domain)
-    {
-        $this->domain = $domain;
+    private $externalModuleLegacySystemProvider;
 
-        return $this;
-    }
+    public function __construct(
+        LoaderInterface $databaseLoader,
+        ExternalModuleLegacySystemProvider $externalModuleLegacySystemProvider,
+        $resourceDirectory
+    ) {
+        $this->externalModuleLegacySystemProvider = $externalModuleLegacySystemProvider;
 
-    /**
-     * Get domain.
-     *
-     * @return mixed
-     */
-    public function getDomain()
-    {
-        return $this->domain;
+        parent::__construct($databaseLoader, $resourceDirectory);
     }
 
     /**
@@ -61,9 +38,7 @@ class SearchProvider extends AbstractProvider implements UseDefaultCatalogueInte
      */
     public function getTranslationDomains()
     {
-        return array(
-            '^' . $this->getDomain(),
-        );
+        return ['^' . preg_quote($this->domain) . '([A-Z]|$)'];
     }
 
     /**
@@ -71,9 +46,7 @@ class SearchProvider extends AbstractProvider implements UseDefaultCatalogueInte
      */
     public function getFilters()
     {
-        return array(
-            '#^' . $this->getDomain() . '#',
-        );
+        return ['#^' . preg_quote($this->domain, '#') . '([A-Z]|\.|$)#'];
     }
 
     /**
@@ -87,31 +60,82 @@ class SearchProvider extends AbstractProvider implements UseDefaultCatalogueInte
     /**
      * {@inheritdoc}
      */
+    public function getDefaultResourceDirectory()
+    {
+        return $this->resourceDirectory . DIRECTORY_SEPARATOR . 'default';
+    }
+
     public function getDefaultCatalogue($empty = true)
     {
-        $defaultCatalogue = new MessageCatalogue($this->getLocale());
-
-        foreach ($this->getFilters() as $filter) {
-            $filteredCatalogue = $this->getCatalogueFromPaths(
-                array($this->getDefaultResourceDirectory()),
-                $this->getLocale(),
-                $filter
-            );
-            $defaultCatalogue->addCatalogue($filteredCatalogue);
-        }
-
-        if ($empty) {
-            $defaultCatalogue = $this->emptyCatalogue($defaultCatalogue);
+        try {
+            $defaultCatalogue = parent::getDefaultCatalogue($empty);
+        } catch (TranslationFilesNotFoundException) {
+            $defaultCatalogue = $this->externalModuleLegacySystemProvider->getDefaultCatalogue($empty);
+            $defaultCatalogue = $this->filterCatalogue($defaultCatalogue);
         }
 
         return $defaultCatalogue;
     }
 
     /**
+     * @return MessageCatalogue|MessageCatalogueInterface
+     *
+     * @throws FileNotFoundException
+     */
+    public function getXliffCatalogue()
+    {
+        try {
+            $xliffCatalogue = parent::getXliffCatalogue();
+        } catch (Exception) {
+            $xliffCatalogue = $this->externalModuleLegacySystemProvider->getXliffCatalogue();
+            $xliffCatalogue = $this->filterCatalogue($xliffCatalogue);
+        }
+
+        return $xliffCatalogue;
+    }
+
+    /**
      * {@inheritdoc}
      */
-    public function getDefaultResourceDirectory()
+    public function setLocale($locale)
     {
-        return $this->resourceDirectory . DIRECTORY_SEPARATOR . 'default';
+        $this->externalModuleLegacySystemProvider->setLocale($locale);
+
+        return parent::setLocale($locale);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function setModuleName($moduleName)
+    {
+        $this->externalModuleLegacySystemProvider->setModuleName($moduleName);
+    }
+
+    /**
+     * Filters the catalogue so that only domains matching the filters are kept
+     *
+     * @param MessageCatalogueInterface $defaultCatalogue
+     *
+     * @return MessageCatalogueInterface
+     */
+    private function filterCatalogue(MessageCatalogueInterface $defaultCatalogue)
+    {
+        // return only elements whose domain matches the filters
+        $filters = $this->getFilters();
+        $allowedDomains = [];
+
+        foreach ($defaultCatalogue->all() as $domain => $messages) {
+            foreach ($filters as $filter) {
+                if (preg_match($filter, $domain)) {
+                    $allowedDomains[$domain] = $messages;
+                    break;
+                }
+            }
+        }
+
+        $defaultCatalogue = new MessageCatalogue($this->getLocale(), $allowedDomains);
+
+        return $defaultCatalogue;
     }
 }

@@ -1,80 +1,70 @@
 <?php
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
-use Doctrine\DBAL\DriverManager;
-use PrestaShopBundle\Kernel\ModuleRepository;
+use PrestaShop\PrestaShop\Adapter\Module\Repository\CachedModuleRepository;
+use PrestaShop\PrestaShop\Adapter\Module\Repository\ModuleRepository;
+use PrestaShop\PrestaShop\Adapter\SymfonyContainer;
+use PrestaShop\PrestaShop\Core\Exception\CoreException;
+use PrestaShop\PrestaShop\Core\Version;
+use PrestaShop\TranslationToolsBundle\TranslationToolsBundle;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
+use Symfony\Component\Cache\Adapter\NullAdapter;
 use Symfony\Component\Config\Loader\LoaderInterface;
+use Symfony\Component\Config\Resource\FileExistenceResource;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Kernel;
 
-class AppKernel extends Kernel
+abstract class AppKernel extends Kernel
 {
-    const VERSION = '1.7.5.0';
-    const MAJOR_VERSION_STRING = '1.7';
-    const MAJOR_VERSION = 17;
-    const MINOR_VERSION = 5;
-    const RELEASE_VERSION = 0;
+    public const VERSION = Version::VERSION;
+    public const MAJOR_VERSION_STRING = Version::MAJOR_VERSION_STRING;
+    public const MAJOR_VERSION = Version::MAJOR_VERSION;
+    public const MINOR_VERSION = Version::MINOR_VERSION;
+    public const RELEASE_VERSION = Version::RELEASE_VERSION;
 
     /**
-     * @{inheritdoc}
+     * @var CachedModuleRepository
      */
-    public function registerBundles()
+    protected $moduleRepository = null;
+
+    abstract public function getAppId(): string;
+
+    /**
+     * {@inheritdoc}
+     */
+    public function registerBundles(): iterable
     {
-        $bundles = array(
+        $bundles = [
             new Symfony\Bundle\FrameworkBundle\FrameworkBundle(),
             new Symfony\Bundle\SecurityBundle\SecurityBundle(),
             new Symfony\Bundle\TwigBundle\TwigBundle(),
             new Symfony\Bundle\MonologBundle\MonologBundle(),
-            new Symfony\Bundle\SwiftmailerBundle\SwiftmailerBundle(),
             new Doctrine\Bundle\DoctrineBundle\DoctrineBundle(),
-            new Sensio\Bundle\FrameworkExtraBundle\SensioFrameworkExtraBundle(),
+            new ApiPlatform\Symfony\Bundle\ApiPlatformBundle(),
             // PrestaShop Core bundle
-            new PrestaShopBundle\PrestaShopBundle(),
+            new PrestaShopBundle\PrestaShopBundle($this),
             // PrestaShop Translation parser
-            new PrestaShop\TranslationToolsBundle\TranslationToolsBundle(),
-            // REST API consumer
-            new Csa\Bundle\GuzzleBundle\CsaGuzzleBundle(),
-            new League\Tactician\Bundle\TacticianBundle(),
-        );
+            new TranslationToolsBundle(),
+            new FOS\JsRoutingBundle\FOSJsRoutingBundle(),
+            new Symfony\UX\TwigComponent\TwigComponentBundle(),
+            new Twig\Extra\TwigExtraBundle\TwigExtraBundle(),
+            new Symfony\UX\Icons\UXIconsBundle(),
+        ];
 
-        if (in_array($this->getEnvironment(), array('dev', 'test'), true)) {
+        if (in_array($this->getEnvironment(), ['dev', 'test'], true)) {
             $bundles[] = new Symfony\Bundle\DebugBundle\DebugBundle();
             $bundles[] = new Symfony\Bundle\WebProfilerBundle\WebProfilerBundle();
-            $bundles[] = new Sensio\Bundle\DistributionBundle\SensioDistributionBundle();
-        }
-
-        if ('dev' === $this->getEnvironment()) {
-            $bundles[] = new Symfony\Bundle\WebServerBundle\WebServerBundle();
         }
 
         /* Will not work until PrestaShop is installed */
-        if ($this->parametersFileExists()) {
+        $installedModules = $this->getModuleRepository()->getInstalledModules();
+        if (!empty($installedModules)) {
             try {
-                $this->enableComposerAutoloaderOnModules($this->getActiveModules());
-            } catch (\Exception $e) {
+                $this->enableComposerAutoloaderOnModules($installedModules);
+            } catch (Exception $e) {
             }
         }
 
@@ -82,31 +72,40 @@ class AppKernel extends Kernel
     }
 
     /**
-     * @{inheritdoc}
+     * {@inheritdoc}
      */
-    protected function getKernelParameters()
+    public function boot()
     {
-        $kernelParameters = parent::getKernelParameters();
-
-        $activeModules = array();
-
-        /* Will not work until PrestaShop is installed */
-        if ($this->parametersFileExists()) {
-            try {
-                $this->getConnection()->connect();
-                $activeModules = $this->getActiveModules();
-            } catch (\Exception $e) {
-            }
-        }
-
-        return array_merge(
-            $kernelParameters,
-            array('kernel.active_modules' => $activeModules)
-        );
+        parent::boot();
+        $this->cleanKernelReferences();
     }
 
     /**
-     * @{inheritdoc}
+     * {@inheritdoc}
+     */
+    public function shutdown()
+    {
+        parent::shutdown();
+        $this->cleanKernelReferences();
+    }
+
+    /**
+     * The kernel and especially its container is cached in several PrestaShop classes, services or components So we
+     * need to clear this cache everytime the kernel is shutdown, rebooted, reset, ...
+     *
+     * This is very important in test environment to avoid invalid mocks to stay accessible and used, but it's also
+     * important because we may need to reboot the kernel (during module installation, after currency is installed
+     * to reset CLDR cache, ...)
+     */
+    protected function cleanKernelReferences(): void
+    {
+        // We have classes to access the container from legacy code, they need to be cleaned after reboot
+        Context::getContext()->container = null;
+        SymfonyContainer::resetStaticCache();
+    }
+
+    /**
+     * {@inheritdoc}
      */
     public function getRootDir()
     {
@@ -114,114 +113,184 @@ class AppKernel extends Kernel
     }
 
     /**
-     * @{inheritdoc}
+     * {@inheritdoc}
      */
-    public function getCacheDir()
+    public function getLogDir(): string
     {
-        return dirname(__DIR__).'/var/cache/'.$this->getEnvironment();
+        return dirname(__DIR__) . '/var/logs';
+    }
+
+    public function getCacheDir(): string
+    {
+        return $this->getProjectDir() . '/var/cache/' . $this->environment . '/' . $this->getAppId();
     }
 
     /**
-     * @{inheritdoc}
-     */
-    public function getLogDir()
-    {
-        return dirname(__DIR__).'/var/logs';
-    }
-
-    /**
-     * @{inheritdoc}
-     * @throws \Exception
+     * {@inheritdoc}
+     *
+     * @throws Exception
      */
     public function registerContainerConfiguration(LoaderInterface $loader)
     {
-        $loader->load(function (ContainerBuilder $container) {
-            $container->setParameter('container.autowiring.strict_mode', true);
-            $container->setParameter('container.dumper.inline_class_loader', false);
-            $container->addObjectResource($this);
-        });
+        $loader->load($this->getKernelConfigPath());
 
-        $loader->load($this->getRootDir().'/config/config_'.$this->getEnvironment().'.yml');
-    }
-
-    /**
-     * Return all active modules.
-     *
-     * @return array list of modules names.
-     * @throws \Doctrine\DBAL\DBALException
-     */
-    private function getActiveModules()
-    {
-        $databasePrefix = $this->getParameters()['database_prefix'];
-
-        $modulesRepository = new ModuleRepository(
-            $this->getConnection(),
-            $databasePrefix
-        );
-
-        return $modulesRepository->getActiveModules();
-    }
-
-    /**
-     * @return array The root parameters of PrestaShop.
-     */
-    private function getParameters()
-    {
-        if ($this->parametersFileExists()) {
-            $config = require $this->getParametersFile();
-
-            return $config['parameters'];
+        $presentModules = $this->getModuleRepository()->getPresentModules();
+        // We only load translations of present modules (so their wording is usable during installation)
+        $moduleTranslationsPaths = [];
+        foreach ($presentModules as $presentModule) {
+            $modulePath = _PS_MODULE_DIR_ . $presentModule;
+            $translationsPath = sprintf('%s/translations', $modulePath);
+            if (is_dir($translationsPath)) {
+                $moduleTranslationsPaths[] = $translationsPath;
+            }
         }
 
-        return array();
+        $activeModules = $this->getModuleRepository()->getActiveModules();
+        $servicesFilesList = [
+            'services.php',
+            sprintf('services-%d.%d.yml', Version::MAJOR_VERSION, Version::MINOR_VERSION),
+            sprintf('services-%d.yml', Version::MAJOR_VERSION),
+            'services.yml',
+        ];
+
+        // We only load services of active modules (not simply installed)
+        foreach ($activeModules as $activeModulePath) {
+            $modulePath = _PS_MODULE_DIR_ . $activeModulePath;
+
+            foreach ($servicesFilesList as $servicesFile) {
+                $fullPath = sprintf('%s/config/%s', $modulePath, $servicesFile);
+
+                if (is_file($fullPath)) {
+                    $loader->load($fullPath);
+                    // Prevent loading less specific services files if one was found
+                    break;
+                }
+            }
+
+            foreach ($servicesFilesList as $servicesFile) {
+                $fullPath = sprintf('%s/config/admin/%s', $modulePath, $servicesFile);
+
+                if (is_file($fullPath)) {
+                    $loader->load($fullPath);
+                    // Prevent loading less specific services files if one was found
+                    break;
+                }
+            }
+
+            /*
+            // @todo Uncomment to Load this file once we'll have a unique container
+            foreach ($servicesFilesList as $servicesFile) {
+                $fullPath = sprintf('%s/config/front/%s', $modulePath, $servicesFile);
+
+                if (is_file($fullPath)) {
+                    $loader->load($fullPath);
+                    // Prevent loading less specific services files if one was found
+                    break;
+                }
+            }
+            */
+        }
+
+        $installedModules = $this->getModuleRepository()->getInstalledModules();
+        $loader->load(function (ContainerBuilder $container) use ($moduleTranslationsPaths, $activeModules, $installedModules) {
+            $container->setParameter('container.autowiring.strict_mode', true);
+            $container->setParameter('container.dumper.inline_class_loader', false);
+            $container->setParameter('prestashop.module_dir', _PS_MODULE_DIR_);
+            /* @deprecated kernel.active_modules is deprecated. Use prestashop.active_modules instead. */
+            $container->setParameter('kernel.active_modules', $activeModules);
+            $container->setParameter('prestashop.active_modules', $activeModules);
+            $container->setParameter('prestashop.installed_modules', $installedModules);
+            $container->addObjectResource($this);
+            $container->setParameter('modules_translation_paths', $moduleTranslationsPaths);
+
+            // Define parameter for admin folder path
+            if (defined('PS_ADMIN_DIR') && is_dir(PS_ADMIN_DIR)) {
+                $adminDir = PS_ADMIN_DIR;
+            } elseif (defined('_PS_ADMIN_DIR_') && is_dir(_PS_ADMIN_DIR_)) {
+                $adminDir = _PS_ADMIN_DIR_;
+            } else {
+                // Look for potential admin folders, condition to meet:
+                //  - first level folders in the project folder
+                //  - contains a PHP file that define the const PS_ADMIN_DIR or _PS_ADMIN_DIR_
+                //  - the first folder found is used (alphabetical order, but files named index.php have the highest priority)
+                $finder = new Symfony\Component\Finder\Finder();
+                $finder->files()
+                    ->name('*.php')
+                    ->contains('/define\([\'\"](_)?PS_ADMIN_DIR(_)?[\'\"]/')
+                    ->depth('== 1')
+                    ->sort(function (SplFileInfo $a, SplFileInfo $b): int {
+                        // Prioritize files named index.php
+                        if ($a->getFilename() === 'index.php') {
+                            return -1;
+                        }
+
+                        return strcmp($a->getRealPath(), $b->getRealPath());
+                    })
+                    ->in($this->getProjectDir())
+                ;
+                foreach ($finder as $adminIndexFile) {
+                    $adminDir = $adminIndexFile->getPath();
+                    // Container freshness depends on this file existence
+                    $container->addResource(new FileExistenceResource($adminIndexFile->getRealPath()));
+                    break;
+                }
+            }
+
+            if (!isset($adminDir) || !is_dir($adminDir)) {
+                throw new CoreException('Could not detect admin folder, and const as not defined.');
+            }
+            $container->setParameter('prestashop.admin_dir', $adminDir);
+            $container->setParameter('prestashop.admin_folder_name', basename($adminDir));
+            // Container freshness depends on this folder existence
+            $container->addResource(new FileExistenceResource($adminDir));
+        });
     }
 
     /**
-     * @var bool
-     * @return bool
+     * If the app has a dedicated config file load it, else load the common one.
+     *
+     * @return string
      */
-    private function parametersFileExists()
+    protected function getKernelConfigPath(): string
     {
-        return file_exists($this->getParametersFile());
+        $dedicatedConfigFile = $this->getRootDir() . '/config/' . $this->getAppId() . '/config_' . $this->getEnvironment() . '.yml';
+        if (file_exists($dedicatedConfigFile)) {
+            return $dedicatedConfigFile;
+        }
+
+        return $this->getRootDir() . '/config/config_' . $this->getEnvironment() . '.yml';
     }
 
     /**
-     * @return string file path to PrestaShop configuration parameters.
+     * Add default kernel parameters like kernel.app_id
+     *
+     * @return array
      */
-    private function getParametersFile()
+    protected function getKernelParameters(): array
     {
-        return $this->getRootDir().'/config/parameters.php';
-    }
-
-    /**
-     * @return \Doctrine\DBAL\Connection
-     * @throws \Doctrine\DBAL\DBALException
-     */
-    private function getConnection()
-    {
-        $parameters = $this->getParameters();
-
-        return DriverManager::getConnection(array(
-            'dbname' => $parameters['database_name'],
-            'user' => $parameters['database_user'],
-            'password' => $parameters['database_password'],
-            'host' => $parameters['database_host'],
-            'port' => $parameters['database_port'],
-            'charset' => 'utf8',
-            'driver' => 'pdo_mysql',
-        ));
+        return array_merge(
+            parent::getKernelParameters(),
+            [
+                'kernel.app_id' => $this->getAppId(),
+                'prestashop.legacy_cache_dir' => _PS_CACHE_DIR_,
+            ],
+        );
     }
 
     /**
      * Enable auto loading of module Composer autoloader if needed.
      * Need to be done as earlier as possible in application lifecycle.
      *
+     * Note: this feature is also manage in PrestaShop\PrestaShop\Adapter\ContainerBuilder
+     * for non Symfony environments.
+     *
      * @param array $modules the list of modules
      */
     private function enableComposerAutoloaderOnModules($modules)
     {
+        $moduleDirectoryPath = rtrim(_PS_MODULE_DIR_, '/') . '/';
         foreach ($modules as $module) {
-            $autoloader = __DIR__.'/../modules/'.$module.'/vendor/autoload.php';
+            $autoloader = $moduleDirectoryPath . $module . '/vendor/autoload.php';
 
             if (file_exists($autoloader)) {
                 include_once $autoloader;
@@ -237,8 +306,35 @@ class AppKernel extends Kernel
      *
      * @return string The project root dir
      */
-    public function getProjectDir()
+    public function getProjectDir(): string
     {
         return realpath(__DIR__ . '/..');
+    }
+
+    protected function getModuleRepository(): CachedModuleRepository
+    {
+        if ($this->moduleRepository === null) {
+            if ($this->getEnvironment() === 'test') {
+                $cache = new NullAdapter();
+            } else {
+                $cache = new FilesystemAdapter('modules', 0, $this->getCacheDir());
+            }
+            $this->moduleRepository = new CachedModuleRepository(
+                new ModuleRepository(_PS_ROOT_DIR_, _PS_MODULE_DIR_),
+                $cache
+            );
+        }
+
+        return $this->moduleRepository;
+    }
+
+    /**
+     * Get App type of current Kernel based on kernel class name. (admin or front)
+     *
+     * @return string
+     */
+    public function getAppType(): string
+    {
+        return $this instanceof FrontKernel ? 'front' : 'admin';
     }
 }

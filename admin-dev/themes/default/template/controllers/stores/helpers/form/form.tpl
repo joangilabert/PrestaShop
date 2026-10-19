@@ -1,32 +1,12 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 {extends file="helpers/form/form.tpl"}
 
 {block name=script}
-	$(document).ready(function() {
-		$('#latitude, #longitude').keyup(function() {
+	$(function() {
+		$('#latitude, #longitude').on('keyup', function() {
 			$(this).val($(this).val().replace(/,/g, '.'));
 		});
 	});
@@ -41,7 +21,7 @@
 				{if isset($input.maxlength)}maxlength="{$input.maxlength}"{/if}
 				name="latitude"
 				id="latitude"
-				value="{$fields_value[$input.name]|escape:'html':'UTF-8'}" />
+				value="{$fields_value[$input.name]|default|escape:'html':'UTF-8'}" />
 		</div>
 		<div class="col-lg-1">
 			<div class="form-control-static text-center"> / </div>
@@ -52,7 +32,7 @@
 				{if isset($input.maxlength)}maxlength="{$input.maxlength}"{/if}
 				name="longitude"
 				id="longitude"
-				value="{$fields_value['longitude']|escape:'html':'UTF-8'}" />
+				value="{$fields_value['longitude']|default|escape:'html':'UTF-8'}" />
 		</div>
 	</div>
 	{else}
@@ -66,7 +46,7 @@
       <label class="control-label col-lg-3">{l s='Hours:' d='Admin.Shopparameters.Feature'}</label>
       <div class="col-lg-9"><p class="form-control-static">{l s='e.g. 10:00AM - 9:30PM' d='Admin.Shopparameters.Help'}</p></div>
     </div>
-    {foreach $fields_value.days as $k => $value}
+    {foreach $fields_value.days|default:[] as $k => $value}
     <div class="form-group">
       <label class="control-label col-lg-3">{$value}</label>
       {if $languages|count > 1}

@@ -1,30 +1,13 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 class SpecificPriceCore extends ObjectModel
 {
+    public const ORDER_DEFAULT_FROM_QUANTITY = 1;
+    public const ORDER_DEFAULT_DATE = '0000-00-00 00:00:00';
+
     public $id_product;
     public $id_specific_price_rule = 0;
     public $id_cart = 0;
@@ -46,65 +29,65 @@ class SpecificPriceCore extends ObjectModel
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'specific_price',
         'primary' => 'id_specific_price',
-        'fields' => array(
-            'id_shop_group' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'id_shop' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_cart' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_product' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_product_attribute' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'id_currency' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_specific_price_rule' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'id_country' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_group' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_customer' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'price' => array('type' => self::TYPE_FLOAT, 'validate' => 'isNegativePrice', 'required' => true),
-            'from_quantity' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt', 'required' => true),
-            'reduction' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice', 'required' => true),
-            'reduction_tax' => array('type' => self::TYPE_INT, 'validate' => 'isBool', 'required' => true),
-            'reduction_type' => array('type' => self::TYPE_STRING, 'validate' => 'isReductionType', 'required' => true),
-            'from' => array('type' => self::TYPE_DATE, 'validate' => 'isDateFormat', 'required' => true),
-            'to' => array('type' => self::TYPE_DATE, 'validate' => 'isDateFormat', 'required' => true),
-        ),
-    );
+        'fields' => [
+            'id_shop_group' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'id_shop' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_cart' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_product' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_product_attribute' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'id_currency' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_specific_price_rule' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'id_country' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_group' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_customer' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'price' => ['type' => self::TYPE_FLOAT, 'validate' => 'isNegativePrice', 'required' => true],
+            'from_quantity' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedInt', 'required' => true],
+            'reduction' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice', 'required' => true],
+            'reduction_tax' => ['type' => self::TYPE_INT, 'validate' => 'isBool', 'required' => true],
+            'reduction_type' => ['type' => self::TYPE_STRING, 'validate' => 'isReductionType', 'required' => true],
+            'from' => ['type' => self::TYPE_DATE, 'validate' => 'isDateFormat', 'required' => true],
+            'to' => ['type' => self::TYPE_DATE, 'validate' => 'isDateFormat', 'required' => true],
+        ],
+    ];
 
-    protected $webserviceParameters = array(
+    protected $webserviceParameters = [
         'objectsNodeName' => 'specific_prices',
         'objectNodeName' => 'specific_price',
-        'fields' => array(
-            'id_shop_group' => array('xlink_resource' => 'shop_groups'),
-            'id_shop' => array('xlink_resource' => 'shops', 'required' => true),
-            'id_cart' => array('xlink_resource' => 'carts', 'required' => true),
-            'id_product' => array('xlink_resource' => 'products', 'required' => true),
-            'id_product_attribute' => array('xlink_resource' => 'product_attributes'),
-            'id_currency' => array('xlink_resource' => 'currencies', 'required' => true),
-            'id_country' => array('xlink_resource' => 'countries', 'required' => true),
-            'id_group' => array('xlink_resource' => 'groups', 'required' => true),
-            'id_customer' => array('xlink_resource' => 'customers', 'required' => true),
-        ),
-    );
+        'fields' => [
+            'id_shop_group' => ['xlink_resource' => 'shop_groups'],
+            'id_shop' => ['xlink_resource' => 'shops', 'required' => true],
+            'id_cart' => ['xlink_resource' => 'carts', 'required' => true],
+            'id_product' => ['xlink_resource' => 'products', 'required' => true],
+            'id_product_attribute' => ['xlink_resource' => 'product_attributes'],
+            'id_currency' => ['xlink_resource' => 'currencies', 'required' => true],
+            'id_country' => ['xlink_resource' => 'countries', 'required' => true],
+            'id_group' => ['xlink_resource' => 'groups', 'required' => true],
+            'id_customer' => ['xlink_resource' => 'customers', 'required' => true],
+        ],
+    ];
 
     /**
      * Local cache for getSpecificPrice function results.
      *
      * @var array
      */
-    protected static $_specificPriceCache = array();
+    protected static $_specificPriceCache = [];
 
     /**
      * Local cache which stores if a product could have an associated specific price.
      *
      * @var array
      */
-    protected static $_couldHaveSpecificPriceCache = array();
+    protected static $_couldHaveSpecificPriceCache = [];
 
     /**
      * Store if the specific_price table contains any global rules in the productId columns
      * i.e. if there is a product_id == 0 somewhere in the specific_price table.
      *
-     * @var bool
+     * @var bool|null
      */
     protected static $_hasGlobalProductRules = null;
 
@@ -114,14 +97,14 @@ class SpecificPriceCore extends ObjectModel
      *
      * @var array
      */
-    protected static $_filterOutCache = array();
+    protected static $_filterOutCache = [];
 
     /**
      * Local cache for getPriority function.
      *
      * @var array
      */
-    protected static $_cache_priorities = array();
+    protected static $_cache_priorities = [];
 
     /**
      * Local cache which stores if a given column name could have a value != 0 in the specific_price table
@@ -129,34 +112,50 @@ class SpecificPriceCore extends ObjectModel
      *
      * @var array
      */
-    protected static $_no_specific_values = array();
+    protected static $_no_specific_values = [];
 
     protected static $psQtyDiscountOnCombination = null;
+
+    public static function resetStaticCache()
+    {
+        parent::resetStaticCache();
+        static::flushCache();
+    }
 
     /**
      * Flush local cache.
      */
     public static function flushCache()
     {
-        self::$_specificPriceCache = array();
-        self::$_couldHaveSpecificPriceCache = array();
+        self::$_specificPriceCache = [];
+        self::$_couldHaveSpecificPriceCache = [];
         self::$_hasGlobalProductRules = null;
-        self::$_filterOutCache = array();
-        self::$_cache_priorities = array();
-        self::$_no_specific_values = array();
+        self::$_filterOutCache = [];
+        self::$_cache_priorities = [];
+        self::$_no_specific_values = [];
         self::$psQtyDiscountOnCombination = null;
         Product::flushPriceCache();
     }
 
     public function add($autodate = true, $nullValues = false)
     {
+        $specificPriceUsed = (bool) Configuration::getGlobalValue('PS_SPECIFIC_PRICE_FEATURE_ACTIVE');
+
+        if (!$specificPriceUsed) {
+            // Set cache of feature detachable to true
+            Configuration::updateGlobalValue('PS_SPECIFIC_PRICE_FEATURE_ACTIVE', '1');
+        }
+
         if (parent::add($autodate, $nullValues)) {
             // Flush cache when we adding a new specific price
             $this->flushCache();
-            // Set cache of feature detachable to true
-            Configuration::updateGlobalValue('PS_SPECIFIC_PRICE_FEATURE_ACTIVE', '1');
 
             return true;
+        }
+
+        if (!$specificPriceUsed) {
+            // Restore previous PS_SPECIFIC_PRICE_FEATURE_ACTIVE state because the add operation failed
+            Configuration::updateGlobalValue('PS_SPECIFIC_PRICE_FEATURE_ACTIVE', false);
         }
 
         return false;
@@ -188,14 +187,15 @@ class SpecificPriceCore extends ObjectModel
         return false;
     }
 
-    public static function getByProductId($id_product, $id_product_attribute = false, $id_cart = false)
+    public static function getByProductId($id_product, $id_product_attribute = false, $id_cart = false, $id_price_rule = null)
     {
         return Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
 			SELECT *
 			FROM `' . _DB_PREFIX_ . 'specific_price`
 			WHERE `id_product` = ' . (int) $id_product .
             ($id_product_attribute ? ' AND id_product_attribute = ' . (int) $id_product_attribute : '') . '
-			AND id_cart = ' . (int) $id_cart);
+			AND id_cart = ' . (int) $id_cart .
+            ($id_price_rule !== null ? ' AND id_specific_price_rule = ' . (int) $id_price_rule : ''));
     }
 
     public static function deleteByIdCart($id_cart, $id_product = false, $id_product_attribute = false)
@@ -209,11 +209,11 @@ class SpecificPriceCore extends ObjectModel
     public static function getIdsByProductId($id_product, $id_product_attribute = false, $id_cart = 0)
     {
         return Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
-			SELECT `id_specific_price`
-			FROM `' . _DB_PREFIX_ . 'specific_price`
-			WHERE `id_product` = ' . (int) $id_product . '
-			AND id_product_attribute=' . (int) $id_product_attribute . '
-			AND id_cart=' . (int) $id_cart);
+            SELECT `id_specific_price`
+            FROM `' . _DB_PREFIX_ . 'specific_price`
+            WHERE `id_product` = ' . (int) $id_product .
+            ($id_product_attribute !== false ? ' AND id_product_attribute = ' . (int) $id_product_attribute : '') . '
+            AND id_cart = ' . (int) $id_cart);
     }
 
     /**
@@ -255,7 +255,7 @@ class SpecificPriceCore extends ObjectModel
         }
         $priority = 'id_customer;' . $priority;
 
-        return preg_split('/;/', $priority);
+        return explode(';', $priority);
     }
 
     /**
@@ -277,15 +277,21 @@ class SpecificPriceCore extends ObjectModel
             return $query_extra;
         }
         $key_cache = __FUNCTION__ . '-' . $field_name . '-' . $threshold;
-        $specific_list = array();
+        $specific_list = [];
         if (!array_key_exists($key_cache, self::$_filterOutCache)) {
-            $query_count = 'SELECT COUNT(DISTINCT `' . $name . '`) FROM `' . _DB_PREFIX_ . 'specific_price` WHERE `' . $name . '` != 0';
-            $specific_count = Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($query_count);
-            if ($specific_count == 0) {
+            // Check if a specific price with this key exists
+            $query = 'SELECT 1 FROM `' . _DB_PREFIX_ . 'specific_price` WHERE `' . $name . '` != 0';
+            $has_product_specific_price = Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($query);
+            if ($has_product_specific_price == 0) {
                 self::$_no_specific_values[$field_name] = true;
 
                 return $query_extra;
             }
+            // Fetch the approximate count of specific price. explain can be 100x faster than count.
+            $query_count = 'EXPLAIN SELECT COUNT(DISTINCT `' . $name . '`) FROM `' . _DB_PREFIX_ . 'specific_price` WHERE `' . $name . '` != 0';
+            $specific_count_result = Db::getInstance(_PS_USE_SQL_SLAVE_)->getRow($query_count);
+            $specific_count = $specific_count_result['rows'];
+
             if ($specific_count < $threshold) {
                 $query = 'SELECT DISTINCT `' . $name . '` FROM `' . _DB_PREFIX_ . 'specific_price` WHERE `' . $name . '` != 0';
                 $tmp_specific_list = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($query);
@@ -341,9 +347,7 @@ class SpecificPriceCore extends ObjectModel
             $query_extra .= self::filterOutField('id_product', $id_product);
         }
 
-        if ($id_customer !== null) {
-            $query_extra .= self::filterOutField('id_customer', $id_customer);
-        }
+        $query_extra .= self::filterOutField('id_customer', $id_customer);
 
         if ($id_product_attribute !== null) {
             $query_extra .= self::filterOutField('id_product_attribute', $id_product_attribute);
@@ -360,7 +364,7 @@ class SpecificPriceCore extends ObjectModel
                 $query_to_count = 'SELECT 1 FROM `' . _DB_PREFIX_ . 'specific_price` WHERE `to` BETWEEN \'' . $first_date . '\' AND \'' . $last_date . '\'';
 
                 $to_specific_count = Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($query_to_count);
-                self::$_filterOutCache[$key] = array($from_specific_count, $to_specific_count);
+                self::$_filterOutCache[$key] = [$from_specific_count, $to_specific_count];
             } else {
                 list($from_specific_count, $to_specific_count) = self::$_filterOutCache[$key];
             }
@@ -396,7 +400,7 @@ class SpecificPriceCore extends ObjectModel
     /**
      * Check if the given product could have a specific price.
      *
-     * @param $idProduct
+     * @param int $idProduct
      *
      * @return bool
      */
@@ -493,7 +497,7 @@ class SpecificPriceCore extends ObjectModel
         $real_quantity = 0
     ) {
         if (!SpecificPrice::isFeatureActive()) {
-            return array();
+            return [];
         }
         /*
          * The date is not taken into account for the cache, but this is for the better because it keeps the consistency
@@ -502,7 +506,7 @@ class SpecificPriceCore extends ObjectModel
         */
 
         if (!self::couldHaveSpecificPrice($id_product)) {
-            return array();
+            return [];
         }
 
         if (static::$psQtyDiscountOnCombination === null) {
@@ -525,7 +529,7 @@ class SpecificPriceCore extends ObjectModel
             );
         }
 
-        if (!array_key_exists($key, self::$_specificPriceCache)) {
+        if ($key === null || !array_key_exists($key, self::$_specificPriceCache)) {
             $query_extra = self::computeExtraConditions($id_product, $id_product_attribute, $id_customer, $id_cart);
             if ($key === null) {
                 // compute the key after calling computeExtraConditions as it initializes some useful cache
@@ -560,20 +564,6 @@ class SpecificPriceCore extends ObjectModel
         return self::$_specificPriceCache[$key];
     }
 
-    public static function setPriorities($priorities)
-    {
-        $value = '';
-        if (is_array($priorities)) {
-            foreach ($priorities as $priority) {
-                $value .= pSQL($priority) . ';';
-            }
-        }
-
-        SpecificPrice::deletePriorities();
-
-        return Configuration::updateValue('PS_SPECIFIC_PRICE_PRIORITIES', rtrim($value, ';'));
-    }
-
     /**
      * Truncate the specific price priorities.
      *
@@ -603,10 +593,10 @@ class SpecificPriceCore extends ObjectModel
     public static function getQuantityDiscounts($id_product, $id_shop, $id_currency, $id_country, $id_group, $id_product_attribute = null, $all_combinations = false, $id_customer = 0)
     {
         if (!SpecificPrice::isFeatureActive()) {
-            return array();
+            return [];
         }
 
-        $query_extra = self::computeExtraConditions($id_product, ((!$all_combinations) ? $id_product_attribute : null), $id_customer, null);
+        $query_extra = self::computeExtraConditions($id_product, (!$all_combinations) ? $id_product_attribute : null, $id_customer, null);
         $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
 			SELECT *,
 					' . SpecificPrice::_getScoreQuery($id_product, $id_shop, $id_currency, $id_country, $id_group, $id_customer) . '
@@ -619,8 +609,8 @@ class SpecificPriceCore extends ObjectModel
 					ORDER BY `from_quantity` ASC, `id_specific_price_rule` ASC, `score` DESC, `to` DESC, `from` DESC
 		', false, false);
 
-        $targeted_prices = array();
-        $last_quantity = array();
+        $targeted_prices = [];
+        $last_quantity = [];
 
         while ($specific_price = Db::getInstance()->nextRow($result)) {
             if (!isset($last_quantity[(int) $specific_price['id_product_attribute']])) {
@@ -641,7 +631,7 @@ class SpecificPriceCore extends ObjectModel
     public static function getQuantityDiscount($id_product, $id_shop, $id_currency, $id_country, $id_group, $quantity, $id_product_attribute = null, $id_customer = 0)
     {
         if (!SpecificPrice::isFeatureActive()) {
-            return array();
+            return [];
         }
 
         $query_extra = self::computeExtraConditions($id_product, $id_product_attribute, $id_customer, null);
@@ -663,7 +653,7 @@ class SpecificPriceCore extends ObjectModel
     public static function getProductIdByDate($id_shop, $id_currency, $id_country, $id_group, $beginning, $ending, $id_customer = 0, $with_combination_id = false)
     {
         if (!SpecificPrice::isFeatureActive()) {
-            return array();
+            return [];
         }
 
         $query_extra = self::computeExtraConditions(null, null, $id_customer, null, $beginning, $ending);
@@ -677,13 +667,13 @@ class SpecificPriceCore extends ObjectModel
 					`from_quantity` = 1 AND
 					`reduction` > 0
 		' . $query_extra);
-        $ids_product = array();
+        $ids_product = [];
         foreach ($results as $value) {
             $ids_product[] = $with_combination_id ?
-                array(
+                [
                     'id_product' => (int) $value['id_product'],
                     'id_product_attribute' => (int) $value['id_product_attribute'],
-                ) : (int) $value['id_product'];
+                ] : (int) $value['id_product'];
         }
 
         return $ids_product;
@@ -712,13 +702,17 @@ class SpecificPriceCore extends ObjectModel
      * Duplicate a product.
      *
      * @param bool|int $id_product The product ID to duplicate, false when duplicating the current product
+     * @param array $combination_associations Associations between the ids of base combinations and their duplicates
      *
      * @return bool
      */
-    public function duplicate($id_product = false)
+    public function duplicate($id_product = false, array $combination_associations = []): bool
     {
         if ($id_product) {
             $this->id_product = (int) $id_product;
+        }
+        if ($this->id_product_attribute && isset($combination_associations[$this->id_product_attribute])) {
+            $this->id_product_attribute = (int) $combination_associations[$this->id_product_attribute];
         }
         unset($this->id);
         // specific price row may already have been created for catalog specific price rule
@@ -744,19 +738,11 @@ class SpecificPriceCore extends ObjectModel
     /**
      * This method is allow to know if a feature is used or active.
      *
-     * @since 1.5.0.1
-     *
      * @return bool
      */
     public static function isFeatureActive()
     {
-        static $feature_active = null;
-
-        if ($feature_active === null) {
-            $feature_active = Configuration::get('PS_SPECIFIC_PRICE_FEATURE_ACTIVE');
-        }
-
-        return $feature_active;
+        return (bool) Configuration::get('PS_SPECIFIC_PRICE_FEATURE_ACTIVE');
     }
 
     /**
@@ -773,12 +759,16 @@ class SpecificPriceCore extends ObjectModel
      * @param string $from Date from which the specific price start. 0000-00-00 00:00:00 if no starting date
      * @param string $to Date from which the specific price end. 0000-00-00 00:00:00 if no ending date
      * @param bool $rule if a specific price rule (from specific_price_rule) was set or not
+     * @param int|null $id_cart if a specific cart was set or not (default: null no additional check is performed)
      *
      * @return int The specific rule id, 0 if no corresponding rule found
      */
-    public static function exists($id_product, $id_product_attribute, $id_shop, $id_group, $id_country, $id_currency, $id_customer, $from_quantity, $from, $to, $rule = false)
+    public static function exists($id_product, $id_product_attribute, $id_shop, $id_group, $id_country, $id_currency, $id_customer, $from_quantity, $from, $to, $rule = false, $id_cart = null)
     {
         $rule = ' AND `id_specific_price_rule`' . (!$rule ? '=0' : '!=0');
+        if (null !== $id_cart) {
+            $rule .= ' AND id_cart = ' . (int) $id_cart;
+        }
 
         return (int) Db::getInstance()->getValue('SELECT `id_specific_price`
 												FROM ' . _DB_PREFIX_ . 'specific_price

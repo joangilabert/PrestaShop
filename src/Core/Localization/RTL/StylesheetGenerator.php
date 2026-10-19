@@ -1,32 +1,13 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Localization\RTL;
 
 use CSSJanus;
+use PrestaShop\PrestaShop\Core\Foundation\Filesystem\FileSystem;
 use PrestaShop\PrestaShop\Core\Localization\RTL\Exception\GenerationException;
 use Tools;
 
@@ -45,17 +26,17 @@ class StylesheetGenerator
     /**
      * Default file type to look up.
      */
-    const DEFAULT_FILE_TYPE = 'css';
+    public const DEFAULT_FILE_TYPE = 'css';
 
     /**
      * Default suffix to use for RTL transformed files.
      */
-    const DEFAULT_RTL_SUFFIX = '_rtl';
+    public const DEFAULT_RTL_SUFFIX = '_rtl';
 
     /**
      * Extension of RTL fix files.
      */
-    const RTLFIX_EXTENSION = 'rtlfix';
+    public const RTLFIX_EXTENSION = 'rtlfix';
 
     /**
      * @var string
@@ -107,7 +88,9 @@ class StylesheetGenerator
     private function shouldProcessFile($file, $regenerate)
     {
         return
-            strpos($file, '/node_modules/') === false
+            !str_contains($file, '/node_modules/')
+            // rtl.css contains RTL override rules
+            && !str_contains($file, 'rtl.css')
             // does not end with .rtlfix
             && substr(rtrim($file, '.' . $this->fileType), -4) !== $this->rtlSuffix
             // RTL file does not exist or we are regenerating them
@@ -126,20 +109,13 @@ class StylesheetGenerator
         $content = file_get_contents($filePath);
 
         if ($content === false) {
-            throw new GenerationException(
-                sprintf(
-                    'Unable to read from CSS file: %s',
-                    $filePath
-                )
-            );
+            throw new GenerationException(sprintf('Unable to read from CSS file: %s', $filePath));
         }
 
         $rendered = CSSJanus::transform($content);
 
         if (strlen($rendered) === 0 && strlen($content) !== 0) {
-            throw new GenerationException(
-                sprintf('Failed to generate RTL CSS from file: %s', $filePath)
-            );
+            throw new GenerationException(sprintf('Failed to generate RTL CSS from file: %s', $filePath));
         }
 
         $content = $this->appendRtlFixIfNecessary(
@@ -208,12 +184,7 @@ class StylesheetGenerator
             $rtlFixContent = file_get_contents($rtlFixFilePath);
 
             if ($rtlFixContent === false) {
-                throw new GenerationException(
-                    sprintf(
-                        'Failed to read from file: %s',
-                        $rtlFixFilePath
-                    )
-                );
+                throw new GenerationException(sprintf('Failed to read from file: %s', $rtlFixFilePath));
             }
 
             return $content . PHP_EOL . $rtlFixContent;
@@ -235,14 +206,9 @@ class StylesheetGenerator
         $rtlFilePath = $this->getRtlFileName($baseFile);
 
         if (false === file_put_contents($rtlFilePath, $content)) {
-            throw new GenerationException(
-                sprintf(
-                    'Unable to write file to: %s',
-                    $rtlFilePath
-                )
-            );
+            throw new GenerationException(sprintf('Unable to write file to: %s', $rtlFilePath));
         }
 
-        @chmod($rtlFilePath, 0644);
+        @chmod($rtlFilePath, FileSystem::DEFAULT_MODE_FILE);
     }
 }

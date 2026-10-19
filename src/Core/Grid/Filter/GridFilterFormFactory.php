@@ -1,33 +1,15 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Grid\Filter;
 
 use PrestaShop\PrestaShop\Core\Grid\Definition\GridDefinitionInterface;
-use PrestaShop\PrestaShop\Core\Hook\HookDispatcherAwareTrait;
+use PrestaShop\PrestaShop\Core\Grid\Exception\ColumnNotFoundException;
+use PrestaShop\PrestaShop\Core\Hook\HookDispatcherInterface;
+use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\Form\Extension\Core\Type\FormType;
 use Symfony\Component\Form\FormFactoryInterface;
 
@@ -36,19 +18,26 @@ use Symfony\Component\Form\FormFactoryInterface;
  */
 final class GridFilterFormFactory implements GridFilterFormFactoryInterface
 {
-    use HookDispatcherAwareTrait;
-
     /**
      * @var FormFactoryInterface
      */
     private $formFactory;
 
     /**
-     * @param FormFactoryInterface $formFactory
+     * @var HookDispatcherInterface
      */
-    public function __construct(FormFactoryInterface $formFactory)
-    {
+    private $hookDispatcher;
+
+    /**
+     * @param FormFactoryInterface $formFactory
+     * @param HookDispatcherInterface $hookDispatcher
+     */
+    public function __construct(
+        FormFactoryInterface $formFactory,
+        HookDispatcherInterface $hookDispatcher
+    ) {
         $this->formFactory = $formFactory;
+        $this->hookDispatcher = $hookDispatcher;
     }
 
     /**
@@ -58,22 +47,43 @@ final class GridFilterFormFactory implements GridFilterFormFactoryInterface
     {
         $formBuilder = $this->formFactory->createNamedBuilder(
             $definition->getId(),
-            FormType::class
+            FormType::class,
+            null,
+            [
+                'allow_extra_fields' => true,
+            ]
         );
 
         /** @var FilterInterface $filter */
         foreach ($definition->getFilters()->all() as $filter) {
+            $filterOptions = array_merge([
+                'label' => $this->getFilterLabel($definition, $filter),
+            ], $filter->getTypeOptions());
             $formBuilder->add(
                 $filter->getName(),
                 $filter->getType(),
-                $filter->getTypeOptions()
+                $filterOptions
             );
         }
 
-        $this->hookDispatcher->dispatchWithParameters('action' . $definition->getId() . 'GridFilterFormModifier', [
+        $this->hookDispatcher->dispatchWithParameters('action' . Container::camelize($definition->getId()) . 'GridFilterFormModifier', [
             'filter_form_builder' => $formBuilder,
         ]);
 
         return $formBuilder->getForm();
+    }
+
+    private function getFilterLabel(GridDefinitionInterface $definition, FilterInterface $filter): string
+    {
+        $filterLabel = $filter->getName();
+        try {
+            if ($filter->getAssociatedColumn()) {
+                $column = $definition->getColumnById($filter->getAssociatedColumn());
+                $filterLabel = !empty($column->getName()) ? $column->getName() : $filterLabel;
+            }
+        } catch (ColumnNotFoundException) {
+        }
+
+        return $filterLabel;
     }
 }

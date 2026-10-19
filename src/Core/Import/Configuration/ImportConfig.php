@@ -1,33 +1,15 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Import\Configuration;
 
 /**
  * Class ImportConfig defines import configuration.
+ *
+ * @deprecated since 9.3, will be removed in the next major version - replaced by \PrestaShop\PrestaShop\Core\Import\Engine\ImportJobContext
  */
 final class ImportConfig implements ImportConfigInterface
 {
@@ -82,6 +64,11 @@ final class ImportConfig implements ImportConfigInterface
     private $sendEmail;
 
     /**
+     * @var int
+     */
+    private $skipRows;
+
+    /**
      * @param string $fileName
      * @param int $entityType
      * @param string $languageIso
@@ -92,6 +79,7 @@ final class ImportConfig implements ImportConfigInterface
      * @param bool $matchReferences
      * @param bool $forceIds
      * @param bool $sendEmail
+     * @param int $skipRows
      */
     public function __construct(
         $fileName,
@@ -103,7 +91,8 @@ final class ImportConfig implements ImportConfigInterface
         $skipThumbnailRegeneration,
         $matchReferences,
         $forceIds,
-        $sendEmail
+        $sendEmail,
+        $skipRows = 0
     ) {
         $this->fileName = $fileName;
         $this->entityType = $entityType;
@@ -115,6 +104,7 @@ final class ImportConfig implements ImportConfigInterface
         $this->matchReferences = $matchReferences;
         $this->forceIds = $forceIds;
         $this->sendEmail = $sendEmail;
+        $this->skipRows = $skipRows;
     }
 
     /**
@@ -195,5 +185,13 @@ final class ImportConfig implements ImportConfigInterface
     public function sendEmail()
     {
         return $this->sendEmail;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getNumberOfRowsToSkip()
+    {
+        return $this->skipRows;
     }
 }

@@ -1,36 +1,15 @@
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
-export default function() {
-
+export default function () {
   /**
    * scroll right to show radio buttons on the category tree
    */
   const scrollCategoryTree = function scrollCategoryTree() {
-    let $categoryTreeOverflow = $('.category-tree-overflow');
-    let leftPos = $categoryTreeOverflow.width();
+    const $categoryTreeOverflow = $('.category-tree-overflow');
+    const leftPos = $categoryTreeOverflow.width();
     $categoryTreeOverflow.animate({scrollLeft: leftPos}, 200);
   };
 
@@ -46,12 +25,12 @@ export default function() {
     }
   };
 
-  $('#categories-tree-expand').on('click', (e) => {
+  $('#categories-tree-expand').on('click', () => {
     treeAction('expand');
     $('#categories-tree-expand').hide();
     $('#categories-tree-reduce').show();
   });
-  $('#categories-tree-reduce').on('click', (e) => {
+  $('#categories-tree-reduce').on('click', () => {
     treeAction('collapse');
     $('#categories-tree-reduce').hide();
     $('#categories-tree-expand').show();
@@ -60,15 +39,15 @@ export default function() {
   // scroll right to see the radio buttons
   $('.category-tree-overflow .checkbox').on('click', (e) => {
     if (!$(e.target).is('input')) {
-        // do not scroll if (un)checking some inputs
-        scrollCategoryTree();
+      // do not scroll if (un)checking some inputs
+      scrollCategoryTree();
     }
   });
 
   $('.category-tree-overflow .checkbox label').on('click', (e) => {
     if (!$(e.target).is('input')) {
-        // do not scroll if (un)checking some inputs
-        scrollCategoryTree();
+      // do not scroll if (un)checking some inputs
+      scrollCategoryTree();
     }
   });
 }

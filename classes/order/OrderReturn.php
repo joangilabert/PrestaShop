@@ -1,28 +1,11 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShopBundle\Form\Admin\Type\FormattedTextareaType;
+
 class OrderReturnCore extends ObjectModel
 {
     /** @var int */
@@ -49,46 +32,59 @@ class OrderReturnCore extends ObjectModel
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'order_return',
         'primary' => 'id_order_return',
-        'fields' => array(
-            'id_customer' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_order' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'question' => array('type' => self::TYPE_HTML, 'validate' => 'isCleanHtml'),
-            'state' => array('type' => self::TYPE_STRING),
-            'date_add' => array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
-            'date_upd' => array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
-        ),
-    );
+        'fields' => [
+            'id_customer' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_order' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'question' => ['type' => self::TYPE_HTML, 'validate' => 'isCleanHtml', 'size' => FormattedTextareaType::LIMIT_MEDIUMTEXT_UTF8_MB4],
+            'state' => ['type' => self::TYPE_STRING],
+            'date_add' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+            'date_upd' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+        ],
+    ];
 
-    public function addReturnDetail($order_detail_list, $product_qty_list, $customization_ids, $customization_qty_input)
+    /**
+     * @param int[] $order_detail_list
+     * @param int[] $product_qty_list
+     *
+     * @return void
+     */
+    public function addReturnDetail($order_detail_list, $product_qty_list)
     {
         /* Classic product return */
         if ($order_detail_list) {
             foreach ($order_detail_list as $key => $order_detail) {
                 if ($qty = (int) $product_qty_list[$key]) {
-                    Db::getInstance()->insert('order_return_detail', array('id_order_return' => (int) $this->id, 'id_order_detail' => (int) $order_detail, 'product_quantity' => $qty, 'id_customization' => 0));
-                }
-            }
-        }
-        /* Customized product return */
-        if ($customization_ids) {
-            foreach ($customization_ids as $order_detail_id => $customizations) {
-                foreach ($customizations as $customization_id) {
-                    if ($quantity = (int) $customization_qty_input[(int) $customization_id]) {
-                        Db::getInstance()->insert('order_return_detail', array('id_order_return' => (int) $this->id, 'id_order_detail' => (int) $order_detail_id, 'product_quantity' => $quantity, 'id_customization' => (int) $customization_id));
-                    }
+                    $orderdetail = new OrderDetail((int) $order_detail);
+                    $id_customization = $orderdetail->id_customization;
+                    Db::getInstance()->insert(
+                        'order_return_detail',
+                        [
+                            'id_order_return' => (int) $this->id,
+                            'id_order_detail' => (int) $order_detail,
+                            'product_quantity' => $qty,
+                            'id_customization' => (int) $id_customization,
+                            'cancelled' => '0',
+                        ]
+                    );
                 }
             }
         }
     }
 
-    public function checkEnoughProduct($order_detail_list, $product_qty_list, $customization_ids, $customization_qty_input)
+    /**
+     * @param int[] $order_detail_list
+     * @param int[] $product_qty_list
+     *
+     * @return bool|void
+     */
+    public function checkEnoughProduct($order_detail_list, $product_qty_list)
     {
         $order = new Order((int) $this->id_order);
         if (!Validate::isLoadedObject($order)) {
-            die(Tools::displayError());
+            throw new PrestaShopException(sprintf('Order with ID "%s" could not be loaded.', $this->id_order));
         }
         $products = $order->getProducts();
         /* Products already returned */
@@ -102,24 +98,11 @@ class OrderReturnCore extends ObjectModel
         /* Quantity check */
         if ($order_detail_list) {
             foreach (array_keys($order_detail_list) as $key) {
+                if (!isset($product_qty_list[$key])) {
+                    return false;
+                }
                 if ($qty = (int) $product_qty_list[$key]) {
                     if ($products[$key]['product_quantity'] - $qty < 0) {
-                        return false;
-                    }
-                }
-            }
-        }
-        /* Customization quantity check */
-        if ($customization_ids) {
-            $ordered_customizations = Customization::getOrderedCustomizations((int) $order->id_cart);
-            foreach ($customization_ids as $customizations) {
-                foreach ($customizations as $customization_id) {
-                    $customization_id = (int) $customization_id;
-                    if (!isset($ordered_customizations[$customization_id])) {
-                        return false;
-                    }
-                    $quantity = (isset($customization_qty_input[$customization_id]) ? (int) $customization_qty_input[$customization_id] : 0);
-                    if ((int) $ordered_customizations[$customization_id]['quantity'] - $quantity < 0) {
                         return false;
                     }
                 }
@@ -134,14 +117,14 @@ class OrderReturnCore extends ObjectModel
         if (!$data = Db::getInstance()->getRow('
 		SELECT COUNT(`id_order_return`) AS total
 		FROM `' . _DB_PREFIX_ . 'order_return_detail`
-		WHERE `id_order_return` = ' . (int) $this->id)) {
+		WHERE `id_order_return` = ' . (int) $this->id . ' AND `cancelled` = 0')) {
             return false;
         }
 
-        return (int) ($data['total']);
+        return (int) $data['total'];
     }
 
-    public static function getOrdersReturn($customer_id, $order_id = false, $no_denied = false, Context $context = null)
+    public static function getOrdersReturn($customer_id, $order_id = false, $no_denied = false, ?Context $context = null, ?int $idOrderReturn = null)
     {
         if (!$context) {
             $context = Context::getContext();
@@ -151,6 +134,7 @@ class OrderReturnCore extends ObjectModel
 		FROM `' . _DB_PREFIX_ . 'order_return`
 		WHERE `id_customer` = ' . (int) $customer_id .
         ($order_id ? ' AND `id_order` = ' . (int) $order_id : '') .
+        ($idOrderReturn ? ' AND `id_order_return` = ' . (int) $idOrderReturn : '') .
         ($no_denied ? ' AND `state` != 4' : '') . '
 		ORDER BY `date_add` DESC');
         foreach ($data as $k => $or) {
@@ -167,10 +151,11 @@ class OrderReturnCore extends ObjectModel
 
     public static function getOrdersReturnDetail($id_order_return)
     {
-        return Db::getInstance()->executeS('
-		SELECT *
-		FROM `' . _DB_PREFIX_ . 'order_return_detail`
-		WHERE `id_order_return` = ' . (int) $id_order_return);
+        return Db::getInstance()->executeS(
+            'SELECT *
+		    FROM `' . _DB_PREFIX_ . 'order_return_detail`
+		    WHERE `id_order_return` = ' . (int) $id_order_return
+        );
     }
 
     /**
@@ -183,12 +168,12 @@ class OrderReturnCore extends ObjectModel
     {
         $products_ret = OrderReturn::getOrdersReturnDetail($order_return_id);
         $products = $order->getProducts();
-        $tmp = array();
+        $tmp = [];
         foreach ($products_ret as $return_detail) {
             $tmp[$return_detail['id_order_detail']]['quantity'] = isset($tmp[$return_detail['id_order_detail']]['quantity']) ? $tmp[$return_detail['id_order_detail']]['quantity'] + (int) $return_detail['product_quantity'] : (int) $return_detail['product_quantity'];
             $tmp[$return_detail['id_order_detail']]['customizations'] = (int) $return_detail['id_customization'];
         }
-        $res_tab = array();
+        $res_tab = [];
         foreach ($products as $key => $product) {
             if (isset($tmp[$product['id_order_detail']])) {
                 $res_tab[$key] = $product;
@@ -205,16 +190,17 @@ class OrderReturnCore extends ObjectModel
         $returns = Customization::getReturnedCustomizations($id_order);
         $order = new Order((int) $id_order);
         if (!Validate::isLoadedObject($order)) {
-            die(Tools::displayError());
+            throw new PrestaShopException(sprintf('Order with ID "%s" could not be loaded.', $id_order));
         }
         $products = $order->getProducts();
 
+        /** @var array{id_order_detail: int} $return */
         foreach ($returns as &$return) {
             $return['product_id'] = (int) $products[(int) $return['id_order_detail']]['product_id'];
             $return['product_attribute_id'] = (int) $products[(int) $return['id_order_detail']]['product_attribute_id'];
             $return['name'] = $products[(int) $return['id_order_detail']]['product_name'];
             $return['reference'] = $products[(int) $return['id_order_detail']]['product_reference'];
-            $return['id_address_delivery'] = $products[(int) $return['id_order_detail']]['id_address_delivery'];
+            $return['id_address_delivery'] = (int) $order->id_address_delivery;
         }
 
         return $returns;
@@ -228,7 +214,7 @@ class OrderReturnCore extends ObjectModel
     /**
      * Get return details for one product line.
      *
-     * @param $id_order_detail
+     * @param int $id_order_detail
      */
     public static function getProductReturnDetail($id_order_detail)
     {
@@ -253,8 +239,7 @@ class OrderReturnCore extends ObjectModel
         $details = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS(
             'SELECT od.id_order_detail, GREATEST(od.product_quantity_return, IFNULL(SUM(ord.product_quantity),0)) as qty_returned
 			FROM ' . _DB_PREFIX_ . 'order_detail od
-			LEFT JOIN ' . _DB_PREFIX_ . 'order_return_detail ord
-			ON ord.id_order_detail = od.id_order_detail
+			LEFT JOIN ' . _DB_PREFIX_ . 'order_return_detail ord ON ord.id_order_detail = od.id_order_detail AND ord.cancelled = 0
 			WHERE od.id_order = ' . (int) $id_order . '
 			GROUP BY od.id_order_detail'
         );
@@ -262,7 +247,7 @@ class OrderReturnCore extends ObjectModel
             return;
         }
 
-        $detail_list = array();
+        $detail_list = [];
         foreach ($details as $detail) {
             $detail_list[$detail['id_order_detail']] = $detail;
         }
@@ -272,5 +257,14 @@ class OrderReturnCore extends ObjectModel
                 $product['qty_returned'] = $detail_list[$product['id_order_detail']]['qty_returned'];
             }
         }
+    }
+
+    public static function setCancelledStatus(int $idOrderReturn, bool $cancelled): void
+    {
+        Db::getInstance()->execute(
+            'UPDATE ' . _DB_PREFIX_ . 'order_return_detail ord '
+            . 'SET cancelled = ' . ($cancelled ? '1' : '0') . ' '
+            . 'WHERE id_order_return = ' . (string) $idOrderReturn
+        );
     }
 }

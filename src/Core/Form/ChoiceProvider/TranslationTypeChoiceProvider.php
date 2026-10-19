@@ -1,33 +1,14 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Form\ChoiceProvider;
 
 use PrestaShop\PrestaShop\Core\Form\FormChoiceProviderInterface;
-use Symfony\Component\Translation\TranslatorInterface;
+use PrestaShop\PrestaShop\Core\Translation\Storage\Provider\Definition\ProviderDefinitionInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Class TranslationTypeByNameChoiceProvider provides translation type choices.
@@ -54,10 +35,20 @@ final class TranslationTypeChoiceProvider implements FormChoiceProviderInterface
     {
         return [
             $this->translator->trans('Back office translations', [], 'Admin.International.Feature') => 'back',
-            $this->translator->trans('Themes translations', [], 'Admin.International.Feature') => 'themes',
+            $this->translator->trans('Front office Translations', [], 'Admin.International.Feature') => 'themes',
             $this->translator->trans('Installed modules translations', [], 'Admin.International.Feature') => 'modules',
             $this->translator->trans('Email translations', [], 'Admin.International.Feature') => 'mails',
             $this->translator->trans('Other translations', [], 'Admin.International.Feature') => 'others',
+        ];
+    }
+
+    public function getExportCoreChoices(): array
+    {
+        return [
+            $this->translator->trans('Back office', [], 'Admin.International.Feature') => ProviderDefinitionInterface::TYPE_BACK,
+            $this->translator->trans('Front office', [], 'Admin.International.Feature') => ProviderDefinitionInterface::TYPE_FRONT,
+            $this->translator->trans('Email', [], 'Admin.International.Feature') => ProviderDefinitionInterface::TYPE_MAILS,
+            $this->translator->trans('Other', [], 'Admin.International.Feature') => ProviderDefinitionInterface::TYPE_OTHERS,
         ];
     }
 }

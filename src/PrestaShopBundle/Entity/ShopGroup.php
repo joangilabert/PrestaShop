@@ -1,243 +1,176 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Entity;
 
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
  * ShopGroup.
  *
  * @ORM\Table()
+ *
  * @ORM\Entity(repositoryClass="PrestaShopBundle\Entity\Repository\ShopGroupRepository")
  */
 class ShopGroup
 {
     /**
-     * @var int
-     *
      * @ORM\Id
+     *
      * @ORM\Column(name="id_shop_group", type="integer")
+     *
      * @ORM\GeneratedValue(strategy="AUTO")
      */
-    private $id;
+    private int $id;
 
     /**
-     * @var string
-     *
      * @ORM\Column(name="name", type="string", length=64)
      */
-    private $name;
+    private string $name;
 
     /**
-     * @var bool
-     *
+     * @ORM\Column(name="color", type="string", length=50)
+     */
+    private string $color;
+
+    /**
      * @ORM\Column(name="share_customer", type="boolean")
      */
-    private $shareCustomer;
+    private bool $shareCustomer;
 
     /**
-     * @var bool
-     *
      * @ORM\Column(name="share_order", type="boolean")
      */
-    private $shareOrder;
+    private bool $shareOrder;
 
     /**
-     * @var bool
-     *
      * @ORM\Column(name="share_stock", type="boolean")
      */
-    private $shareStock;
+    private bool $shareStock;
 
     /**
-     * @var bool
-     *
      * @ORM\Column(name="active", type="boolean")
      */
-    private $active;
+    private bool $active;
 
     /**
-     * @var bool
-     *
      * @ORM\Column(name="deleted", type="boolean")
      */
-    private $deleted;
+    private bool $deleted;
 
     /**
-     * Get id.
+     * @var Collection<Shop>
      *
-     * @return int
+     * One group shop has many shops. This is the inverse side.
+     *
+     * @ORM\OneToMany(targetEntity="PrestaShopBundle\Entity\Shop", mappedBy="shopGroup")
      */
-    public function getId()
+    private Collection $shops;
+
+    public function __construct()
+    {
+        $this->shops = new ArrayCollection();
+    }
+
+    public function getId(): int
     {
         return $this->id;
     }
 
-    /**
-     * Set name.
-     *
-     * @param string $name
-     *
-     * @return ShopGroup
-     */
-    public function setName($name)
+    public function setName(string $name): static
     {
         $this->name = $name;
 
         return $this;
     }
 
-    /**
-     * Get name.
-     *
-     * @return string
-     */
-    public function getName()
+    public function getName(): string
     {
         return $this->name;
     }
 
-    /**
-     * Set shareCustomer.
-     *
-     * @param bool $shareCustomer
-     *
-     * @return ShopGroup
-     */
-    public function setShareCustomer($shareCustomer)
+    public function setColor(string $color): static
+    {
+        $this->color = $color;
+
+        return $this;
+    }
+
+    public function getColor(): string
+    {
+        return $this->color;
+    }
+
+    public function setShareCustomer(bool $shareCustomer): static
     {
         $this->shareCustomer = $shareCustomer;
 
         return $this;
     }
 
-    /**
-     * Get shareCustomer.
-     *
-     * @return bool
-     */
-    public function getShareCustomer()
+    public function getShareCustomer(): bool
     {
         return $this->shareCustomer;
     }
 
-    /**
-     * Set shareOrder.
-     *
-     * @param bool $shareOrder
-     *
-     * @return ShopGroup
-     */
-    public function setShareOrder($shareOrder)
+    public function setShareOrder(bool $shareOrder): static
     {
         $this->shareOrder = $shareOrder;
 
         return $this;
     }
 
-    /**
-     * Get shareOrder.
-     *
-     * @return bool
-     */
-    public function getShareOrder()
+    public function getShareOrder(): bool
     {
         return $this->shareOrder;
     }
 
-    /**
-     * Set shareStock.
-     *
-     * @param bool $shareStock
-     *
-     * @return ShopGroup
-     */
-    public function setShareStock($shareStock)
+    public function setShareStock(bool $shareStock): static
     {
         $this->shareStock = $shareStock;
 
         return $this;
     }
 
-    /**
-     * Get shareStock.
-     *
-     * @return bool
-     */
-    public function getShareStock()
+    public function getShareStock(): bool
     {
         return $this->shareStock;
     }
 
-    /**
-     * Set active.
-     *
-     * @param bool $active
-     *
-     * @return ShopGroup
-     */
-    public function setActive($active)
+    public function setActive(bool $active): static
     {
         $this->active = $active;
 
         return $this;
     }
 
-    /**
-     * Get active.
-     *
-     * @return bool
-     */
-    public function getActive()
+    public function getActive(): bool
     {
         return $this->active;
     }
 
-    /**
-     * Set deleted.
-     *
-     * @param bool $deleted
-     *
-     * @return ShopGroup
-     */
-    public function setDeleted($deleted)
+    public function setDeleted(bool $deleted): static
     {
         $this->deleted = $deleted;
 
         return $this;
     }
 
-    /**
-     * Get deleted.
-     *
-     * @return bool
-     */
-    public function getDeleted()
+    public function getDeleted(): bool
     {
         return $this->deleted;
+    }
+
+    /**
+     * @return Collection<Shop>
+     */
+    public function getShops(): Collection
+    {
+        return $this->shops;
     }
 }

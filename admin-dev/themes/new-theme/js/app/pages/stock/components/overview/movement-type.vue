@@ -1,26 +1,6 @@
-<!--**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+<!--*
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *-->
 <template>
   <div class="col-md-4">
@@ -34,38 +14,44 @@
         @click="sendQty"
       >
         <i class="material-icons">edit</i>
-        {{trans('button_movement_type')}}
+        {{ trans('button_movement_type') }}
       </PSButton>
     </div>
   </div>
 </template>
 
-<script>
-  import PSButton from 'app/widgets/ps-button';
-  export default {
+<script lang="ts">
+  import PSButton from '@app/widgets/ps-button.vue';
+  import {defineComponent} from 'vue';
+  import TranslationMixin from '@app/pages/stock/mixins/translate';
+
+  export default defineComponent({
     computed: {
-      disabled() {
+      disabled(): boolean {
         return !this.$store.state.hasQty;
       },
-      classObject() {
+      classObject(): {'btn-primary': boolean} {
         return {
           'btn-primary': !this.disabled,
         };
       },
     },
+    mixins: [TranslationMixin],
     methods: {
-      sendQty() {
+      sendQty(): void {
+        this.$store.state.hasQty = false;
         this.$store.dispatch('updateQtyByProductsId');
       },
     },
     components: {
       PSButton,
     },
-  };
+  });
 </script>
 
-<style lang="sass" scoped>
-  @import "../../../../../../scss/config/_settings.scss";
+<style lang="scss" scoped>
+  @import '~@scss/config/_settings.scss';
+
   .update-qty {
     color: white;
     transition: background-color 0.2s ease;

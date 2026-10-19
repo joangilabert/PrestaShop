@@ -1,26 +1,6 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 
 {extends file="helpers/view/view.tpl"}
@@ -80,32 +60,28 @@
 						</div>
 					{/if}
 				</div>
-				<div class="row">
-					<div class="col-sm-12">
-						{if !$first_message.id_employee}
-							{include file="./message.tpl" message=$first_message initial=true}
-						{/if}
-					</div>
-				</div>
+				{if !$first_message.id_employee}
+					{include file="./message.tpl" message=$first_message initial=true}
+				{/if}
 			</div>
 		</div>
 	</div>
-	<div class="row">
+	<div class="row" data-role="thread-messages">
 		{foreach $messages as $message}
 			{include file="./message.tpl" message=$message initial=false}
 		{/foreach}
 	</div>
 </div>
 <div class="panel">
+	<h3 id="reply-form-title">{l s="Your answer to" d='Admin.Orderscustomers.Feature'} {if isset($customer->firstname)}{$customer->firstname|escape:'html':'UTF-8'} {$customer->lastname|escape:'html':'UTF-8'} {else} {$thread->email|escape:'html':'UTF-8'}{/if}</h3>
 	<form action="{$link->getAdminLink('AdminCustomerThreads', true, [], ['id_customer_thread' => $thread->id|intval, 'viewcustomer_thread' => 1])|escape:'html':'UTF-8'}" method="post" enctype="multipart/form-data" class="form-horizontal">
-	<h3>{l s="Your answer to" d='Admin.Orderscustomers.Feature'} {if isset($customer->firstname)}{$customer->firstname|escape:'html':'UTF-8'} {$customer->lastname|escape:'html':'UTF-8'} {else} {$thread->email}{/if}</h3>
 	<div class="row">
 		<div class="media">
 			<div class="pull-left">
 				<span class="avatar-md">{if isset($current_employee->firstname)}<img src="{$current_employee->getImage()}" alt="">{/if}</span>
 			</div>
 			<div class="media-body">
-				<textarea cols="30" rows="7" name="reply_message">{$PS_CUSTOMER_SERVICE_SIGNATURE|escape:'html':'UTF-8'}</textarea>
+				<textarea id="reply_message" cols="30" rows="7" name="reply_message">{$PS_CUSTOMER_SERVICE_SIGNATURE|escape:'html':'UTF-8'}</textarea>
 			</div>
 		</div>
 	</div>
@@ -118,13 +94,13 @@
 		-->
 		<button class="btn btn-default pull-right" name="submitReply"><i class="process-icon-mail-reply"></i> {l s="Send"}</button>
 		<input type="hidden" name="id_customer_thread" value="{$thread->id|intval}" />
-		<input type="hidden" name="msg_email" value="{$thread->email}" />
+		<input type="hidden" name="msg_email" value="{$thread->email|escape:'html':'UTF-8'}" />
 	</div>
 	</form>
 </div>
 
 {if count($timeline_items)}
-<div class="panel">
+<div class="panel" id="orders-and-messages-block">
 	<h3>
 		<i class="icon-clock-o"></i>
 		{l s="Orders and messages timeline" d='Admin.Orderscustomers.Feature'}
@@ -140,8 +116,8 @@
 {/if}
 <script type="text/javascript">
 	var timer;
-		$(document).ready(function(){
-			$('select[name=id_employee_forward]').change(function(){
+		$(function(){
+			$('select[name=id_employee_forward]').on('change', function(){
 				if ($(this).val() >= 0)
 					$('#message_forward').show(400);
 				else
@@ -151,7 +127,7 @@
 				else
 					$('#message_forward_email').hide(200);
 			});
-			$('textarea[name=message_forward]').click(function(){
+			$('textarea[name=message_forward]').on('click', function(){
 				if($(this).val() == '{l s='You can add a comment here.'}')
 				{
 					$(this).val('');
@@ -164,10 +140,11 @@
 	{
 		$.ajax({
 			type: 'POST',
-			url: 'ajax-tab.php',
+			url: 'index.php',
 			async: true,
 			dataType: 'json',
 			data: {
+        ajax: 1,
 				controller: 'AdminCustomerThreads',
 				action: 'markAsRead',
 				token : '{$token|escape:'html':'UTF-8'}',

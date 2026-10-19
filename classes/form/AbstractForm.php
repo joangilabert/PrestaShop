@@ -1,43 +1,41 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 use PrestaShop\PrestaShop\Core\Foundation\Templating\RenderableProxy;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 abstract class AbstractFormCore implements FormInterface
 {
+    /**
+     * @var Smarty
+     */
     private $smarty;
+    /**
+     * @var TranslatorInterface
+     */
     protected $translator;
+    /**
+     * @var ValidateConstraintTranslator
+     */
     protected $constraintTranslator;
+
+    /**
+     * @var FormFormatterInterface
+     */
+    protected $formatter;
 
     protected $action;
     protected $template;
 
-    protected $formatter;
-
+    /**
+     * @var array
+     */
     protected $formFields = [];
+    /**
+     * @var array[]
+     */
     protected $errors = ['' => []];
 
     public function __construct(
@@ -110,12 +108,16 @@ abstract class AbstractFormCore implements FormInterface
             $this->smarty
         );
 
+        $context = Context::getContext();
+        $theme = $context->shop->theme->getName();
+
         $scope->assign($extraVariables);
         $scope->assign($this->getTemplateVariables());
 
         $tpl = $this->smarty->createTemplate(
             $this->getTemplate(),
-            $scope
+            $scope,
+            $theme
         );
 
         return $tpl->fetch();
@@ -129,14 +131,50 @@ abstract class AbstractFormCore implements FormInterface
     public function validate()
     {
         foreach ($this->formFields as $field) {
-            if ($field->isRequired() && !$field->getValue()) {
-                $field->addError(
-                    $this->constraintTranslator->translate('required')
-                );
+            if ($field->isRequired()) {
+                if (!$field->getValue()) {
+                    $field->addError(
+                        $this->constraintTranslator->translate('required')
+                    );
 
-                continue;
-            } elseif (!$field->isRequired() && !$field->getValue()) {
-                continue;
+                    continue;
+                } elseif (!$this->checkFieldMaxLength($field)) {
+                    $field->addError(
+                        $this->translator->trans(
+                            'The %1$s field is too long (%2$d chars max).',
+                            [$field->getLabel(), $field->getMaxLength()],
+                            'Shop.Notifications.Error'
+                        )
+                    );
+                } elseif (!$this->checkFieldMinLength($field)) {
+                    $field->addError(
+                        $this->translator->trans(
+                            'The %1$s field is too short (%2$d chars min).',
+                            [$field->getLabel(), $field->getMinLength()],
+                            'Shop.Notifications.Error'
+                        )
+                    );
+                }
+            } else {
+                if (!$field->getValue()) {
+                    continue;
+                } elseif (!$this->checkFieldMaxLength($field)) {
+                    $field->addError(
+                        $this->translator->trans(
+                            'The %1$s field is too long (%2$d chars max).',
+                            [$field->getLabel(), $field->getMaxLength()],
+                            'Shop.Notifications.Error'
+                        )
+                    );
+                } elseif (!$this->checkFieldMinLength($field)) {
+                    $field->addError(
+                        $this->translator->trans(
+                            'The %1$s field is too short (%2$d chars min).',
+                            [$field->getLabel(), $field->getMinLength()],
+                            'Shop.Notifications.Error'
+                        )
+                    );
+                }
             }
 
             foreach ($field->getConstraints() as $constraint) {
@@ -167,7 +205,9 @@ abstract class AbstractFormCore implements FormInterface
             } elseif ($field->getType() === 'checkbox') {
                 // checkboxes that are not submitted
                 // are interpreted as booleans switched off
-                $field->setValue(false);
+                if (empty($field->getValue())) {
+                    $field->setValue(false);
+                }
             }
         }
 
@@ -199,5 +239,47 @@ abstract class AbstractFormCore implements FormInterface
         $this->getField($field_name)->setValue($value);
 
         return $this;
+    }
+
+    /**
+     * Validate field length
+     *
+     * @deprecated Since 9.0 and will be removed in 10.0 - Please use `checkFieldMaxLength`
+     *
+     * @param FormField $field the field to check
+     *
+     * @return bool
+     */
+    protected function checkFieldLength($field)
+    {
+        return $this->checkFieldMaxLength($field);
+    }
+
+    /**
+     * Validate field length
+     *
+     * @param FormField $field the field to check
+     *
+     * @return bool
+     */
+    protected function checkFieldMaxLength(FormField $field): bool
+    {
+        $error = $field->getMaxLength() != null && Tools::strlen($field->getValue()) > (int) $field->getMaxLength();
+
+        return !$error;
+    }
+
+    /**
+     * Validate field length
+     *
+     * @param FormField $field the field to check
+     *
+     * @return bool
+     */
+    protected function checkFieldMinLength(FormField $field): bool
+    {
+        $error = $field->getMinLength() != null && Tools::strlen($field->getValue()) < (int) $field->getMinLength();
+
+        return !$error;
     }
 }

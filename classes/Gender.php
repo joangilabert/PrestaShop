@@ -1,55 +1,42 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShop\PrestaShop\Core\Domain\Title\ValueObject\Gender as ValueObjectGender;
 
 /**
  * Class GenderCore.
- *
- * @since 1.5.0
  */
 class GenderCore extends ObjectModel
 {
+    public const TYPE_MALE = ValueObjectGender::TYPE_MALE;
+    public const TYPE_FEMALE = ValueObjectGender::TYPE_FEMALE;
+    public const TYPE_OTHER = ValueObjectGender::TYPE_OTHER;
+
+    /** @var int|null Object ID */
     public $id;
     public $id_gender;
+    /** @var string|array<string> */
     public $name;
+    /** @var int */
     public $type;
 
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'gender',
         'primary' => 'id_gender',
         'multilang' => true,
-        'fields' => array(
-            'type' => array('type' => self::TYPE_INT, 'required' => true),
+        'fields' => [
+            'type' => ['type' => self::TYPE_INT, 'required' => true],
 
             /* Lang fields */
-            'name' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isString', 'required' => true, 'size' => 20),
-        ),
-    );
+            'name' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isCatalogName', 'required' => true, 'size' => 20],
+        ],
+    ];
 
     /**
      * GenderCore constructor.
@@ -74,13 +61,11 @@ class GenderCore extends ObjectModel
      */
     public static function getGenders($idLang = null)
     {
-        if (is_null($idLang)) {
+        if (null === $idLang) {
             $idLang = Context::getContext()->language->id;
         }
 
-        $genders = new PrestaShopCollection('Gender', $idLang);
-
-        return $genders;
+        return new PrestaShopCollection('Gender', $idLang);
     }
 
     /**

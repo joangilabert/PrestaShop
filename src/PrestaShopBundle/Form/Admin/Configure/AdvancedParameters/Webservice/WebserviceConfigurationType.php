@@ -1,51 +1,63 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Form\Admin\Configure\AdvancedParameters\Webservice;
 
+use PrestaShopBundle\Form\Admin\Type\MultistoreConfigurationType;
 use PrestaShopBundle\Form\Admin\Type\SwitchType;
-use Symfony\Component\Form\AbstractType;
+use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
+use PrestaShopBundle\Form\Extension\MultistoreConfigurationTypeExtension;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
  * This form class generates the "Webservice configuration" form in Webservice page.
  */
-class WebserviceConfigurationType extends AbstractType
+class WebserviceConfigurationType extends TranslatorAwareType
 {
     /**
      * {@inheritdoc}
      */
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
+        $enableWebservicesHelp = $this->trans(
+            'Before activating the webservice, you must be sure to: ',
+            'Admin.Advparameters.Help'
+        );
+        $enableWebservicesHelp .= '<br/> 1. ';
+        $enableWebservicesHelp .= $this->trans(
+            'Check that URL rewriting is available on this server.',
+            'Admin.Advparameters.Help'
+        );
+        $enableWebservicesHelp .= '<br/> 2. ';
+        $enableWebservicesHelp .= $this->trans(
+            'Check that the six methods GET, POST, PUT, PATCH, DELETE and HEAD are supported by this server.',
+            'Admin.Advparameters.Help'
+        );
+
         $builder
             ->add('enable_webservice', SwitchType::class, [
+                'label' => $this->trans(
+                    'Enable PrestaShop\'s webservice',
+                    'Admin.Advparameters.Feature'
+                ),
+                'help' => $enableWebservicesHelp,
+                'multistore_configuration_key' => 'PS_WEBSERVICE',
                 'required' => true,
             ])
             ->add('enable_cgi', SwitchType::class, [
+                'label' => $this->trans(
+                    'Enable CGI mode for PHP',
+                    'Admin.Advparameters.Feature'
+                ),
+                'help' => $this->trans(
+                    'Before choosing "Yes", check that PHP is not configured as an Apache module on your server.',
+                    'Admin.Advparameters.Help'
+                ),
+                'multistore_configuration_key' => 'PS_WEBSERVICE_CGI_HOST',
                 'required' => true,
             ]);
     }
@@ -66,5 +78,15 @@ class WebserviceConfigurationType extends AbstractType
     public function getBlockPrefix()
     {
         return 'webservice_configuration';
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * @see MultistoreConfigurationTypeExtension
+     */
+    public function getParent(): string
+    {
+        return MultistoreConfigurationType::class;
     }
 }

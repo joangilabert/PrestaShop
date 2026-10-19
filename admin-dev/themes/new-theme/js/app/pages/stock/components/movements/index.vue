@@ -1,110 +1,161 @@
-<!--**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+<!--*
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *-->
 <template>
   <section class="stock-movements">
     <PSTable class="mt-1">
       <thead>
         <tr>
+          <th
+            scope="col"
+          >
+            <PSSort
+              order="product_id"
+              @sort="sort"
+              :current-sort="currentSort"
+            >
+              {{ trans('title_product_id') }}
+            </PSSort>
+          </th>
           <th width="30%">
-            <PSSort order="product" @sort="sort" :current-sort="currentSort">
-              {{trans('title_product')}}
+            <PSSort
+              order="product_name"
+              @sort="sort"
+              :current-sort="currentSort"
+            >
+              {{ trans('title_product') }}
             </PSSort>
           </th>
           <th>
-            <PSSort order="reference" @sort="sort" :current-sort="currentSort">
-              {{trans('title_reference')}}
+            <PSSort
+              order="reference"
+              @sort="sort"
+              :current-sort="currentSort"
+            >
+              {{ trans('title_reference') }}
             </PSSort>
           </th>
           <th>
-            {{trans('title_movements_type')}}
+            {{ trans('title_movements_type') }}
           </th>
           <th class="text-center">
-            {{trans('title_quantity')}}
+            {{ trans('title_quantity') }}
           </th>
           <th class="text-center">
-            <PSSort order="date_add" @sort="sort" :current-sort="currentSort">
-              {{trans('title_date')}}
+            <PSSort
+              order="date_add"
+              @sort="sort"
+              :current-sort="currentSort"
+            >
+              {{ trans('title_date') }}
             </PSSort>
           </th>
           <th>
-            {{trans('title_employee')}}
+            {{ trans('title_employee') }}
           </th>
         </tr>
       </thead>
       <tbody>
-        <tr v-if="this.isLoading">
+        <tr v-if="isLoading">
           <td colspan="6">
-            <PSLoader v-for="(n, index) in 3" class="mt-1" :key="index">
-              <div class="background-masker header-top"></div>
-              <div class="background-masker header-left"></div>
-              <div class="background-masker header-bottom"></div>
-              <div class="background-masker subheader-left"></div>
-              <div class="background-masker subheader-bottom"></div>
+            <PSLoader
+              v-for="(n, index) in 3"
+              class="mt-1"
+              :key="index"
+            >
+              <div class="background-masker header-top" />
+              <div class="background-masker header-left" />
+              <div class="background-masker header-bottom" />
+              <div class="background-masker subheader-left" />
+              <div class="background-masker subheader-bottom" />
             </PSLoader>
           </td>
         </tr>
         <tr v-else-if="emptyMovements">
           <td colspan="6">
-            <PSAlert alertType="ALERT_TYPE_WARNING" :hasClose="false">
-              {{trans('no_product')}}
+            <PSAlert
+              alert-type="ALERT_TYPE_WARNING"
+              :has-close="false"
+            >
+              {{ trans('no_product') }}
             </PSAlert>
           </td>
         </tr>
-        <MovementLine v-else v-for="(product, index) in movements" key=${index} :product="product" />
+        <MovementLine
+          v-else
+          v-for="(product, index) in movements"
+          :key="index"
+          :product="product"
+        />
       </tbody>
     </PSTable>
   </section>
 </template>
 
-<script>
-  import PSTable from 'app/widgets/ps-table/ps-table';
-  import PSSort from 'app/widgets/ps-table/ps-sort';
-  import PSAlert from 'app/widgets/ps-alert';
-  import PSLoader from 'app/widgets/ps-loader';
-  import MovementLine from './movement-line';
+<script lang="ts">
+  import PSTable from '@app/widgets/ps-table/ps-table.vue';
+  import PSSort from '@app/widgets/ps-table/ps-sort.vue';
+  import PSAlert from '@app/widgets/ps-alert.vue';
+  import PSLoader from '@app/widgets/ps-loader.vue';
+  import {defineComponent} from 'vue';
+  import TranslationMixin from '@app/pages/stock/mixins/translate';
+  import MovementLine from './movement-line.vue';
 
   const DEFAULT_SORT = 'desc';
 
-  export default {
+  /* eslint-disable camelcase */
+  export interface StockMovement {
+    attribute_name: string | null;
+    combination_cover_id: number;
+    combination_id: number;
+    combination_name: string;
+    combination_thumbnail: string;
+    date_add: string;
+    employee_firstname: string;
+    employee_lastname: string;
+    id_employee: number;
+    id_order: number;
+    id_stock: number;
+    id_stock_mvt: number;
+    id_stock_mvt_reason: number;
+    movement_reason: string;
+    order_link: string;
+    physical_quantity: number;
+    product_attributes: string;
+    product_cover_id: number;
+    product_features: string;
+    product_id: number;
+    product_name: string;
+    product_reference: string;
+    product_thumbnail: string;
+    product_url: string;
+    sign: number;
+    supplier_id: number;
+    supplier_name: string;
+  }
+  /* eslint-enable camelcase */
+
+  export default defineComponent({
     computed: {
-      isLoading() {
+      isLoading(): boolean {
         return this.$store.state.isLoading;
       },
-      movements() {
+      movements(): Array<StockMovement> {
         return this.$store.state.movements;
       },
-      emptyMovements() {
+      emptyMovements(): boolean {
         return !this.$store.state.movements.length;
       },
-      currentSort() {
+      currentSort(): string {
         return this.$store.state.order;
       },
     },
+    mixins: [TranslationMixin],
     methods: {
-      sort(order, sortDirection) {
+      sort(order: string, sortDirection: string): void {
         this.$store.dispatch('updateOrder', order);
+        this.$store.dispatch('updateSort', sortDirection);
         this.$emit('fetch', sortDirection === 'desc' ? 'desc' : 'asc');
       },
     },
@@ -124,5 +175,5 @@
       PSLoader,
       MovementLine,
     },
-  };
+  });
 </script>

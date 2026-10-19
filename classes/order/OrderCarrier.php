@@ -1,28 +1,10 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+use PrestaShop\PrestaShop\Adapter\Carrier\TrackingUrlFormatter;
+
 class OrderCarrierCore extends ObjectModel
 {
     /** @var int */
@@ -55,28 +37,28 @@ class OrderCarrierCore extends ObjectModel
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'order_carrier',
         'primary' => 'id_order_carrier',
-        'fields' => array(
-            'id_order' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_carrier' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_order_invoice' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'weight' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'shipping_cost_tax_excl' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'shipping_cost_tax_incl' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'tracking_number' => array('type' => self::TYPE_STRING, 'validate' => 'isTrackingNumber'),
-            'date_add' => array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
-        ),
-    );
+        'fields' => [
+            'id_order' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_carrier' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_order_invoice' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'weight' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'shipping_cost_tax_excl' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'shipping_cost_tax_incl' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'tracking_number' => ['type' => self::TYPE_STRING, 'validate' => 'isTrackingNumber', 'size' => 64],
+            'date_add' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+        ],
+    ];
 
-    protected $webserviceParameters = array(
-        'objectMethods' => array('update' => 'updateWs'),
-        'fields' => array(
-            'id_order' => array('xlink_resource' => 'orders'),
-            'id_carrier' => array('xlink_resource' => 'carriers'),
-        ),
-    );
+    protected $webserviceParameters = [
+        'objectMethods' => ['update' => 'updateWs'],
+        'fields' => [
+            'id_order' => ['xlink_resource' => 'orders'],
+            'id_carrier' => ['xlink_resource' => 'carriers'],
+        ],
+    ];
 
     /**
      * @param Order $order Required
@@ -85,8 +67,9 @@ class OrderCarrierCore extends ObjectModel
      */
     public function sendInTransitEmail($order)
     {
+        $orderLanguageId = (int) $order->getAssociatedLanguage()->getId();
         $customer = new Customer((int) $order->id_customer);
-        $carrier = new Carrier((int) $order->id_carrier, $order->id_lang);
+        $carrier = new Carrier((int) $order->id_carrier, $orderLanguageId);
         $address = new Address((int) $order->id_address_delivery);
 
         if (!Validate::isLoadedObject($customer)) {
@@ -99,6 +82,11 @@ class OrderCarrierCore extends ObjectModel
             throw new PrestaShopException('Can\'t load Address object');
         }
 
+        if (!$carrier->url) {
+            // the url field of the carrier is empty therefore the e-mail must not be sent
+            return true;
+        }
+
         $products = $order->getCartProducts();
         $link = Context::getContext()->link;
 
@@ -106,29 +94,29 @@ class OrderCarrierCore extends ObjectModel
         foreach ($products as $product) {
             $prod_obj = new Product((int) $product['product_id']);
 
-            //try to get the first image for the purchased combination
-            $img = $prod_obj->getCombinationImages($order->id_lang);
-            $link_rewrite = $prod_obj->link_rewrite[$order->id_lang];
-            $combination_img = $img[$product['product_attribute_id']][0]['id_image'];
+            // try to get the first image for the purchased combination
+            $img = $prod_obj->getCombinationImages($orderLanguageId);
+            $link_rewrite = $prod_obj->link_rewrite[$orderLanguageId];
+            $combination_img = $img[$product['product_attribute_id']][0]['id_image'] ?? null;
             if ($combination_img != null) {
                 $img_url = $link->getImageLink($link_rewrite, $combination_img, 'large_default');
             } else {
-                //if there is no combination image, then get the product cover instead
+                // if there is no combination image, then get the product cover instead
                 $img = $prod_obj->getCover($prod_obj->id);
-                $img_url = $link->getImageLink($link_rewrite, $img['id_image']);
+                $img_url = !empty($img['id_image']) ? $link->getImageLink($link_rewrite, $img['id_image']) : '';
             }
             $prod_url = $prod_obj->getLink();
 
-            $metadata .= "\n" . '<div itemprop="itemShipped" itemscope itemtype="http://schema.org/Product">';
+            $metadata .= "\n" . '<div itemprop="itemShipped" itemscope itemtype="https://schema.org/Product">';
             $metadata .= "\n" . '   <meta itemprop="name" content="' . htmlspecialchars($product['product_name']) . '"/>';
             $metadata .= "\n" . '   <link itemprop="image" href="' . $img_url . '"/>';
             $metadata .= "\n" . '   <link itemprop="url" href="' . $prod_url . '"/>';
             $metadata .= "\n" . '</div>';
         }
 
-        $orderLanguage = new Language((int) $order->id_lang);
-        $templateVars = array(
-            '{followup}' => str_replace('@', $this->tracking_number, $carrier->url),
+        $orderLanguage = new Language((int) $orderLanguageId);
+        $templateVars = [
+            '{followup}' => TrackingUrlFormatter::format($carrier->url, $this->tracking_number, $order),
             '{firstname}' => $customer->firstname,
             '{lastname}' => $customer->lastname,
             '{id_order}' => $order->id,
@@ -140,14 +128,14 @@ class OrderCarrierCore extends ObjectModel
             '{postcode}' => $address->postcode,
             '{city}' => $address->city,
             '{meta_products}' => $metadata,
-        );
+        ];
 
         if (@Mail::Send(
-            (int) $order->id_lang,
+            $orderLanguageId,
             'in_transit',
             $this->trans(
                 'Package in transit',
-                array(),
+                [],
                 'Emails.Subject',
                 $orderLanguage->locale
             ),

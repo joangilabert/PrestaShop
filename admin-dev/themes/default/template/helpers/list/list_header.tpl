@@ -1,36 +1,21 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 
 {if $ajax}
 	<script type="text/javascript">
 		$(function () {
-			$(".ajax_table_link").click(function () {
+			$(".ajax_table_link").on('click', function () {
 				var link = $(this);
 				$.post($(this).attr('href'), function (data) {
-					if (data.success == 1) {
-						showSuccessMessage(data.text);
+				  // If response comes from symfony controller
+          // then data has "status" and "message" properties
+          // otherwise if response comes from legacy controller
+          // then data has "success" and "text" properties.
+
+					if (data.success == 1 || data.status === true) {
+						showSuccessMessage(data.text || data.message);
 						if (link.hasClass('action-disabled')){
 							link.removeClass('action-disabled').addClass('action-enabled');
 						} else {
@@ -44,7 +29,7 @@
 							}
 						});
 					} else {
-						showErrorMessage(data.text);
+						showErrorMessage(data.text || data.message);
 					}
 				}, 'json');
 				return false;
@@ -54,17 +39,17 @@
 {/if}
 {* Display column names and arrows for ordering (ASC, DESC) *}
 {if $is_order_position}
-	<script type="text/javascript" src="../js/jquery/plugins/jquery.tablednd.js"></script>
+	<script type="text/javascript" src="{$js_dir}jquery/plugins/jquery.tablednd.js"></script>
 	<script type="text/javascript">
 		var come_from = '{$list_id|addslashes}';
 		var alternate = {if $order_way == 'DESC'}'1'{else}'0'{/if};
 	</script>
-	<script type="text/javascript" src="../js/admin/dnd.js"></script>
+	<script type="text/javascript" src="{$js_dir}admin/dnd.js"></script>
 {/if}
 {if !$simple_header}
 	<script type="text/javascript">
 		$(function() {
-			$('table.{$list_id} .filter').keypress(function(e){
+			$('table.{$list_id} .filter').on('keypress', function(e){
 				var key = (e.keyCode ? e.keyCode : e.which);
 				if (key == 13)
 				{
@@ -72,7 +57,7 @@
 					formSubmit(e, 'submitFilterButton{$list_id}');
 				}
 			})
-			$('#submitFilterButton{$list_id}').click(function() {
+			$('#submitFilterButton{$list_id}').on('click', function() {
 				$('#submitFilter{$list_id}').val(1);
 			});
 
@@ -100,6 +85,9 @@
 {if isset($name_controller)}
 	{capture name=hookName assign=hookName}display{$name_controller|ucfirst}ListBefore{/capture}
 	{hook h=$hookName}
+{elseif isset($controller_name)}
+	{capture name=hookName assign=hookName}display{$controller_name|ucfirst}ListBefore{/capture}
+	{hook h=$hookName}
 {elseif isset($smarty.get.controller)}
 	{capture name=hookName assign=hookName}display{$smarty.get.controller|ucfirst|htmlentities}ListBefore{/capture}
 	{hook h=$hookName}
@@ -121,10 +109,21 @@
 	<input type="hidden" id="submitFilter{$list_id}" name="submitFilter{$list_id}" value="0"/>
 	<input type="hidden" name="page" value="{$page|intval}"/>
 	<input type="hidden" name="selected_pagination" value="{$selected_pagination|intval}"/>
+
 	{block name="override_form_extra"}{/block}
+
 	<div class="panel col-lg-12">
 		<div class="panel-heading">
-			{if isset($icon)}<i class="{$icon}"></i> {/if}{if is_array($title)}{$title|end|escape:'html':'UTF-8'}{else}{$title|escape:'html':'UTF-8'}{/if}
+			{if isset($icon)}
+				<i class="{$icon}"></i>
+			{/if}
+
+			{if is_array($title)}
+				{$title|end|escape:'html':'UTF-8'}
+			{else}
+				{$title|escape:'html':'UTF-8'}
+			{/if}
+
 			{if isset($toolbar_btn) && count($toolbar_btn) >0}
 				<span class="badge">{$list_total}</span>
 				<span class="panel-heading-action">
@@ -190,14 +189,14 @@
 						//hide standard submit button
 						btn_submit.hide();
 						//bind enter key press to validate form
-						$('#{$table}_form').keypress(function (e) {
+						$('#{$table}_form').on('keypress', function (e) {
 							if (e.which == 13 && e.target.localName != 'textarea') {
 								$('#desc-{$table}-save').click();
 							}
 						});
 						//submit the form
 						{block name=formSubmit}
-							btn_save.click(function() {
+							btn_save.on('click', function() {
 								// Avoid double click
 								if (submited) {
 									return false;
@@ -209,7 +208,7 @@
 								return false;
 							});
 							if (btn_save_and_stay) {
-								btn_save_and_stay.click(function() {
+								btn_save_and_stay.on('click', function() {
 									//add hidden input to emulate submit button click when posting the form -> field name posted
 									btn_submit.before('<input type="hidden" name="'+btn_submit.attr("name")+'AndStay" value="1" />');
 									$('#{$table}_form').submit();
@@ -275,10 +274,22 @@
 								{$params.title}
 							{/if}
 							{if (!isset($params.orderby) || $params.orderby) && !$simple_header && $show_filters}
-								<a {if isset($order_by) && ($key == $order_by) && ($order_way == 'DESC')}class="active"{/if} href="{$currentIndex|escape:'html':'UTF-8'}&amp;{$list_id}Orderby={$key|urlencode}&amp;{$list_id}Orderway=desc&amp;token={$token|escape:'html':'UTF-8'}{if isset($smarty.get.$identifier)}&amp;{$identifier}={$smarty.get.$identifier|intval}{/if}">
+                {if $frameworkIndexUrl}
+                    {assign var="baseSortUrl" value="$frameworkIndexUrl"}
+                {else}
+                    {assign var="baseSortUrl" value="{$currentIndex|escape:'html':'UTF-8'}&token={$token|escape:'html':'UTF-8'}"}
+                {/if}
+								<a
+                   class="{strip}desc-sort-column-{$key}-link
+                          {if isset($order_by) && ($key == $order_by) && ($order_way == 'DESC')} active{/if}{/strip}"
+                   href="{$baseSortUrl}&amp;{$list_id}Orderby={$key|urlencode}&amp;{$list_id}Orderway=desc{if isset($smarty.get.$identifier)}&amp;{$identifier}={$smarty.get.$identifier|intval}{/if}"
+                >
 									<i class="icon-caret-down"></i>
 								</a>
-								<a {if isset($order_by) && ($key == $order_by) && ($order_way == 'ASC')}class="active"{/if} href="{$currentIndex|escape:'html':'UTF-8'}&amp;{$list_id}Orderby={$key|urlencode}&amp;{$list_id}Orderway=asc&amp;token={$token|escape:'html':'UTF-8'}{if isset($smarty.get.$identifier)}&amp;{$identifier}={$smarty.get.$identifier|intval}{/if}">
+								<a
+                   class="{strip}asc-sort-column-{$key}-link
+                          {if isset($order_by) && ($key == $order_by) && ($order_way == 'ASC')} active{/if}{/strip}"
+                   href="{$baseSortUrl}&amp;{$list_id}Orderby={$key|urlencode}&amp;{$list_id}Orderway=asc{if isset($smarty.get.$identifier)}&amp;{$identifier}={$smarty.get.$identifier|intval}{/if}">
 									<i class="icon-caret-up"></i>
 								</a>
 							{/if}
@@ -289,7 +300,7 @@
 						<th>
 							<span class="title_box">
 							{if $shop_link_type == 'shop'}
-								{l s='Shop' d='Admin.Global'}
+								{l s='Store' d='Admin.Global'}
 							{else}
 								{l s='Shop group'}
 							{/if}
@@ -324,14 +335,14 @@
 								{elseif $params.type == 'date' || $params.type == 'datetime'}
 									<div class="date_range row">
  										<div class="input-group fixed-width-md center">
-											<input type="text" class="filter datepicker date-input form-control" id="local_{$params.id_date}_0" name="local_{$params.name_date}[0]"  placeholder="{l s='From'}" />
+											<input type="text" class="filter datepicker date-input form-control" id="local_{$params.id_date}_0" name="local_{$params.name_date}[0]"  placeholder="{l s='From'}" autocomplete="off"/>
 											<input type="hidden" id="{$params.id_date}_0" name="{$params.name_date}[0]" value="{if isset($params.value.0)}{$params.value.0}{/if}">
 											<span class="input-group-addon">
 												<i class="icon-calendar"></i>
 											</span>
 										</div>
  										<div class="input-group fixed-width-md center">
-											<input type="text" class="filter datepicker date-input form-control" id="local_{$params.id_date}_1" name="local_{$params.name_date}[1]"  placeholder="{l s='To'}" />
+											<input type="text" class="filter datepicker date-input form-control" id="local_{$params.id_date}_1" name="local_{$params.name_date}[1]"  placeholder="{l s='To'}" autocomplete="off"/>
 											<input type="hidden" id="{$params.id_date}_1" name="{$params.name_date}[1]" value="{if isset($params.value.1)}{$params.value.1}{/if}">
 											<span class="input-group-addon">
 												<i class="icon-calendar"></i>
@@ -354,11 +365,11 @@
 									</div>
 								{elseif $params.type == 'select'}
 									{if isset($params.filter_key)}
-										<select class="filter{if isset($params.align) && $params.align == 'center'}center{/if}" onchange="$('#submitFilterButton{$list_id}').focus();$('#submitFilterButton{$list_id}').click();" name="{$list_id}Filter_{$params.filter_key}" {if isset($params.width)} style="width:{$params.width}px"{/if}>
+										<select class="filter{if isset($params.align) && $params.align == 'center'} center{/if}{if isset($params.class)} {$params.class|escape:'html':'UTF-8'}{/if}" onchange="$('#submitFilterButton{$list_id}').focus();$('#submitFilterButton{$list_id}').click();" name="{$list_id}Filter_{$params.filter_key}" {if isset($params.width)} style="width:{$params.width}px"{/if}>
 											<option value="" {if $params.value == ''} selected="selected" {/if}>-</option>
 											{if isset($params.list) && is_array($params.list)}
 												{foreach $params.list AS $option_value => $option_display}
-													<option value="{$option_value}" {if (string)$option_display === (string)$params.value ||  (string)$option_value === (string)$params.value} selected="selected"{/if}>{$option_display}</option>
+													<option value="{$option_value|escape:'html':'UTF-8'}" {if (string)$option_display === (string)$params.value ||  (string)$option_value === (string)$params.value} selected="selected"{/if}>{$option_display|escape:'html':'UTF-8'}</option>
 												{/foreach}
 											{/if}
 										</select>

@@ -1,29 +1,12 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
-use Symfony\Component\Translation\TranslatorInterface;
+use PrestaShop\PrestaShop\Core\Security\PasswordPolicyConfiguration;
+use PrestaShop\PrestaShop\Core\Util\InternationalizedDomainNameConverter;
+use Symfony\Contracts\Translation\TranslatorInterface;
+use ZxcvbnPhp\Zxcvbn;
 
 /**
  * StarterTheme TODO: B2B fields, Genders, CSRF.
@@ -32,12 +15,19 @@ class CustomerFormCore extends AbstractForm
 {
     protected $template = 'customer/_partials/customer-form.tpl';
 
+    /**
+     * @var CustomerFormatter
+     */
+    protected $formatter;
+
     private $context;
     private $urls;
 
     private $customerPersister;
     private $guest_allowed;
     private $passwordRequired = true;
+
+    private $IDNConverter;
 
     public function __construct(
         Smarty $smarty,
@@ -56,11 +46,13 @@ class CustomerFormCore extends AbstractForm
         $this->context = $context;
         $this->urls = $urls;
         $this->customerPersister = $customerPersister;
+        $this->IDNConverter = new InternationalizedDomainNameConverter();
     }
 
     public function setGuestAllowed($guest_allowed = true)
     {
         $this->formatter->setPasswordRequired(!$guest_allowed);
+        $this->setPasswordRequired(!$guest_allowed);
         $this->guest_allowed = $guest_allowed;
 
         return $this;
@@ -73,27 +65,34 @@ class CustomerFormCore extends AbstractForm
         return $this;
     }
 
+    public function fillWith(array $params = [])
+    {
+        if (!empty($params['email'])) {
+            // In some cases, browsers convert non ASCII chars (from input type="email") to "punycode",
+            // we need to convert it back
+            $params['email'] = $this->IDNConverter->emailToUtf8($params['email']);
+        }
+
+        return parent::fillWith($params);
+    }
+
     public function fillFromCustomer(Customer $customer)
     {
         $params = get_object_vars($customer);
-        $params['id_customer'] = $customer->id;
         $params['birthday'] = $customer->birthday === '0000-00-00' ? null : Tools::displayDate($customer->birthday);
 
         return $this->fillWith($params);
     }
 
     /**
-     * @return \Customer
+     * @return Customer
      */
     public function getCustomer()
     {
-        $customer = new Customer($this->getValue('id_customer'));
+        $customer = new Customer($this->context->customer->id);
 
         foreach ($this->formFields as $field) {
             $customerField = $field->getName();
-            if ($customerField === 'id_customer') {
-                $customerField = 'id';
-            }
             if (property_exists($customer, $customerField)) {
                 $customer->$customerField = $field->getValue();
             }
@@ -104,29 +103,89 @@ class CustomerFormCore extends AbstractForm
 
     public function validate()
     {
-        $emailField = $this->getField('email');
-        $id_customer = Customer::customerExists($emailField->getValue(), true, true);
-        $customer = $this->getCustomer();
-        if ($id_customer && $id_customer != $customer->id) {
-            $emailField->addError($this->translator->trans(
-                'The email is already used, please choose another one or sign in',
-                array(),
-                'Shop.Notifications.Error'
-            ));
-        }
+        /*
+         * If email is being changed, check if it's free to use and doesn't belong to another customer.
+         * We only do this if we have a valid customer in the context (logged in user) and if it's not a guest account.
+         * We cannot just check for is_guest only, because an empty customer object will return false for is_guest.
+         */
+        /* @phpstan-ignore-next-line */
+        if (!empty($this->context->customer->id) && !$this->context->customer->is_guest) {
+            // We check if there is a customer with the same email, registered only
+            $id_customer = Customer::customerExists($this->getField('email')->getValue(), true);
 
-        // birthday is from input type text..., so we need to convert to a valid date
-        $birthdayField = $this->getField('birthday');
-        if (!empty($birthdayField)) {
-            $birthdayValue = $birthdayField->getValue();
-            if (!empty($birthdayValue)) {
-                $dateBuilt = DateTime::createFromFormat(Context::getContext()->language->date_format_lite, $birthdayValue);
-                if (!empty($dateBuilt)) {
-                    $birthdayField->setValue($dateBuilt->format('Y-m-d'));
-                }
+            // If we found a customer and it's not the current one, it's an error
+            if ($id_customer && $id_customer != $this->getCustomer()->id) {
+                $this->getField('email')->addError($this->translator->trans(
+                    'The email is already used, please choose another one or sign in',
+                    [],
+                    'Shop.Notifications.Error'
+                ));
             }
         }
 
+        // check birthdayField against null case is mandatory.
+        $birthdayField = $this->getField('birthday');
+        if (!empty($birthdayField)
+            && !empty($birthdayField->getValue())
+            && Validate::isBirthDate($birthdayField->getValue(), $this->context->language->date_format_lite)
+        ) {
+            $dateBuilt = DateTime::createFromFormat(
+                $this->context->language->date_format_lite,
+                $birthdayField->getValue()
+            );
+            $birthdayField->setValue($dateBuilt->format('Y-m-d'));
+        }
+
+        if ($this->getField('new_password') === null
+            || !empty($this->getField('new_password')->getValue())
+        ) {
+            $passwordField = $this->getField('new_password') ?? $this->getField('password');
+            if (!empty($passwordField->getValue()) || $this->passwordRequired) {
+                if (Validate::isAcceptablePasswordLength($passwordField->getValue()) === false) {
+                    $passwordField->addError($this->translator->trans(
+                        'Password must be between %d and %d characters long',
+                        [
+                            Configuration::get(PasswordPolicyConfiguration::CONFIGURATION_MINIMUM_LENGTH),
+                            Configuration::get(PasswordPolicyConfiguration::CONFIGURATION_MAXIMUM_LENGTH),
+                        ],
+                        'Shop.Notifications.Error'
+                    ));
+                }
+
+                if (Validate::isAcceptablePasswordScore($passwordField->getValue()) === false) {
+                    $wordingsForScore = [
+                        $this->translator->trans('Very weak', [], 'Shop.Theme.Global'),
+                        $this->translator->trans('Weak', [], 'Shop.Theme.Global'),
+                        $this->translator->trans('Average', [], 'Shop.Theme.Global'),
+                        $this->translator->trans('Strong', [], 'Shop.Theme.Global'),
+                        $this->translator->trans('Very strong', [], 'Shop.Theme.Global'),
+                    ];
+                    $globalErrorMessage = $this->translator->trans(
+                        'The minimum score must be: %s',
+                        [
+                            $wordingsForScore[(int) Configuration::get(PasswordPolicyConfiguration::CONFIGURATION_MINIMUM_SCORE)],
+                        ],
+                        'Shop.Notifications.Error'
+                    );
+                    if ($this->context->shop->theme->get('global_settings.new_password_policy_feature') !== true) {
+                        $zxcvbn = new Zxcvbn();
+                        $result = $zxcvbn->passwordStrength($passwordField->getValue());
+                        if (!empty($result['feedback']['warning'])) {
+                            $passwordField->addError($this->translator->trans(
+                                $result['feedback']['warning'], [], 'Shop.Theme.Global'
+                            ));
+                        } else {
+                            $passwordField->addError($globalErrorMessage);
+                        }
+                        foreach ($result['feedback']['suggestions'] as $suggestion) {
+                            $passwordField->addError($this->translator->trans($suggestion, [], 'Shop.Theme.Global'));
+                        }
+                    } else {
+                        $passwordField->addError($globalErrorMessage);
+                    }
+                }
+            }
+        }
         $this->validateFieldsLengths();
         $this->validateByModules();
 
@@ -141,15 +200,15 @@ class CustomerFormCore extends AbstractForm
     }
 
     /**
-     * @param $fieldName
-     * @param $maximumLength
-     * @param $violationMessage
+     * @param string $fieldName
+     * @param int $maximumLength
+     * @param string $violationMessage
      */
     protected function validateFieldLength($fieldName, $maximumLength, $violationMessage)
     {
-        $emailField = $this->getField($fieldName);
-        if (strlen($emailField->getValue()) > $maximumLength) {
-            $emailField->addError($violationMessage);
+        $field = $this->getField($fieldName);
+        if (strlen($field->getValue()) > $maximumLength) {
+            $field->addError($violationMessage);
         }
     }
 
@@ -160,7 +219,7 @@ class CustomerFormCore extends AbstractForm
     {
         return $this->translator->trans(
             'The %1$s field is too long (%2$d chars max).',
-            array('email', 255),
+            ['email', 255],
             'Shop.Notifications.Error'
         );
     }
@@ -169,7 +228,7 @@ class CustomerFormCore extends AbstractForm
     {
         return $this->translator->trans(
             'The %1$s field is too long (%2$d chars max).',
-            array('first name', 255),
+            ['first name', 255],
             'Shop.Notifications.Error'
         );
     }
@@ -178,7 +237,7 @@ class CustomerFormCore extends AbstractForm
     {
         return $this->translator->trans(
             'The %1$s field is too long (%2$d chars max).',
-            array('last name', 255),
+            ['last name', 255],
             'Shop.Notifications.Error'
         );
     }
@@ -233,7 +292,7 @@ class CustomerFormCore extends AbstractForm
      */
     private function validateByModules()
     {
-        $formFieldsAssociated = array();
+        $formFieldsAssociated = [];
         // Group FormField instances by module name
         foreach ($this->formFields as $formField) {
             if (!empty($formField->moduleName)) {
@@ -245,10 +304,18 @@ class CustomerFormCore extends AbstractForm
         foreach ($formFieldsAssociated as $moduleName => $formFields) {
             if ($moduleId = Module::getModuleIdByName($moduleName)) {
                 // ToDo : replace Hook::exec with HookFinder, because we expect a specific class here
-                $validatedCustomerFormFields = Hook::exec('validateCustomerFormFields', array('fields' => $formFields), $moduleId, true);
+                // Hook called only for the module concerned
+                // An array [module_name => module_output] will be returned
+                $validatedCustomerFormFields = Hook::exec('validateCustomerFormFields', ['fields' => $formFields], $moduleId, true);
 
-                if (is_array($validatedCustomerFormFields)) {
-                    array_merge($this->formFields, $validatedCustomerFormFields);
+                if (!is_array($validatedCustomerFormFields)) {
+                    continue;
+                }
+
+                foreach ($validatedCustomerFormFields as $name => $field) {
+                    if ($field instanceof FormFieldCore) {
+                        $this->formFields[$name] = $field;
+                    }
                 }
             }
         }

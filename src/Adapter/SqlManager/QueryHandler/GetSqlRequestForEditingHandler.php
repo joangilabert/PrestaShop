@@ -1,31 +1,12 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter\SqlManager\QueryHandler;
 
+use PrestaShop\PrestaShop\Core\CommandBus\Attributes\AsQueryHandler;
 use PrestaShop\PrestaShop\Core\Domain\SqlManagement\EditableSqlRequest;
 use PrestaShop\PrestaShop\Core\Domain\SqlManagement\Exception\SqlRequestException;
 use PrestaShop\PrestaShop\Core\Domain\SqlManagement\Exception\SqlRequestNotFoundException;
@@ -39,6 +20,7 @@ use RequestSql;
  *
  * @internal
  */
+#[AsQueryHandler]
 final class GetSqlRequestForEditingHandler implements GetSqlRequestForEditingHandlerInterface
 {
     /**
@@ -66,19 +48,11 @@ final class GetSqlRequestForEditingHandler implements GetSqlRequestForEditingHan
         $entity = new RequestSql($requestSqlId->getValue());
 
         if (0 >= $entity->id) {
-            throw new SqlRequestNotFoundException(
-                sprintf('SqlRequest with id "%s" cannot be found', $requestSqlId->getValue())
-            );
+            throw new SqlRequestNotFoundException(sprintf('SqlRequest with id "%s" cannot be found', $requestSqlId->getValue()));
         }
 
         if ((int) $entity->id !== $requestSqlId->getValue()) {
-            throw new SqlRequestNotFoundException(
-                sprintf(
-                    'The retrieved id "%s" does not match requested SqlRequest id "%s"',
-                    $entity->id,
-                    $requestSqlId->getValue()
-                )
-            );
+            throw new SqlRequestNotFoundException(sprintf('The retrieved id "%s" does not match requested SqlRequest id "%s"', $entity->id, $requestSqlId->getValue()));
         }
 
         return $entity;

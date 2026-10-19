@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Localization\Specification;
@@ -37,14 +17,19 @@ use PrestaShop\PrestaShop\Core\Localization\Specification\Number as NumberSpecif
 class Price extends NumberSpecification
 {
     /**
-     * Currency display option : symbol notation.
+     * Currency display option: symbol notation.
      */
-    const CURRENCY_DISPLAY_SYMBOL = 'symbol';
+    public const CURRENCY_DISPLAY_SYMBOL = 'symbol';
 
     /**
-     * Currency display option : ISO code notation.
+     * Currency display option: ISO code notation.
      */
-    const CURRENCY_DISPLAY_CODE = 'code';
+    public const CURRENCY_DISPLAY_CODE = 'code';
+
+    /**
+     * Price value placeholder without symbols
+     */
+    public const PATTERN_BASE_PLACEHOLDER = '#,##0.00';
 
     /**
      * Type of display for currency symbol
@@ -69,29 +54,18 @@ class Price extends NumberSpecification
     /**
      * Price specification constructor.
      *
-     * @param string $positivePattern
-     *                                CLDR formatting pattern for positive amounts
-     * @param string $negativePattern
-     *                                CLDR formatting pattern for negative amounts
-     * @param NumberSymbolList[] $symbols
-     *                                    List of available number symbols lists (NumberSymbolList objects)
+     * @param string $positivePattern CLDR formatting pattern for positive amounts
+     * @param string $negativePattern CLDR formatting pattern for negative amounts
+     * @param NumberSymbolList[] $symbols List of available number symbols lists (NumberSymbolList objects)
      *                                    Each list is indexed by numbering system
-     * @param int $maxFractionDigits
-     *                               Maximum number of digits after decimal separator
-     * @param int $minFractionDigits
-     *                               Minimum number of digits after decimal separator
-     * @param bool $groupingUsed
-     *                           Is digits grouping used ?
-     * @param int $primaryGroupSize
-     *                              Size of primary digits group in the number
-     * @param int $secondaryGroupSize
-     *                                Size of secondary digits group in the number
-     * @param string $currencyDisplay
-     *                                Type of display for currency symbol
-     * @param string $currencySymbol
-     *                               Currency symbol of this price (eg. : €)
-     * @param $currencyCode
-     *  Currency code of this price (eg. : EUR)
+     * @param int $maxFractionDigits Maximum number of digits after decimal separator
+     * @param int $minFractionDigits Minimum number of digits after decimal separator
+     * @param bool $groupingUsed Is digits grouping used ?
+     * @param int $primaryGroupSize Size of primary digits group in the number
+     * @param int $secondaryGroupSize Size of secondary digits group in the number
+     * @param string $currencyDisplay Type of display for currency symbol
+     * @param string $currencySymbol Currency symbol of this price (eg. : €)
+     * @param string $currencyCode Currency code of this price (e.g.: EUR)
      *
      * @throws LocalizationException
      */
@@ -136,7 +110,7 @@ class Price extends NumberSpecification
 
     /**
      * Get the currency symbol
-     * eg. : €.
+     * e.g.: €.
      *
      * @return string
      */
@@ -147,7 +121,7 @@ class Price extends NumberSpecification
 
     /**
      * Get the currency ISO code
-     * eg. : EUR.
+     * e.g.: EUR.
      *
      * @return string
      */
@@ -165,10 +139,24 @@ class Price extends NumberSpecification
     {
         parent::validateData();
 
-        if (!isset($this->currencyDisplay)
-            || !in_array($this->currencyDisplay, [self::CURRENCY_DISPLAY_CODE, self::CURRENCY_DISPLAY_SYMBOL])
-        ) {
+        if (!in_array($this->currencyDisplay, [self::CURRENCY_DISPLAY_CODE, self::CURRENCY_DISPLAY_SYMBOL])) {
             throw new LocalizationException('Invalid currencyDisplay');
         }
+    }
+
+    /**
+     * To array function
+     *
+     * @return array
+     */
+    public function toArray(): array
+    {
+        return array_merge(
+            [
+                'currencyCode' => $this->getCurrencyCode(),
+                'currencySymbol' => $this->getCurrencySymbol(),
+            ],
+            parent::toArray()
+        );
     }
 }

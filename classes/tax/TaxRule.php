@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 class TaxRuleCore extends ObjectModel
 {
@@ -37,33 +17,33 @@ class TaxRuleCore extends ObjectModel
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'tax_rule',
         'primary' => 'id_tax_rule',
-        'fields' => array(
-            'id_tax_rules_group' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_country' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_state' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'zipcode_from' => array('type' => self::TYPE_STRING, 'validate' => 'isPostCode'),
-            'zipcode_to' => array('type' => self::TYPE_STRING, 'validate' => 'isPostCode'),
-            'id_tax' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'behavior' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'),
-            'description' => array('type' => self::TYPE_STRING, 'validate' => 'isString'),
-        ),
-    );
+        'fields' => [
+            'id_tax_rules_group' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_country' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_state' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'zipcode_from' => ['type' => self::TYPE_STRING, 'validate' => 'isPostCode', 'size' => 12],
+            'zipcode_to' => ['type' => self::TYPE_STRING, 'validate' => 'isPostCode', 'size' => 12],
+            'id_tax' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'behavior' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'],
+            'description' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 100],
+        ],
+    ];
 
-    protected $webserviceParameters = array(
-        'fields' => array(
-            'id_tax_rules_group' => array('xlink_resource' => 'tax_rule_groups'),
-            'id_state' => array('xlink_resource' => 'states'),
-            'id_country' => array('xlink_resource' => 'countries'),
-        ),
-    );
+    protected $webserviceParameters = [
+        'fields' => [
+            'id_tax_rules_group' => ['xlink_resource' => 'tax_rule_groups'],
+            'id_state' => ['xlink_resource' => 'states'],
+            'id_country' => ['xlink_resource' => 'countries'],
+        ],
+    ];
 
     public static function deleteByGroupId($id_group)
     {
         if (empty($id_group)) {
-            die(Tools::displayError());
+            throw new PrestaShopException('Parameter "id_group" (id_tax_rules_group you want to delete) is invalid.');
         }
 
         return Db::getInstance()->execute(
@@ -112,19 +92,9 @@ class TaxRuleCore extends ObjectModel
     }
 
     /**
-     * @deprecated since 1.5
-     */
-    public static function deleteTaxRuleByIdCounty($id_county)
-    {
-        Tools::displayAsDeprecated();
-
-        return true;
-    }
-
-    /**
      * @param int $id_tax
      *
-     * @return bool
+     * @return int
      */
     public static function isTaxInUse($id_tax)
     {
@@ -140,7 +110,7 @@ class TaxRuleCore extends ObjectModel
     }
 
     /**
-     * @param string $zipcode a range of zipcode (eg: 75000 / 75000-75015)
+     * @param string $zip_codes a range of zipcode (eg: 75000 / 75000-75015)
      *
      * @return array an array containing two zipcode ordered by zipcode
      */
@@ -165,7 +135,7 @@ class TaxRuleCore extends ObjectModel
             $to = 0;
         }
 
-        return array($from, $to);
+        return [$from, $to];
     }
 
     /**

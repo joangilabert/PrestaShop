@@ -1,33 +1,15 @@
 <?php
-
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Data\Layer;
 
 use Exception;
+use PrestaShop\PrestaShop\Core\Localization\CLDR\CurrencyDataLayerInterface as CldrCurrencyDataLayerInterface;
+use PrestaShop\PrestaShop\Core\Localization\CLDR\LocaleDataLayerInterface as CldrLocaleDataLayerInterface;
+use PrestaShop\PrestaShop\Core\Localization\Currency\CurrencyDataLayerInterface as CurrencyCurrencyDataLayerInterface;
 
 /**
  * Abstract data layer class
@@ -43,7 +25,7 @@ abstract class AbstractDataLayer
     /**
      * The lower data layer to communicate with (read/write).
      *
-     * @var AbstractDataLayer|null
+     * @var CldrCurrencyDataLayerInterface|CldrLocaleDataLayerInterface|CurrencyCurrencyDataLayerInterface|null
      */
     protected $lowerDataLayer;
 
@@ -77,11 +59,9 @@ abstract class AbstractDataLayer
      *
      * Lower layer might be called if nothing found in current layer
      *
-     * @param mixed $id
-     *                  The data object identifier
+     * @param string $id The data object identifier
      *
-     * @return mixed|null
-     *                    A data object. Null if not found.
+     * @return mixed|null A data object. Null if not found.
      *
      * @throws DataLayerException
      */
@@ -137,8 +117,7 @@ abstract class AbstractDataLayer
     /**
      * Propagate read to the lower layer.
      *
-     * @param $field
-     *  The field to read
+     * @param string $field The field to read
      *
      * @return mixed|null
      *
@@ -195,11 +174,7 @@ abstract class AbstractDataLayer
             try {
                 $this->doWrite($id, $data);
             } catch (Exception $e) {
-                throw new DataLayerException(
-                    'Unable to write into "' . $id . '"" (data layer : "' . __CLASS__ . '")',
-                    0,
-                    $e
-                );
+                throw new DataLayerException('Unable to write into "' . $id . '"" (data layer : "' . static::class . '")', 0, $e);
             }
         }
     }
@@ -229,11 +204,7 @@ abstract class AbstractDataLayer
             try {
                 $this->doWrite($id, $data);
             } catch (Exception $e) {
-                throw new DataLayerException(
-                    'Unable to write into "' . $id . '"" (data layer "' . __CLASS__ . '")',
-                    0,
-                    $e
-                );
+                throw new DataLayerException('Unable to write into "' . $id . '" (data layer "' . static::class . '")', 0, $e);
             }
 
             // If update needed after write
@@ -276,14 +247,11 @@ abstract class AbstractDataLayer
      *
      * Might be a file access, cache read, DB select...
      *
-     * @param mixed $id
-     *                  The data object identifier
+     * @param mixed $id The data object identifier
      *
-     * @return mixed|null
-     *                    The wanted data object (null if not found)
+     * @return mixed|null The wanted data object (null if not found)
      *
-     * @throws DataLayerException
-     *                            When read fails
+     * @throws DataLayerException When read fails
      */
     abstract protected function doRead($id);
 

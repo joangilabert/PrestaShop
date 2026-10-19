@@ -1,28 +1,10 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShop\PrestaShop\Core\Domain\Feature\FeatureValueSettings;
 
 /**
  * Class FeatureValueCore.
@@ -32,40 +14,44 @@ class FeatureValueCore extends ObjectModel
     /** @var int Group id which attribute belongs */
     public $id_feature;
 
-    /** @var string Name */
+    /** @var string|array Name */
     public $value;
 
     /** @var bool Custom */
-    public $custom = 0;
+    public $custom = false;
+
+    /** @var int Position */
+    public $position;
 
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'feature_value',
         'primary' => 'id_feature_value',
         'multilang' => true,
-        'fields' => array(
-            'id_feature' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'custom' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
+        'fields' => [
+            'id_feature' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'custom' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'position' => ['type' => self::TYPE_INT, 'validate' => 'isInt'],
 
             /* Lang fields */
-            'value' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 255),
-        ),
-    );
+            'value' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => FeatureValueSettings::VALUE_MAX_LENGTH],
+        ],
+    ];
 
-    protected $webserviceParameters = array(
+    protected $webserviceParameters = [
         'objectsNodeName' => 'product_feature_values',
         'objectNodeName' => 'product_feature_value',
-        'fields' => array(
-            'id_feature' => array('xlink_resource' => 'product_features'),
-        ),
-    );
+        'fields' => [
+            'id_feature' => ['xlink_resource' => 'product_features'],
+        ],
+    ];
 
     /**
      * Get all values for a given feature.
      *
-     * @param bool $idFeature Feature id
+     * @param int $idFeature Feature id
      *
      * @return array Array with feature's values
      */
@@ -83,7 +69,7 @@ class FeatureValueCore extends ObjectModel
      * Get all values for a given feature and language.
      *
      * @param int $idLang Language id
-     * @param bool $idFeature Feature id
+     * @param int $idFeature Feature id
      *
      * @return array Array with feature's values
      */
@@ -103,7 +89,7 @@ class FeatureValueCore extends ObjectModel
     /**
      * Get all language for a given value.
      *
-     * @param bool $idFeatureValue Feature value id
+     * @param int $idFeatureValue Feature value id
      *
      * @return array Array with value's languages
      */
@@ -132,6 +118,8 @@ class FeatureValueCore extends ObjectModel
                 return $tab['value'];
             }
         }
+
+        return '';
     }
 
     /**
@@ -139,8 +127,8 @@ class FeatureValueCore extends ObjectModel
      *
      * @param int $idFeature
      * @param string $value
-     * @param null $idProduct
-     * @param null $idLang
+     * @param int|null $idProduct
+     * @param int|null $idLang
      * @param bool $custom
      *
      * @return int
@@ -148,7 +136,7 @@ class FeatureValueCore extends ObjectModel
     public static function addFeatureValueImport($idFeature, $value, $idProduct = null, $idLang = null, $custom = false)
     {
         $idFeatureValue = false;
-        if (!is_null($idProduct) && $idProduct) {
+        if (null !== $idProduct && $idProduct) {
             $idFeatureValue = Db::getInstance()->getValue('
 				SELECT fp.`id_feature_value`
 				FROM ' . _DB_PREFIX_ . 'feature_product fp
@@ -157,7 +145,7 @@ class FeatureValueCore extends ObjectModel
 				AND fv.`custom` = ' . (int) $custom . '
 				AND fp.`id_product` = ' . (int) $idProduct);
 
-            if ($custom && $idFeatureValue && !is_null($idLang) && $idLang) {
+            if ($custom && $idFeatureValue && null !== $idLang && $idLang) {
                 Db::getInstance()->execute('
 				UPDATE ' . _DB_PREFIX_ . 'feature_value_lang
 				SET `value` = \'' . pSQL($value) . '\'
@@ -205,9 +193,13 @@ class FeatureValueCore extends ObjectModel
      */
     public function add($autoDate = true, $nullValues = false)
     {
+        if ($this->position <= 0) {
+            $this->position = static::getHighestPosition($this->id_feature) + 1;
+        }
+
         $return = parent::add($autoDate, $nullValues);
         if ($return) {
-            Hook::exec('actionFeatureValueSave', array('id_feature_value' => $this->id));
+            Hook::exec('actionFeatureValueSave', ['id_feature_value' => $this->id]);
         }
 
         return $return;
@@ -227,7 +219,7 @@ class FeatureValueCore extends ObjectModel
     {
         $return = parent::update($nullValues);
         if ($return) {
-            Hook::exec('actionFeatureValueSave', array('id_feature_value' => $this->id));
+            Hook::exec('actionFeatureValueSave', ['id_feature_value' => $this->id]);
         }
 
         return $return;
@@ -248,12 +240,57 @@ class FeatureValueCore extends ObjectModel
 			DELETE FROM `' . _DB_PREFIX_ . 'feature_product`
 			WHERE `id_feature_value` = ' . (int) $this->id
         );
+
+        /* Reinitializing position */
+        $this->cleanPositions((int) $this->id_feature);
+
         $return = parent::delete();
 
         if ($return) {
-            Hook::exec('actionFeatureValueDelete', array('id_feature_value' => $this->id));
+            Hook::exec('actionFeatureValueDelete', ['id_feature_value' => $this->id]);
         }
 
         return $return;
+    }
+
+    /**
+     * Get the highest feature value position of given feature.
+     *
+     * @param int $idFeature
+     *
+     * @return int
+     */
+    public static function getHighestPosition($idFeature)
+    {
+        $sql = 'SELECT MAX(`position`)
+                FROM `' . _DB_PREFIX_ . 'feature_value`
+                WHERE `id_feature` = ' . (int) $idFeature;
+
+        $position = Db::getInstance()->getValue($sql);
+
+        return is_numeric($position) ? $position : -1;
+    }
+
+    /**
+     * Reorder feature values within single feature.
+     * Use it after deleting a feature value.
+     *
+     * @param int $idFeature
+     * @param bool $includeCurrentFeatureValue
+     *
+     * @return bool Whether the result was successfully updated
+     */
+    public function cleanPositions($idFeature, $includeCurrentFeatureValue = false)
+    {
+        Db::getInstance()->execute('SET @i = -1', false);
+        $sql = 'UPDATE `' . _DB_PREFIX_ . 'feature_value` SET `position` = @i:=@i+1 WHERE';
+
+        if (!$includeCurrentFeatureValue) {
+            $sql .= ' `id_feature_value` != ' . (int) $this->id . ' AND';
+        }
+
+        $sql .= ' `id_feature` = ' . (int) $idFeature . ' ORDER BY `position` ASC';
+
+        return Db::getInstance()->execute($sql);
     }
 }

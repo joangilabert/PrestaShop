@@ -1,26 +1,6 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 
 {$style_tab}
@@ -65,14 +45,16 @@
 		<td colspan="12" height="20">&nbsp;</td>
 	</tr>
 
-	<tr>
-		<td colspan="7" class="left">
+	{if isset($payment_tab)}
+		<tr>
+			<td colspan="7" class="left">
 
-			{$payment_tab}
+				{$payment_tab}
 
-		</td>
-		<td colspan="5">&nbsp;</td>
-	</tr>
+			</td>
+			<td colspan="5">&nbsp;</td>
+		</tr>
+	{/if}
 
 	<!-- Hook -->
 	{if isset($HOOK_DISPLAY_PDF)}
@@ -81,8 +63,7 @@
 	</tr>
 
 	<tr>
-		<td colspan="2">&nbsp;</td>
-		<td colspan="10">
+		<td colspan="12">
 			{$HOOK_DISPLAY_PDF}
 		</td>
 	</tr>

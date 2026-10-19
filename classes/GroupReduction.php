@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 class GroupReductionCore extends ObjectModel
 {
@@ -32,17 +12,17 @@ class GroupReductionCore extends ObjectModel
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'group_reduction',
         'primary' => 'id_group_reduction',
-        'fields' => array(
-            'id_group' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_category' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'reduction' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice', 'required' => true),
-        ),
-    );
+        'fields' => [
+            'id_group' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_category' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'reduction' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice', 'required' => true],
+        ],
+    ];
 
-    protected static $reduction_cache = array();
+    protected static $reduction_cache = [];
 
     public function add($autodate = true, $null_values = false)
     {
@@ -63,10 +43,7 @@ class GroupReductionCore extends ObjectModel
 			WHERE cp.`id_category` = ' . (int) $this->id_category
         );
 
-        $ids = array();
-        foreach ($products as $row) {
-            $ids[] = $row['id_product'];
-        }
+        $ids = array_column($products, 'id_product');
 
         if ($ids) {
             Db::getInstance()->delete('product_group_reduction_cache', 'id_product IN (' . implode(', ', $ids) . ')');
@@ -89,7 +66,7 @@ class GroupReductionCore extends ObjectModel
 			WHERE cp.`id_category` = ' . (int) $this->id_category
         );
 
-        $values = array();
+        $values = [];
         foreach ($products as $row) {
             $values[] = '(' . (int) $row['id_product'] . ', ' . (int) $this->id_group . ', ' . (float) $this->reduction . ')';
         }
@@ -111,20 +88,16 @@ class GroupReductionCore extends ObjectModel
             '
 			SELECT cp.`id_product`
 			FROM `' . _DB_PREFIX_ . 'category_product` cp
-			WHERE cp.`id_category` = ' . (int) $this->id_category,
-        false
+			WHERE cp.`id_category` = ' . (int) $this->id_category
         );
 
-        $ids = array();
-        foreach ($products as $product) {
-            $ids[] = $product['id_product'];
-        }
+        $ids = array_column($products, 'id_product');
 
         $result = true;
         if ($ids) {
-            $result &= Db::getInstance()->update('product_group_reduction_cache', array(
+            $result &= Db::getInstance()->update('product_group_reduction_cache', [
                 'reduction' => (float) $this->reduction,
-            ), 'id_product IN(' . implode(', ', $ids) . ') AND id_group = ' . (int) $this->id_group);
+            ], 'id_product IN(' . implode(', ', $ids) . ') AND id_group = ' . (int) $this->id_group);
         }
 
         return $result;
@@ -155,6 +128,7 @@ class GroupReductionCore extends ObjectModel
 			FROM `' . _DB_PREFIX_ . 'product_group_reduction_cache`
 			WHERE `id_product` = ' . (int) $id_product . ' AND `id_group` = ' . (int) $id_group);
         }
+
         // Should return string (decimal in database) and not a float
         return self::$reduction_cache[$id_product . '-' . $id_group];
     }
@@ -177,23 +151,6 @@ class GroupReductionCore extends ObjectModel
         );
     }
 
-    /**
-     * @deprecated 1.5.3.0
-     *
-     * @param int $id_category
-     *
-     * @return array|null
-     */
-    public static function getGroupByCategoryId($id_category)
-    {
-        Tools::displayAsDeprecated('Use GroupReduction::getGroupsByCategoryId($id_category)');
-
-        return Db::getInstance(_PS_USE_SQL_SLAVE_)->getRow('
-			SELECT gr.`id_group` as id_group, gr.`reduction` as reduction, id_group_reduction
-			FROM `' . _DB_PREFIX_ . 'group_reduction` gr
-			WHERE `id_category` = ' . (int) $id_category, false);
-    }
-
     public static function getGroupsReductionByCategoryId($id_category)
     {
         return Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS(
@@ -204,23 +161,6 @@ class GroupReductionCore extends ObjectModel
         );
     }
 
-    /**
-     * @deprecated 1.5.3.0
-     *
-     * @param int $id_category
-     *
-     * @return array|null
-     */
-    public static function getGroupReductionByCategoryId($id_category)
-    {
-        Tools::displayAsDeprecated('Use GroupReduction::getGroupsByCategoryId($id_category)');
-
-        return Db::getInstance(_PS_USE_SQL_SLAVE_)->getRow('
-			SELECT gr.`id_group_reduction` as id_group_reduction
-			FROM `' . _DB_PREFIX_ . 'group_reduction` gr
-			WHERE `id_category` = ' . (int) $id_category, false);
-    }
-
     public static function setProductReduction($id_product, $id_group = null, $id_category = null, $reduction = null)
     {
         $res = true;
@@ -228,15 +168,14 @@ class GroupReductionCore extends ObjectModel
 
         $categories = Product::getProductCategories((int) $id_product);
 
-        if ($categories) {
-            foreach ($categories as $category) {
-                $reductions = GroupReduction::getGroupsByCategoryId((int) $category);
-                if ($reductions) {
-                    foreach ($reductions as $reduction) {
-                        $current_group_reduction = new GroupReduction((int) $reduction['id_group_reduction']);
-                        $res &= $current_group_reduction->_setCache();
-                    }
-                }
+        foreach ($categories as $category) {
+            $reductions = GroupReduction::getGroupsByCategoryId((int) $category);
+            if (!$reductions) {
+                continue;
+            }
+            foreach ($reductions as $reduction) {
+                $current_group_reduction = new GroupReduction((int) $reduction['id_group_reduction']);
+                $res &= $current_group_reduction->_setCache();
             }
         }
 
@@ -246,11 +185,8 @@ class GroupReductionCore extends ObjectModel
     public static function deleteProductReduction($id_product)
     {
         $query = 'DELETE FROM `' . _DB_PREFIX_ . 'product_group_reduction_cache` WHERE `id_product` = ' . (int) $id_product;
-        if (Db::getInstance()->execute($query) === false) {
-            return false;
-        }
 
-        return true;
+        return Db::getInstance()->execute($query);
     }
 
     public static function duplicateReduction($id_product_old, $id_product)
@@ -279,10 +215,15 @@ class GroupReductionCore extends ObjectModel
     public static function deleteCategory($id_category)
     {
         $query = 'DELETE FROM `' . _DB_PREFIX_ . 'group_reduction` WHERE `id_category` = ' . (int) $id_category;
-        if (Db::getInstance()->execute($query) === false) {
-            return false;
-        }
 
-        return true;
+        return Db::getInstance()->execute($query);
+    }
+
+    /**
+     * Reset static cache (mainly for test environment)
+     */
+    public static function resetStaticCache()
+    {
+        static::$reduction_cache = [];
     }
 }

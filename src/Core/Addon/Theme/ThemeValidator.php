@@ -1,45 +1,25 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Addon\Theme;
 
 use PrestaShop\PrestaShop\Core\ConfigurationInterface;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class ThemeValidator
 {
     /**
      * Translator.
      *
-     * @var \Symfony\Component\Translation\TranslatorInterface
+     * @var TranslatorInterface
      */
     private $translator;
     private $appConfiguration;
 
-    private $errors = array();
+    private $errors = [];
 
     public function __construct(TranslatorInterface $translator, ConfigurationInterface $configuration)
     {
@@ -65,12 +45,12 @@ class ThemeValidator
         foreach ($this->getRequiredProperties() as $prop) {
             if (!$theme->has($prop)) {
                 if (!array_key_exists($themeName, $this->errors)) {
-                    $this->errors[$themeName] = array();
+                    $this->errors[$themeName] = [];
                 }
 
-                $this->errors[$themeName] = $this->translator->trans(
+                $this->errors[$themeName][] = $this->translator->trans(
                     'An error occurred. The information "%s" is missing.',
-                    array($prop),
+                    [$prop],
                     'Admin.Design.Notification'
                 );
             }
@@ -81,7 +61,7 @@ class ThemeValidator
 
     public function getRequiredProperties()
     {
-        return array(
+        return [
             'name',
             'display_name',
             'version',
@@ -95,7 +75,7 @@ class ThemeValidator
             'global_settings.image_types.home_default',
             'global_settings.image_types.category_default',
             'theme_settings.default_layout',
-        );
+        ];
     }
 
     private function hasRequiredFiles(Theme $theme)
@@ -112,10 +92,10 @@ class ThemeValidator
 
             if (!file_exists($childFile) && !file_exists($parentFile)) {
                 if (!array_key_exists($themeName, $this->errors)) {
-                    $this->errors[$themeName] = array();
+                    $this->errors[$themeName] = [];
                 }
 
-                $this->errors[$themeName] = $this->translator->trans('An error occurred. The template "%s" is missing.', array($file), 'Admin.Design.Notification');
+                $this->errors[$themeName][] = $this->translator->trans('An error occurred. The template "%s" is missing.', [$file], 'Admin.Design.Notification');
             }
         }
 
@@ -124,7 +104,7 @@ class ThemeValidator
 
     public function getRequiredFiles()
     {
-        return array(
+        return [
             'preview.png',
             'config/theme.yml',
             'assets/js/theme.js',
@@ -134,30 +114,30 @@ class ThemeValidator
             'templates/catalog/product.tpl',
             'templates/catalog/listing/product-list.tpl',
             'templates/checkout/cart.tpl',
+            'templates/checkout/cart-empty.tpl',
             'templates/checkout/checkout.tpl',
+            'templates/checkout/order-confirmation.tpl',
             'templates/cms/category.tpl',
             'templates/cms/page.tpl',
+            'templates/cms/sitemap.tpl',
+            'templates/cms/stores.tpl',
+            'templates/contact.tpl',
             'templates/customer/address.tpl',
             'templates/customer/addresses.tpl',
+            'templates/customer/authentication.tpl',
             'templates/customer/guest-tracking.tpl',
             'templates/customer/guest-login.tpl',
             'templates/customer/history.tpl',
             'templates/customer/identity.tpl',
-            'templates/index.tpl',
             'templates/customer/my-account.tpl',
-            'templates/checkout/order-confirmation.tpl',
             'templates/customer/order-detail.tpl',
             'templates/customer/order-follow.tpl',
             'templates/customer/order-return.tpl',
             'templates/customer/order-slip.tpl',
+            'templates/customer/registration.tpl',
             'templates/errors/404.tpl',
             'templates/errors/forbidden.tpl',
-            'templates/checkout/cart-empty.tpl',
-            'templates/cms/sitemap.tpl',
-            'templates/cms/stores.tpl',
-            'templates/customer/authentication.tpl',
-            'templates/customer/registration.tpl',
-            'templates/contact.tpl',
-        );
+            'templates/index.tpl',
+        ];
     }
 }

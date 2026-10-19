@@ -1,26 +1,6 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 
 <div class="alert alert-danger">
@@ -40,7 +20,7 @@
             </h3>
             <div class="alert alert-warning">
                 <p>{l s='You can choose to keep your images stored in the previous system. There\'s nothing wrong with that.' d='Admin.Design.Notification'}</p>
-                <p>{l s='You can also decide to move your images to the new storage system. In this case, click on the "Move images" button below. Please be patient. This can take several minutes.' d='Admin.Design.Notification'}</p>
+                <p>{l s='You can also decide to move your images to the new storage system. In this case, click on the "%move_images_label%" button below. Please be patient. This can take several minutes.' d='Admin.Design.Notification' sprintf=['%move_images_label%' => {l s='Move images' d='Admin.Design.Feature'}]}</p>
             </div>
             <div class="alert alert-info">&nbsp;
                 {l s='After moving all of your product images, set the "Use the legacy image filesystem" option above to "No" for best performance.' d='Admin.Design.Notification'}
@@ -56,17 +36,16 @@
 
 {if isset($display_regenerate)}
 
-	<form class="form-horizontal" action="{$current|escape:'html':'UTF-8'}&amp;token={$token|escape:'html':'UTF-8'}" method="post">
+	<form id="display_regenerate_form" class="form-horizontal" action="{$current|escape:'html':'UTF-8'}&amp;token={$token|escape:'html':'UTF-8'}" method="post">
 		<div class="panel">
 			<h3>
                 <i class="icon-picture"></i>
                 {l s='Regenerate thumbnails' d='Admin.Design.Feature'}
             </h3>
 
-			<div class="alert alert-info">
-				{l s='Regenerates thumbnails for all existing images' d='Admin.Design.Help'}<br />
-				{l s='Please be patient. This can take several minutes.' d='Admin.Design.Help'}<br />
-				{l s='Be careful! Manually uploaded thumbnails will be erased and replaced by automatically generated thumbnails.' d='Admin.Design.Help'}
+			<div class="alert alert-warning">
+				{l s='Be careful! Depending on the options selected, former manually uploaded thumbnails might be erased and replaced by automatically generated thumbnails.' d='Admin.Design.Notification'}<br />
+				{l s='Also, regenerating thumbnails for all existing images can take several minutes, please be patient.' d='Admin.Design.Notification'}
 			</div>
 
 			<div class="form-group">
@@ -75,7 +54,7 @@
 					<select name="type" onchange="changeFormat(this)">
 						<option value="all">{l s='All' d='Admin.Global'}</option>
 						{foreach $types AS $k => $type}
-							<option value="{$k}">{$type}</option>
+							<option value="{$k|escape:'html':'UTF-8'}">{$type|escape:'html':'UTF-8'}</option>
 						{/foreach}
 					</select>
 				</div>
@@ -88,7 +67,7 @@
 					<select name="format_{$k}">
 						<option value="all">{l s='All' d='Admin.Global'}</option>
 						{foreach $formats[$k] AS $format}
-							<option value="{$format['id_image_type']}">{$format['name']}</option>
+							<option value="{$format['id_image_type']|escape:'html':'UTF-8'}">{$format['name']|escape:'html':'UTF-8'}</option>
 						{/foreach}
 					</select>
 				</div>
@@ -108,11 +87,11 @@
 				</label>
 				<div class="col-lg-9">
 					<span class="switch prestashop-switch fixed-width-lg">
-						<input type="radio" name="erase" id="erase_on" value="1" checked="checked">
+						<input type="radio" name="erase" id="erase_on" value="1">
 						<label for="erase_on" class="radioCheck">
 							{l s='Yes' d='Admin.Global'}
 						</label>
-						<input type="radio" name="erase" id="erase_off" value="0">
+						<input type="radio" name="erase" id="erase_off" value="0" checked="checked">
 						<label for="erase_off" class="radioCheck">
 							{l s='No' d='Admin.Global'}
 						</label>
@@ -124,10 +103,34 @@
 				</div>
 			</div>
 			<div class="panel-footer">
-				<button type="submit" name="submitRegenerate{$table}" class="btn btn-default pull-right" onclick="return confirm('{l s='Are you sure?' d='Admin.Notifications.Warning'}');">
+        <input type="hidden" name="submitRegenerate{$table}" value="" />
+				<button
+          type="submit"
+          value=""
+          class="btn btn-default pull-right"
+        >
 					<i class="process-icon-cogs"></i> {l s='Regenerate thumbnails' d='Admin.Design.Feature'}
 				</button>
 			</div>
 		</div>
 	</form>
+
+  <script type="text/javascript">
+    $(function() {
+      $('#display_regenerate_form button[type="submit"]').on('click', function() {
+        $('#modalRegenerateThumbnails').modal('show');
+        return false;
+      });
+      $('.btn-regenerate-thumbnails').on('click', function () {
+        $('#display_regenerate_form').trigger('submit');
+      });
+      $('.btn-confirm-delete-images-type').on('click', function () {
+        document.location = $(this).attr('data-confirm-url') + '&delete_linked_images=' + $('#delete_linked_images').is(":checked");
+      });
+
+      $('#modalConfirmDeleteType ').on('hidden.bs.modal', function () {
+        $('.modal-checkbox input', this).prop('checked', false)
+      });
+    });
+  </script>
 {/if}

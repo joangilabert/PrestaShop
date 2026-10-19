@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Api;
@@ -49,7 +29,7 @@ class QueryStockParamsCollection extends QueryParamsCollection
      */
     protected function getValidFilterParams()
     {
-        return array(
+        return [
             'productId',
             'supplier_id',
             'category_id',
@@ -57,7 +37,7 @@ class QueryStockParamsCollection extends QueryParamsCollection
             'attributes',
             'features',
             'active',
-        );
+        ];
     }
 
     /**
@@ -65,25 +45,28 @@ class QueryStockParamsCollection extends QueryParamsCollection
      */
     protected function getValidOrderParams()
     {
-        return array(
+        return [
             'product',
+            'product_id',
+            'product_name',
+            'combination_id',
             'reference',
             'supplier',
             'available_quantity',
             'physical_quantity',
             'active',
             'low_stock',
-        );
+        ];
     }
 
     /**
-     * @param $queryParams
+     * @param array $queryParams
      *
      * @return mixed
      */
     protected function setDefaultOrderParam($queryParams)
     {
-        $queryParams['order'] = array('product DESC');
+        $queryParams['order'] = ['product_id DESC'];
 
         return $queryParams;
     }

@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 use PrestaShopBundle\Install\Database;
@@ -37,16 +17,69 @@ class InstallControllerHttpDatabase extends InstallControllerHttp implements Htt
      */
     public $model_database;
 
-    public function init()
+    /**
+     * @var string
+     */
+    public $database_server;
+
+    /**
+     * @var string
+     */
+    public $database_name;
+
+    /**
+     * @var string
+     */
+    public $database_login;
+
+    /**
+     * @var string
+     */
+    public $database_password;
+
+    /**
+     * @var string
+     */
+    public $database_engine;
+
+    /**
+     * @var string
+     */
+    public $database_prefix;
+
+    /**
+     * @var bool
+     */
+    public $database_clear;
+
+    /**
+     * @var bool
+     */
+    public $use_smtp;
+
+    /**
+     * @var string
+     */
+    public $smtp_encryption;
+
+    /**
+     * @var int
+     */
+    public $smtp_port;
+
+    /**
+     * {@inheritdoc}
+     */
+    public function init(): void
     {
         $this->model_database = new Database();
         $this->model_database->setTranslator($this->translator);
     }
 
     /**
-     * @see HttpConfigureInterface::processNextStep()
+     * {@inheritdoc}
      */
-    public function processNextStep()
+    public function processNextStep(): void
     {
         // Save database config
         $this->session->database_server = trim(Tools::getValue('dbServer'));
@@ -55,16 +88,13 @@ class InstallControllerHttpDatabase extends InstallControllerHttp implements Htt
         $this->session->database_password = trim(Tools::getValue('dbPassword'));
         $this->session->database_prefix = trim(Tools::getValue('db_prefix'));
         $this->session->database_clear = Tools::getValue('database_clear');
-
         $this->session->rewrite_engine = Tools::getValue('rewrite_engine');
     }
 
     /**
-     * Database configuration must be valid to validate this step
-     *
-     * @see HttpConfigureInterface::validate()
+     * {@inheritdoc}
      */
-    public function validate()
+    public function validate(): bool
     {
         $this->errors = $this->model_database->testDatabaseSettings(
             $this->session->database_server,
@@ -86,7 +116,10 @@ class InstallControllerHttpDatabase extends InstallControllerHttp implements Htt
         return true;
     }
 
-    public function process()
+    /**
+     * {@inheritdoc}
+     */
+    public function process(): void
     {
         if (Tools::getValue('checkDb')) {
             $this->processCheckDb();
@@ -98,7 +131,7 @@ class InstallControllerHttpDatabase extends InstallControllerHttp implements Htt
     /**
      * Check if a connection to database is possible with these data
      */
-    public function processCheckDb()
+    public function processCheckDb(): void
     {
         $server = Tools::getValue('dbServer');
         $database = Tools::getValue('dbName');
@@ -111,14 +144,14 @@ class InstallControllerHttpDatabase extends InstallControllerHttp implements Htt
 
         $this->ajaxJsonAnswer(
             (count($errors)) ? false : true,
-            (count($errors)) ? implode('<br />', $errors) : $this->translator->trans('Database is connected', array(), 'Install')
+            (count($errors)) ? implode('<br />', $errors) : $this->translator->trans('Database is connected', [], 'Install')
         );
     }
 
     /**
      * Attempt to create the database
      */
-    public function processCreateDb()
+    public function processCreateDb(): void
     {
         $server = Tools::getValue('dbServer');
         $database = Tools::getValue('dbName');
@@ -129,31 +162,31 @@ class InstallControllerHttpDatabase extends InstallControllerHttp implements Htt
 
         $this->ajaxJsonAnswer(
             $success,
-            $success ?  $this->translator->trans('Database is created', array(), 'Install') : $this->translator->trans('Cannot create the database automatically', array(), 'Install')
+            $success ? $this->translator->trans('Database is created', [], 'Install') : $this->translator->trans('Cannot create the database automatically', [], 'Install')
         );
     }
 
     /**
-     * @see HttpConfigureInterface::display()
+     * {@inheritdoc}
      */
-    public function display()
+    public function display(): void
     {
         if (!$this->session->database_server) {
-            if (file_exists(_PS_ROOT_DIR_.'/app/config/parameters.php')) {
-                $parameters = require _PS_ROOT_DIR_.'/app/config/parameters.php';
+            if (file_exists(_PS_ROOT_DIR_ . '/app/config/parameters.php')) {
+                $parameters = require _PS_ROOT_DIR_ . '/app/config/parameters.php';
             } else {
-                $parameters = Yaml::parse(file_get_contents(_PS_ROOT_DIR_.'/app/config/parameters.yml.dist'));
+                $parameters = Yaml::parse(file_get_contents(_PS_ROOT_DIR_ . '/app/config/parameters.yml.dist'));
             }
 
             $this->database_server = $parameters['parameters']['database_host'];
             if (!empty($parameters['parameters']['database_port'])) {
-                $this->database_server .= ':'.$parameters['parameters']['database_port'];
+                $this->database_server .= ':' . $parameters['parameters']['database_port'];
             }
             $this->database_name = $parameters['parameters']['database_name'];
             $this->database_login = $parameters['parameters']['database_user'];
             $this->database_password = $parameters['parameters']['database_password'];
             $this->database_engine = $parameters['parameters']['database_engine'];
-            $this->database_prefix = $parameters['parameters']['database_prefix'];
+            $this->database_prefix = substr(str_shuffle(str_repeat('0123456789abcdefghijklmnopqrstuvwxyz', mt_rand(1,10))), 0, 5).'_';
 
             $this->database_clear = true;
             $this->use_smtp = false;
@@ -173,6 +206,11 @@ class InstallControllerHttpDatabase extends InstallControllerHttp implements Htt
             $this->smtp_port = $this->session->smtp_port;
         }
 
-        $this->displayTemplate('database');
+        $staticPrefix = defined('_PS_INSTALLER_STATIC_DB_PREFIX_') ? _PS_INSTALLER_STATIC_DB_PREFIX_ : null;
+        if (is_string($staticPrefix) && $staticPrefix !== '') {
+            $this->database_prefix = rtrim($staticPrefix, '_') . '_';
+        }
+
+        $this->displayContent('database');
     }
 }

@@ -1,68 +1,71 @@
-<!--**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+<!--*
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *-->
 <template>
   <div class="form-group">
-    <label>{{label}}</label>
-    <textarea class="form-control" rows="2" v-model="getTranslated" :class="{ missing : isMissing }"></textarea>
-    <PSButton class="mt-3 float-sm-right" :primary="false" ghost @click="resetTranslation">
-      {{ trans('button_reset') }}
-    </PSButton>
-    <small class="mt-3">{{extraInfo}}</small>
+    <label>{{ label }}</label>
+    <textarea
+      class="form-control"
+      rows="2"
+      v-model="getTranslated"
+      :class="{ missing : isMissing }"
+    />
+    <div class="d-flex flex-column flex-md-row justify-content-md-between">
+      <div>
+        <small>{{ extraInfo }}</small>
+      </div>
+      <div>
+        <PSButton
+          class="mt-2"
+          :primary="false"
+          ghost
+          @click="resetTranslation"
+        >
+          {{ trans('button_reset') }}
+        </PSButton>
+      </div>
+    </div>
   </div>
 </template>
 
-<script>
-  import PSButton from 'app/widgets/ps-button';
-  import { EventBus } from 'app/utils/event-bus';
+<script lang="ts">
+  import PSButton from '@app/widgets/ps-button.vue';
+  import {EventEmitter} from '@components/event-emitter';
+  import TranslationMixin from '@app/pages/translations/mixins/translate';
+  import {defineComponent} from 'vue';
 
-  export default {
+  export default defineComponent({
     name: 'TranslationInput',
+    mixins: [TranslationMixin],
     props: {
       id: {
         type: Number,
+        required: false,
+        default: 0,
       },
       extraInfo: {
         type: String,
         required: false,
+        default: '',
       },
       label: {
         type: String,
         required: true,
       },
       translated: {
+        type: Object,
         required: true,
       },
     },
     computed: {
       getTranslated: {
-        get() {
-          return this.translated.database ? this.translated.database : this.translated.xliff;
+        get(): any {
+          return this.translated.user ? this.translated.user : this.translated.project;
         },
-        set(modifiedValue) {
+        set(modifiedValue: any): void {
           const modifiedTranslated = this.translated;
-          modifiedTranslated.database = modifiedValue;
+          modifiedTranslated.user = modifiedValue;
           modifiedTranslated.edited = modifiedValue;
           this.$emit('input', modifiedTranslated);
           this.$emit('editedAction', {
@@ -71,29 +74,29 @@
           });
         },
       },
-      isMissing() {
+      isMissing(): boolean {
         return this.getTranslated === null;
       },
     },
     methods: {
-      resetTranslation() {
+      resetTranslation(): void {
         this.getTranslated = '';
-        EventBus.$emit('resetTranslation', this.translated);
+        EventEmitter.emit('resetTranslation', this.translated);
       },
     },
     components: {
       PSButton,
     },
-  };
+  });
 </script>
 
-<style lang="sass" scoped>
-  @import "../../../../../../scss/config/_settings.scss";
+<style lang="scss" scoped>
+  @import '~@scss/config/_settings.scss';
 
   .form-group {
     overflow: hidden;
   }
   .missing {
-    border: 1px solid $danger;
+    border: 1px solid var(--#{$cdk}red-500);
   }
 </style>

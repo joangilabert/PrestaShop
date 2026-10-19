@@ -1,28 +1,12 @@
 <?php
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+use Doctrine\DBAL\Exception as DBALException;
+use PrestaShop\PrestaShop\Core\Addon\Theme\Theme;
+use Symfony\Component\Dotenv\Dotenv;
+
 ob_start();
 
 require_once 'install_version.php';
@@ -31,13 +15,10 @@ require_once 'install_version.php';
 @set_time_limit(0);
 @ini_set('max_execution_time', '0');
 
-// setting the memory limit to 128M only if current is lower
-$memory_limit = ini_get('memory_limit');
-if (substr($memory_limit, -1) != 'G'
-    && ((substr($memory_limit, -1) == 'M' && substr($memory_limit, 0, -1) < 128)
-        || is_numeric($memory_limit) && ((int) $memory_limit < 131072) && $memory_limit > 0)
-) {
-    @ini_set('memory_limit', '128M');
+// setting the memory limit to 256M only if current is lower
+$current_memory_limit = psinstall_get_memory_limit();
+if ($current_memory_limit > 0 && $current_memory_limit < psinstall_get_octets('256M')) {
+    ini_set('memory_limit', '256M');
 }
 
 // redefine REQUEST_URI if empty (on some webservers...)
@@ -57,81 +38,111 @@ $_SERVER['REQUEST_URI'] = str_replace('//', '/', $_SERVER['REQUEST_URI']);
 // we check if theses constants are defined
 // in order to use init.php in upgrade.php script
 if (!defined('__PS_BASE_URI__')) {
-    define('__PS_BASE_URI__', substr($_SERVER['REQUEST_URI'], 0, -1 * (strlen($_SERVER['REQUEST_URI']) - strrpos($_SERVER['REQUEST_URI'], '/')) - strlen(substr(dirname($_SERVER['REQUEST_URI']), strrpos(dirname($_SERVER['REQUEST_URI']), '/') + 1))));
+    if (PHP_SAPI !== 'cli') {
+        define(
+            '__PS_BASE_URI__',
+            substr(
+                $_SERVER['REQUEST_URI'],
+                0,
+                -1 * (strlen($_SERVER['REQUEST_URI']) - strrpos($_SERVER['REQUEST_URI'], '/'))
+                - strlen(
+                    substr(
+                        dirname($_SERVER['REQUEST_URI']),
+                        strrpos(dirname($_SERVER['REQUEST_URI']), '/') + 1
+                    )
+                )
+            )
+        );
+    } else {
+        define('__PS_BASE_URI__', '/' . trim(Datas::getInstance()->base_uri, '/') . '/');
+    }
 }
 
 if (!defined('_PS_CORE_DIR_')) {
-    define('_PS_CORE_DIR_', realpath(dirname(__FILE__).'/..'));
+    define('_PS_CORE_DIR_', realpath(dirname(__FILE__) . '/..'));
 }
 
 /* in dev mode - check if composer was executed */
-if ((!is_dir(_PS_CORE_DIR_.DIRECTORY_SEPARATOR.'vendor') ||
-    !file_exists(_PS_CORE_DIR_.DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR.'autoload.php'))) {
-    die('Error : please install <a href="https://getcomposer.org/">composer</a>. Then run "php composer.phar install"');
+if ((!is_dir(_PS_CORE_DIR_ . DIRECTORY_SEPARATOR . 'vendor') ||
+    !file_exists(_PS_CORE_DIR_ . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php'))) {
+    die('Init Install Error : please install <a href="https://getcomposer.org/">composer</a>. Then run "php composer.phar install"');
 }
 
-require_once _PS_CORE_DIR_.'/config/defines.inc.php';
-require_once _PS_CORE_DIR_.'/config/autoload.php';
+require_once _PS_CORE_DIR_ . '/config/defines.inc.php';
+if (file_exists(_PS_CORE_DIR_ . '/config/defines_custom.inc.php')) {
+    require_once _PS_CORE_DIR_ . '/config/defines_custom.inc.php';
+}
+require_once _PS_CORE_DIR_ . '/config/autoload.php';
 
-if (file_exists(_PS_CORE_DIR_.'/app/config/parameters.php')) {
-    require_once _PS_CORE_DIR_.'/config/bootstrap.php';
+// Loads .env file from the root of project
+$dotEnvFile = dirname(__FILE__, 2) . '/.env';
+(new Dotenv())
+    // DO NOT use putEnv
+    ->usePutenv(false)
+    ->loadEnv($dotEnvFile)
+;
 
-    if (defined('_PS_IN_TEST_') && _PS_IN_TEST_) {
-        $env = 'test';
-    } else {
-        $env = _PS_MODE_DEV_ ? 'dev' : 'prod';
-    }
-    $kernel = new AppKernel($env, _PS_MODE_DEV_);
-    $kernel->loadClassCache();
-    $kernel->boot();
+if (file_exists(_PS_CORE_DIR_ . '/app/config/parameters.php')) {
+    require_once _PS_CORE_DIR_ . '/config/bootstrap.php';
 }
 
 if (!defined('_THEME_NAME_')) {
-    // @see app/config.yml _PS_THEME_NAME default value is "classic".
-    if (getenv('PS_THEME_NAME') !== false) {
-        define('_THEME_NAME_', getenv('PS_THEME_NAME'));
-    } else {
-        /**
-         * @deprecated since 1.7.5.x to be removed in 1.8.x
-         * Rely on "PS_THEME_NAME" environment variable value
-         */
-        $themes = glob(dirname(__DIR__).'/themes/*/config/theme.yml', GLOB_NOSORT);
-        usort($themes, function ($a, $b) {
-            return strcmp($b, $a);
-        });
+    define('_THEME_NAME_', Theme::getDefaultTheme());
+}
 
-        define('_THEME_NAME_', basename(substr($themes[0], 0, -strlen('/config/theme.yml'))));
+require_once _PS_CORE_DIR_ . '/config/defines_uri.inc.php';
+
+// Delay kernel instantiation after all the configuration const have been defined, or they won't be usable in the service definitions,
+// especially all the URLs constants
+if (file_exists(_PS_CORE_DIR_ . '/app/config/parameters.php')) {
+    require_once _PS_CORE_DIR_ . '/app/AdminKernel.php';
+
+    global $kernel;
+    try {
+        $kernel = new AdminKernel(_PS_ENV_, _PS_MODE_DEV_);
+        $kernel->boot();
+    } catch (DBALException $e) {
+        /*
+         * Doctrine couldn't be loaded because database settings point to a
+         * non existence database
+         */
+        if (strpos($e->getMessage(), 'You can circumvent this by setting a \'server_version\' configuration value') === false) {
+            throw $e;
+        }
+    } catch (\Symfony\Component\DependencyInjection\Exception\RuntimeException $e) {
+        if (strpos($e->getMessage(), 'You have requested a non-existent parameter') === 0) {
+            die(sprintf('Error: %s', $e->getMessage())
+                . PHP_EOL . 'A missing parameter was detected, which may be caused by old configuration files.'
+                . PHP_EOL . 'Try clearing the /var/cache directory and deleting parameters.php and parameters.yml in the /app/config/ directory.'
+            );
+        }
+        throw $e;
     }
 }
 
-require_once _PS_CORE_DIR_.'/config/defines_uri.inc.php';
-
 // Generate common constants
 define('PS_INSTALLATION_IN_PROGRESS', true);
-define('_PS_INSTALL_PATH_', dirname(__FILE__).'/');
-define('_PS_INSTALL_DATA_PATH_', _PS_INSTALL_PATH_.'data/');
-define('_PS_INSTALL_CONTROLLERS_PATH_', _PS_INSTALL_PATH_.'controllers/');
-define('_PS_INSTALL_MODELS_PATH_', _PS_INSTALL_PATH_.'models/');
-define('_PS_INSTALL_LANGS_PATH_', _PS_INSTALL_PATH_.'langs/');
-define('_PS_INSTALL_FIXTURES_PATH_', _PS_INSTALL_PATH_.'fixtures/');
+define('PS_INSTALLATION_LOCK_FILE', _PS_CORE_DIR_ . '/var/.install.prestashop');
+define('_PS_INSTALL_PATH_', dirname(__FILE__) . '/');
+define('_PS_INSTALL_DATA_PATH_', _PS_INSTALL_PATH_ . 'data/');
+define('_PS_INSTALL_CONTROLLERS_PATH_', _PS_INSTALL_PATH_ . 'controllers/');
+define('_PS_INSTALL_MODELS_PATH_', _PS_INSTALL_PATH_ . 'models/');
+define('_PS_INSTALL_LANGS_PATH_', _PS_INSTALL_PATH_ . 'langs/');
+define('_PS_INSTALL_FIXTURES_PATH_', _PS_INSTALL_PATH_ . 'fixtures/');
 
 // PrestaShop autoload is used to load some helpful classes like Tools.
 // Add classes used by installer bellow.
 
-require_once _PS_CORE_DIR_.'/config/alias.php';
-require_once _PS_INSTALL_PATH_.'classes/exception.php';
-require_once _PS_INSTALL_PATH_.'classes/session.php';
+require_once _PS_CORE_DIR_ . '/config/alias.php';
+require_once _PS_INSTALL_PATH_ . 'classes/exception.php';
+require_once _PS_INSTALL_PATH_ . 'classes/session.php';
 
 @set_time_limit(0);
-if (!@ini_get('date.timezone')) {
-    @date_default_timezone_set('Europe/Paris');
+// Work around lack of validation for timezone
+// standards conformance, mandatory in PHP 7
+if (!in_array(@ini_get('date.timezone'), timezone_identifiers_list())) {
+    @date_default_timezone_set('UTC');
     ini_set('date.timezone', 'UTC');
-}
-
-// Try to improve memory limit if it's under 64M
-$current_memory_limit = psinstall_get_memory_limit();
-if ($current_memory_limit > 0 && $current_memory_limit < psinstall_get_octets('128M')) {
-    ini_set('memory_limit', '128M');
 }
 
 function psinstall_get_octets($option)

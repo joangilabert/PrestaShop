@@ -1,0 +1,76 @@
+services:
+  _defaults:
+    public: true
+    autowire: true
+    autoconfigure: true
+
+  PrestaShop\PrestaShop\Core\Domain\Store\Repository\StoreRepository:
+    public: false
+    arguments:
+      $connection: '@doctrine.dbal.default_connection'
+      $dbPrefix: '%database_prefix%'
+
+  PrestaShop\PrestaShop\Adapter\Store\HoursEncoder: ~
+
+  PrestaShop\PrestaShop\Adapter\Store\Validate\StoreValidator: ~
+
+  PrestaShop\PrestaShop\Adapter\Store\QueryHandler\GetStoreForEditingHandler:
+    arguments:
+      $imageTagSourceParser: '@prestashop.core.image.parser.image_tag_source_parser'
+
+  PrestaShop\PrestaShop\Adapter\Store\CommandHandler\AddStoreHandler: ~
+
+  PrestaShop\PrestaShop\Adapter\Store\CommandHandler\EditStoreHandler: ~
+
+  PrestaShop\PrestaShop\Adapter\Store\CommandHandler\ToggleStoreStatusHandler: ~
+
+  PrestaShop\PrestaShop\Adapter\Store\CommandHandler\BulkUpdateStoreStatusHandler: ~
+
+  PrestaShop\PrestaShop\Adapter\Store\CommandHandler\DeleteStoreHandler: ~
+
+  PrestaShop\PrestaShop\Adapter\Store\CommandHandler\BulkDeleteStoreHandler: ~
+
+  PrestaShop\PrestaShop\Adapter\Image\Uploader\StoreImageUploader: ~
+
+  PrestaShop\PrestaShop\Adapter\Store\ContactDetailsConfiguration:
+    arguments:
+      - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
+
+  # deprecated
+  prestashop.core.domain.store.repository.store_repository:
+    alias: PrestaShop\PrestaShop\Core\Domain\Store\Repository\StoreRepository
+    deprecated:
+      package: PrestaShop\PrestaShop
+      version: 9.0
+
+  prestashop.adapter.store.command_handler.bulk_delete_store_handler:
+    alias: PrestaShop\PrestaShop\Adapter\Store\CommandHandler\BulkDeleteStoreHandler
+    deprecated:
+      package: PrestaShop\PrestaShop
+      version: 9.3
+
+  prestashop.adapter.store.command_handler.bulk_toggle_store_status_handler:
+    alias: PrestaShop\PrestaShop\Adapter\Store\CommandHandler\BulkUpdateStoreStatusHandler
+    deprecated:
+      package: PrestaShop\PrestaShop
+      version: 9.3
+
+  prestashop.adapter.store.command_handler.delete_store:
+    alias: PrestaShop\PrestaShop\Adapter\Store\CommandHandler\DeleteStoreHandler
+    deprecated:
+      package: PrestaShop\PrestaShop
+      version: 9.3
+
+  prestashop.adapter.store.command_handler.toggle_store_status:
+    alias: PrestaShop\PrestaShop\Adapter\Store\CommandHandler\ToggleStoreStatusHandler
+    deprecated:
+      package: PrestaShop\PrestaShop
+      version: 9.3
+
+  prestashop.adapter.store.query_handler.get_store_for_editing:
+    alias: PrestaShop\PrestaShop\Adapter\Store\QueryHandler\GetStoreForEditingHandler
+    deprecated:
+      package: PrestaShop\PrestaShop
+      version: 9.3

@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Form\Admin\Improve\International\Geolocation;
@@ -29,10 +9,9 @@ namespace PrestaShopBundle\Form\Admin\Improve\International\Geolocation;
 use PrestaShop\PrestaShop\Core\ConfigurationInterface;
 use PrestaShopBundle\Form\Admin\Type\Material\MaterialChoiceTableType;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
-use Symfony\Component\Form\CallbackTransformer;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Class GeolocationOptionsType is responsible for handling "Improve > International > Localization > Geolocation"
@@ -75,6 +54,10 @@ class GeolocationOptionsType extends TranslatorAwareType
     {
         $builder
             ->add('geolocation_behaviour', ChoiceType::class, [
+                'label' => $this->trans(
+                    'Geolocation behavior for restricted countries',
+                    'Admin.International.Feature'
+                ),
                 'choices' => [
                     $this->trans('Visitors cannot see your catalog.', 'Admin.International.Feature') => $this->configuration->get('_PS_GEOLOCATION_NO_CATALOG_'),
                     $this->trans('Visitors can see your catalog but cannot place an order.', 'Admin.International.Feature') => $this->configuration->get('_PS_GEOLOCATION_NO_ORDER_'),
@@ -82,6 +65,10 @@ class GeolocationOptionsType extends TranslatorAwareType
                 'choice_translation_domain' => false,
             ])
             ->add('geolocation_na_behaviour', ChoiceType::class, [
+                'label' => $this->trans(
+                    'Geolocation behavior for other countries',
+                    'Admin.International.Feature'
+                ),
                 'choices' => [
                     $this->trans('All features are available', 'Admin.International.Feature') => '-1',
                     $this->trans('Visitors cannot see your catalog.', 'Admin.International.Feature') => $this->configuration->get('_PS_GEOLOCATION_NO_CATALOG_'),
@@ -90,17 +77,12 @@ class GeolocationOptionsType extends TranslatorAwareType
                 'choice_translation_domain' => false,
             ])
             ->add('geolocation_countries', MaterialChoiceTableType::class, [
+                'label' => $this->trans(
+                    'Select the countries from which your store is accessible',
+                    'Admin.International.Feature'
+                ),
                 'choices' => $this->countryChoices,
                 'choice_translation_domain' => false,
             ]);
-
-        $builder->get('geolocation_countries')->addModelTransformer(new CallbackTransformer(
-            function ($countriesAsString) {
-                return explode(';', $countriesAsString);
-            },
-            function ($countriesAsArray) {
-                return implode(';', $countriesAsArray);
-            }
-        ));
     }
 }

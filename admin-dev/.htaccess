@@ -35,13 +35,7 @@ DirectoryIndex index.php
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
     # Keep legacy entry points
-    RewriteRule ^(ajax|ajax_products_list|ajax-tab|backup|cron_currency_rates)\.php - [P]
-    RewriteRule ^(displayImage|drawer|footer\.inc|functions|get-file-admin)\.php - [P]
-    RewriteRule ^(grider|header\.inc|init|login|password|pdf|searchcron)\.php - [P]
-
-    # If the URL is a legacy on index.php?controller=..., do not rewrite (let the legacy take it)
-    RewriteCond  %{QUERY_STRING} (^|&)controller=|(^|&)tab=
-    RewriteRule .* - [P]
+    RewriteRule ^(cron_currency_rates|get-file-admin)\.php - [P]
 
     # Redirect to URI without front controller to prevent duplicate content
     # (with and without `/app.php`). Only do this redirect on the initial
@@ -74,4 +68,10 @@ DirectoryIndex index.php
         RedirectMatch 302 ^/$ /index.php/
         # RedirectTemp cannot be used instead
     </IfModule>
+</IfModule>
+
+<IfModule mod_ssl.c>
+    # Send information about SSL/TLS version to $_SERVER so we can check that
+    # the required version of TLS is used for API calls.
+    SSLOptions +StdEnvVars
 </IfModule>

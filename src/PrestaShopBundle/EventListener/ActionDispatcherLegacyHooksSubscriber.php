@@ -1,36 +1,17 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\EventListener;
 
 use PrestaShop\PrestaShop\Core\Hook\HookDispatcherInterface;
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController;
+use PrestaShopBundle\Controller\Admin\PrestaShopAdminController;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Symfony\Component\HttpKernel\Event\FilterControllerEvent;
-use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
+use Symfony\Component\HttpKernel\Event\ControllerEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
@@ -38,16 +19,16 @@ use Symfony\Component\HttpKernel\KernelEvents;
  */
 class ActionDispatcherLegacyHooksSubscriber implements EventSubscriberInterface
 {
-    const DISPATCHER_BEFORE_ACTION = 'actionDispatcherBefore';
-    const DISPATCHER_AFTER_ACTION = 'actionDispatcherAfter';
+    public const DISPATCHER_BEFORE_ACTION = 'actionDispatcherBefore';
+    public const DISPATCHER_AFTER_ACTION = 'actionDispatcherAfter';
 
     /**
      * List of available front controllers types.
      */
-    const FRONT_OFFICE_CONTROLLER = 1;
-    const BACK_OFFICE_CONTROLLER = 2;
-    const MODULE_CONTROLLER = 3;
-    const NA_CONTROLLER = 0;
+    public const FRONT_OFFICE_CONTROLLER = 1;
+    public const BACK_OFFICE_CONTROLLER = 2;
+    public const MODULE_CONTROLLER = 3;
+    public const NA_CONTROLLER = 0;
 
     /**
      * @var HookDispatcherInterface
@@ -61,52 +42,55 @@ class ActionDispatcherLegacyHooksSubscriber implements EventSubscriberInterface
 
     public static function getSubscribedEvents()
     {
-        return array(
-            KernelEvents::CONTROLLER => array(
-                array('callActionDispatcherBeforeHook', 100),
-            ),
-            KernelEvents::RESPONSE => array(
-                array('callActionDispatcherAfterHook', 255),
-            ),
-        );
+        return [
+            KernelEvents::CONTROLLER => [
+                ['callActionDispatcherBeforeHook', 100],
+            ],
+            KernelEvents::RESPONSE => [
+                ['callActionDispatcherAfterHook', 255],
+            ],
+        ];
     }
 
-    public function callActionDispatcherBeforeHook(FilterControllerEvent $event)
+    public function callActionDispatcherBeforeHook(ControllerEvent $event)
     {
-        if (!$event->isMasterRequest()) {
+        if (!$event->isMainRequest()) {
             return;
         }
 
         $requestAttributes = $event->getRequest()->attributes;
         $controllerType = self::NA_CONTROLLER;
-        $controller = $event->getController()[0];
+        $controller = is_array($event->getController())
+            ? $event->getController()[0]
+            : $event->getController()
+        ;
 
-        if ($controller instanceof FrameworkBundleAdminController) {
+        if ($controller instanceof FrameworkBundleAdminController || $controller instanceof PrestaShopAdminController) {
             $controllerType = self::BACK_OFFICE_CONTROLLER;
         }
 
-        $this->hookDispatcher->dispatchWithParameters(self::DISPATCHER_BEFORE_ACTION, array(
+        $this->hookDispatcher->dispatchWithParameters(self::DISPATCHER_BEFORE_ACTION, [
             'controller_type' => $controllerType,
-        ));
+        ]);
 
         $requestAttributes->set('controller_type', $controllerType);
-        $requestAttributes->set('controller_name', get_class($controller));
+        $requestAttributes->set('controller_name', $controller::class);
     }
 
-    public function callActionDispatcherAfterHook(FilterResponseEvent $event)
+    public function callActionDispatcherAfterHook(ResponseEvent $event)
     {
-        if (!$event->isMasterRequest()) {
+        if (!$event->isMainRequest()) {
             return;
         }
 
         $requestAttributes = $event->getRequest()->attributes;
 
         if ($requestAttributes->has('controller_type') && $requestAttributes->has('controller_name')) {
-            $this->hookDispatcher->dispatchWithParameters(self::DISPATCHER_AFTER_ACTION, array(
+            $this->hookDispatcher->dispatchWithParameters(self::DISPATCHER_AFTER_ACTION, [
                 'controller_type' => $requestAttributes->get('controller_type'),
                 'controller_class' => $requestAttributes->get('controller_name'),
                 'is_module' => 0,
-            ));
+            ]);
         }
     }
 }

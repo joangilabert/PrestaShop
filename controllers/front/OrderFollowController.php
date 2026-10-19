@@ -1,35 +1,19 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 use PrestaShop\PrestaShop\Adapter\Presenter\Order\OrderReturnPresenter;
 
 class OrderFollowControllerCore extends FrontController
 {
+    /** @var bool */
     public $auth = true;
+    /** @var string */
     public $php_self = 'order-follow';
+    /** @var string */
     public $authRedirection = 'order-follow';
+    /** @var bool */
     public $ssl = true;
 
     /**
@@ -37,52 +21,95 @@ class OrderFollowControllerCore extends FrontController
      *
      * @see FrontController::postProcess()
      */
-    public function postProcess()
+    public function postProcess(): void
     {
         if (Tools::isSubmit('submitReturnMerchandise')) {
-            $customizationQtyInput = Tools::getValue('customization_qty_input');
             $order_qte_input = Tools::getValue('order_qte_input');
-            $customizationIds = Tools::getValue('customization_ids');
 
             if (!$id_order = (int) Tools::getValue('id_order')) {
-                Tools::redirect('index.php?controller=history');
+                Tools::redirect($this->context->link->getPageLink('history'));
             }
-            if (!($ids_order_detail = Tools::getValue('ids_order_detail')) && !$customizationQtyInput && !$customizationIds) {
-                Tools::redirect('index.php?controller=order-detail&id_order=' . $id_order . '&errorDetail1');
+            if (!($ids_order_detail = Tools::getValue('ids_order_detail'))) {
+                Tools::redirect($this->context->link->getPageLink(
+                    'order-detail',
+                    null,
+                    null,
+                    [
+                        'id_order' => $id_order,
+                        'errorDetail1' => 1,
+                    ]
+                ));
             }
-            if (!$customizationIds && !$order_qte_input) {
-                Tools::redirect('index.php?controller=order-detail&id_order=' . $id_order . '&errorDetail2');
+            if (!$order_qte_input) {
+                Tools::redirect($this->context->link->getPageLink(
+                    'order-detail',
+                    null,
+                    null,
+                    [
+                        'id_order' => $id_order,
+                        'errorDetail2' => 1,
+                    ]
+                ));
             }
 
             $order = new Order((int) $id_order);
             if (!$order->isReturnable()) {
-                Tools::redirect('index.php?controller=order-detail&id_order=' . $id_order . '&errorNotReturnable');
+                Tools::redirect($this->context->link->getPageLink(
+                    'order-detail',
+                    null,
+                    null,
+                    [
+                        'id_order' => $id_order,
+                        'errorNotReturnable' => 1,
+                    ]
+                ));
             }
             if ($order->id_customer != $this->context->customer->id) {
-                die(Tools::displayError());
+                Tools::redirect($this->context->link->getPageLink(
+                    'order-detail',
+                    null,
+                    null,
+                    [
+                        'id_order' => $id_order,
+                        'errorNotReturnable' => 1,
+                    ]
+                ));
             }
             $orderReturn = new OrderReturn();
             $orderReturn->id_customer = (int) $this->context->customer->id;
             $orderReturn->id_order = $id_order;
             $orderReturn->question = htmlspecialchars(Tools::getValue('returnText'));
             if (empty($orderReturn->question)) {
-                Tools::redirect('index.php?controller=order-detail&id_order=' . $id_order . '&errorMsg&' .
-                    http_build_query(array(
+                Tools::redirect($this->context->link->getPageLink(
+                    'order-detail',
+                    null,
+                    null,
+                    [
+                        'id_order' => $id_order,
+                        'errorMsg' => 1,
                         'ids_order_detail' => $ids_order_detail,
                         'order_qte_input' => $order_qte_input,
-                        'id_order' => Tools::getValue('id_order'),
-                    )));
+                    ]
+                ));
             }
 
-            if (!$orderReturn->checkEnoughProduct($ids_order_detail, $order_qte_input, $customizationIds, $customizationQtyInput)) {
-                Tools::redirect('index.php?controller=order-detail&id_order=' . $id_order . '&errorQuantity');
+            if (!$orderReturn->checkEnoughProduct($ids_order_detail, $order_qte_input)) {
+                Tools::redirect($this->context->link->getPageLink(
+                    'order-detail',
+                    null,
+                    null,
+                    [
+                        'id_order' => $id_order,
+                        'errorQuantity' => 1,
+                    ]
+                ));
             }
 
             $orderReturn->state = 1;
             $orderReturn->add();
-            $orderReturn->addReturnDetail($ids_order_detail, $order_qte_input, $customizationIds, $customizationQtyInput);
-            Hook::exec('actionOrderReturn', array('orderReturn' => $orderReturn));
-            Tools::redirect('index.php?controller=order-follow');
+            $orderReturn->addReturnDetail($ids_order_detail, $order_qte_input);
+            Hook::exec('actionOrderReturn', ['orderReturn' => $orderReturn]);
+            Tools::redirect($this->context->link->getPageLink('order-follow'));
         }
     }
 
@@ -91,30 +118,26 @@ class OrderFollowControllerCore extends FrontController
      *
      * @see FrontController::initContent()
      */
-    public function initContent()
+    public function initContent(): void
     {
+        if ((bool) Configuration::get('PS_ORDER_RETURN') === false) {
+            $this->redirect_after = '404';
+            $this->redirect();
+        }
+
         if (Configuration::isCatalogMode()) {
             Tools::redirect('index.php');
         }
 
-        $ordersReturn = $this->getTemplateVarOrdersReturns();
-        if (count($ordersReturn) <= 0) {
-            $this->warning[] = $this->trans(
-                'You have no merchandise return authorizations.',
-                array(),
-                'Shop.Notifications.Error'
-            );
-        }
-
-        $this->context->smarty->assign('ordersReturn', $ordersReturn);
+        $this->context->smarty->assign('ordersReturn', $this->getTemplateVarOrdersReturns());
 
         parent::initContent();
         $this->setTemplate('customer/order-follow');
     }
 
-    public function getTemplateVarOrdersReturns()
+    public function getTemplateVarOrdersReturns(): array
     {
-        $orders_returns = array();
+        $orders_returns = [];
         $orders_return = OrderReturn::getOrdersReturn($this->context->customer->id);
 
         $orderReturnPresenter = new OrderReturnPresenter(
@@ -129,11 +152,15 @@ class OrderFollowControllerCore extends FrontController
         return $orders_returns;
     }
 
-    public function getBreadcrumbLinks()
+    public function getBreadcrumbLinks(): array
     {
         $breadcrumb = parent::getBreadcrumbLinks();
 
         $breadcrumb['links'][] = $this->addMyAccountToBreadcrumb();
+        $breadcrumb['links'][] = [
+            'title' => $this->trans('Merchandise returns', [], 'Shop.Theme.Global'),
+            'url' => $this->context->link->getPageLink('order-follow'),
+        ];
 
         return $breadcrumb;
     }

@@ -1,32 +1,12 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 {capture name='tr_count'}{counter name='tr_count'}{/capture}
 <tbody>
 {if count($list)}
 {foreach $list AS $index => $tr}
-	<tr{if $position_identifier} id="tr_{$position_group_identifier}_{$tr.$identifier}_{if isset($tr.position['position'])}{$tr.position['position']}{else}0{/if}"{/if} class="{if isset($tr.class)}{$tr.class}{/if} {if $tr@iteration is odd by 1}odd{/if}"{if isset($tr.color) && $color_on_bg} style="background-color: {$tr.color}"{/if} >
+	<tr{if $position_identifier} id="tr_{$position_group_identifier}_{$tr.$identifier}_{if isset($tr.position['position'])}{$tr.position['position']}{else}0{/if}"{/if} class="{if isset($tr.class)}{$tr.class}{/if}"{if isset($tr.color) && $color_on_bg} style="background-color: {$tr.color}"{/if} >
 		{if $bulk_actions && $has_bulk_actions}
 			<td class="row-selector text-center">
 				{if isset($list_skip_actions.delete)}
@@ -45,11 +25,16 @@
 						id="td_{if !empty($position_group_identifier)}{$position_group_identifier}{else}0{/if}_{$tr.$identifier}{if $smarty.capture.tr_count > 1}_{($smarty.capture.tr_count - 1)|intval}{/if}"
 					{/if}
 					class="{strip}{if !$no_link}pointer{/if}
+					{if isset($key)} column-{$key|lower}{/if}
 					{if isset($params.position) && $order_by == 'position'  && $order_way != 'DESC'} dragHandle{/if}
 					{if isset($params.class)} {$params.class}{/if}
 					{if isset($params.align)} {$params.align}{/if}{/strip}"
 					{if (!isset($params.position) && !$no_link && !isset($params.remove_onclick))}
-						onclick="document.location = '{$current_index|addslashes|escape:'html':'UTF-8'}&amp;{$identifier|escape:'html':'UTF-8'}={$tr.$identifier|escape:'html':'UTF-8'}{if $view}&amp;view{else}&amp;update{/if}{$table|escape:'html':'UTF-8'}{if $page > 1}&amp;page={$page|intval}{/if}&amp;token={$token|escape:'html':'UTF-8'}'">
+            {if isset($tr.link) }
+              onclick="document.location = '{$tr.link|addslashes|escape:'html':'UTF-8'}'">
+            {else}
+              onclick="document.location = '{$current_index|addslashes|escape:'html':'UTF-8'}&amp;{$identifier|escape:'html':'UTF-8'}={$tr.$identifier|escape:'html':'UTF-8'}{if $view}&amp;view{else}&amp;update{/if}{$table|escape:'html':'UTF-8'}{if $page > 1}&amp;page={$page|intval}{/if}&amp;token={$token|escape:'html':'UTF-8'}'">
+            {/if}
 					{else}
 					>
 				{/if}
@@ -60,7 +45,7 @@
 				{if isset($params.badge_warning) && $params.badge_warning && isset($tr.badge_warning) && $tr.badge_warning == $params.badge_warning}<span class="badge badge-warning">{/if}
 				{if isset($params.badge_danger) && $params.badge_danger && isset($tr.badge_danger) && $tr.badge_danger == $params.badge_danger}<span class="badge badge-danger">{/if}
 				{if isset($params.color) && isset($tr[$params.color])}
-					<span class="label color_field" style="background-color:{$tr[$params.color]};color:{if Tools::getBrightness($tr[$params.color]) < 128}white{else}#383838{/if}">
+					<span class="label color_field" style="background-color:{$tr[$params.color]};color:{if !isBrightColor($tr[$params.color])}white{else}#383838{/if}">
 				{/if}
 				{if isset($tr.$key)}
 					{if isset($params.active)}
@@ -150,11 +135,11 @@
 		{/foreach}
 
 	{if $multishop_active && $shop_link_type}
-		<td title="{$tr.shop_name}">
+		<td title="{$tr.shop_name|escape:'html':'UTF-8'}">
 			{if isset($tr.shop_short_name)}
-				{$tr.shop_short_name}
+				{$tr.shop_short_name|escape:'html':'UTF-8'}
 			{else}
-				{$tr.shop_name}
+				{$tr.shop_name|escape:'html':'UTF-8'}
 			{/if}
 		</td>
 	{/if}
@@ -178,7 +163,7 @@
 					{$compiled_actions[0]}
 					{if $compiled_actions|count > 1}
 					<button class="btn btn-default dropdown-toggle" data-toggle="dropdown">
-						<i class="icon-caret-down"></i>&nbsp;
+						<i class="icon-caret-down"></i>
 					</button>
 						<ul class="dropdown-menu">
 						{foreach $compiled_actions AS $key => $action}

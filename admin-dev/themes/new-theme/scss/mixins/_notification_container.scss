@@ -1,6 +1,10 @@
+/**
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
+ */
 @mixin notification_container($height) {
   @include single-line-block($height);
-  cursor: pointer;
-  color: $medium-gray;
   position: relative;
+  color: $medium-gray;
+  cursor: pointer;
 }

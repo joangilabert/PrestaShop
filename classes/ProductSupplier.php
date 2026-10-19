@@ -1,33 +1,11 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 /**
  * ProductSupplierCore class.
- *
- * @since 1.5.0
  */
 class ProductSupplierCore extends ObjectModel
 {
@@ -57,59 +35,39 @@ class ProductSupplierCore extends ObjectModel
     public $id_currency;
 
     /**
-     * @var string The unit price tax excluded of the product
+     * @var float The unit price tax excluded of the product
      * */
     public $product_supplier_price_te;
 
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'product_supplier',
         'primary' => 'id_product_supplier',
-        'fields' => array(
-            'product_supplier_reference' => array('type' => self::TYPE_STRING, 'validate' => 'isReference', 'size' => 64),
-            'id_product' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_product_attribute' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'id_supplier' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-            'product_supplier_price_te' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
-            'id_currency' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-        ),
-    );
+        'fields' => [
+            'product_supplier_reference' => ['type' => self::TYPE_STRING, 'validate' => 'isReference', 'size' => 64],
+            'id_product' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_product_attribute' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_supplier' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'product_supplier_price_te' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPrice'],
+            'id_currency' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+        ],
+    ];
 
     /**
      * @see ObjectModel::$webserviceParameters
      */
-    protected $webserviceParameters = array(
+    protected $webserviceParameters = [
         'objectsNodeName' => 'product_suppliers',
         'objectNodeName' => 'product_supplier',
-        'fields' => array(
-            'id_product' => array('xlink_resource' => 'products'),
-            'id_product_attribute' => array('xlink_resource' => 'combinations'),
-            'id_supplier' => array('xlink_resource' => 'suppliers'),
-            'id_currency' => array('xlink_resource' => 'currencies'),
-        ),
-    );
-
-    /**
-     * @see ObjectModel::delete()
-     */
-    public function delete()
-    {
-        $res = parent::delete();
-
-        if ($res && $this->id_product_attribute == 0) {
-            $items = ProductSupplier::getSupplierCollection($this->id_product, false);
-            foreach ($items as $item) {
-                /** @var ProductSupplier $item */
-                if ($item->id_product_attribute > 0) {
-                    $item->delete();
-                }
-            }
-        }
-
-        return $res;
-    }
+        'fields' => [
+            'id_product' => ['xlink_resource' => 'products'],
+            'id_product_attribute' => ['xlink_resource' => 'combinations'],
+            'id_supplier' => ['xlink_resource' => 'suppliers'],
+            'id_currency' => ['xlink_resource' => 'currencies'],
+        ],
+    ];
 
     /**
      * For a given product and supplier, gets the product supplier reference.
@@ -118,7 +76,7 @@ class ProductSupplierCore extends ObjectModel
      * @param int $idProductAttribute Product Attribute ID
      * @param int $idSupplier Supplier ID
      *
-     * @return string Product Supplier reference
+     * @return string|false Product Supplier reference
      */
     public static function getProductSupplierReference($idProduct, $idProductAttribute, $idSupplier)
     {
@@ -143,7 +101,7 @@ class ProductSupplierCore extends ObjectModel
      * @param int $idSupplier Supplier ID
      * @param bool $withCurrency Optional With currency
      *
-     * @return array
+     * @return string|array
      */
     public static function getProductSupplierPrice($idProduct, $idProductAttribute, $idSupplier, $withCurrency = false)
     {
@@ -179,11 +137,10 @@ class ProductSupplierCore extends ObjectModel
      * @param int $idProductAttribute
      * @param int $idSupplier
      *
-     * @return array
+     * @return int
      */
     public static function getIdByProductAndSupplier($idProduct, $idProductAttribute, $idSupplier)
     {
-        // build query
         $query = new DbQuery();
         $query->select('ps.id_product_supplier');
         $query->from('product_supplier', 'ps');
@@ -193,14 +150,14 @@ class ProductSupplierCore extends ObjectModel
 			AND ps.id_supplier = ' . (int) $idSupplier
         );
 
-        return Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($query);
+        return (int) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($query);
     }
 
     /**
      * For a given product, retrieves its suppliers.
      *
      * @param int $idProduct
-     * @param int $groupBySupplier
+     * @param bool $groupBySupplier
      *
      * @return PrestaShopCollection Collection of ProductSupplier
      */
@@ -219,16 +176,17 @@ class ProductSupplierCore extends ObjectModel
     /**
      * For a given Supplier, Product, returns the purchased price.
      *
-     * @param int $idProduct
+     * @param int|null $idSupplier
+     * @param int|null $idProduct
      * @param int $idProductAttribute Optional
      * @param bool $convertedPrice Optional
      *
-     * @return array keys: price_te, id_currency
+     * @return float|null
      */
     public static function getProductPrice($idSupplier, $idProduct, $idProductAttribute = 0, $convertedPrice = false)
     {
-        if (is_null($idSupplier) || is_null($idProduct)) {
-            return;
+        if (null === $idSupplier || null === $idProduct) {
+            return null;
         }
 
         $query = new DbQuery();
@@ -238,6 +196,10 @@ class ProductSupplierCore extends ObjectModel
         $query->where('id_supplier = ' . (int) $idSupplier);
 
         $row = Db::getInstance(_PS_USE_SQL_SLAVE_)->getRow($query);
+        if (empty($row)) {
+            return null;
+        }
+
         if ($convertedPrice) {
             return Tools::convertPrice($row['price_te'], $row['id_currency']);
         }

@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 require_once 'install_version.php';
@@ -29,8 +9,9 @@ require_once 'install_version.php';
 if (
     !defined('PHP_VERSION_ID') // PHP_VERSION_ID is available since 5.2.7
     || PHP_VERSION_ID < _PS_INSTALL_MINIMUM_PHP_VERSION_ID_
-    || !extension_loaded('SimpleXML')
-    || !extension_loaded('zip')
+    || PHP_VERSION_ID > _PS_INSTALL_MAXIMUM_PHP_VERSION_ID_
+    || !extension_loaded('SimpleXML') /** @phpstan-ignore-line */
+    || !extension_loaded('zip') /** @phpstan-ignore-line */
     || !is_writable(
         __DIR__.DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'var'.DIRECTORY_SEPARATOR.'cache'
     )
@@ -38,11 +19,18 @@ if (
     require_once dirname(__FILE__).'/missing_requirement.php';
     exit();
 }
-
+/** @phpstan-ignore-next-line */
 require_once dirname(__FILE__).DIRECTORY_SEPARATOR.'init.php';
 require_once(__DIR__).DIRECTORY_SEPARATOR.'autoload.php';
 
+define('_PS_APP_ID_', AdminKernel::APP_ID);
+PrestaShop\PrestaShop\Core\Util\CacheClearLocker::waitUntilUnlocked(_PS_ENV_, _PS_APP_ID_);
+
 try {
+    if (_PS_MODE_DEV_) {
+        Symfony\Component\ErrorHandler\Debug::enable();
+    }
+
     require_once _PS_INSTALL_PATH_.'classes'.DIRECTORY_SEPARATOR.'controllerHttp.php';
     require_once _PS_INSTALL_PATH_.'classes'.DIRECTORY_SEPARATOR.'HttpConfigureInterface.php';
     InstallControllerHttp::execute();

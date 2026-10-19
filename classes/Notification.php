@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 /**
@@ -36,7 +16,7 @@ class NotificationCore
      */
     public function __construct()
     {
-        $this->types = array('order', 'customer_message', 'customer');
+        $this->types = ['order', 'customer_message', 'customer'];
     }
 
     /**
@@ -47,13 +27,52 @@ class NotificationCore
      */
     public function getLastElements()
     {
-        $notifications = array();
+        $notifications = [];
         $employeeInfos = Db::getInstance(_PS_USE_SQL_SLAVE_)->getRow('
-		SELECT id_last_order, id_last_customer_message, id_last_customer
-		FROM `' . _DB_PREFIX_ . 'employee`
-		WHERE `id_employee` = ' . (int) Context::getContext()->employee->id);
+        SELECT id_last_order, id_last_customer_message, id_last_customer
+        FROM `' . _DB_PREFIX_ . 'employee`
+        WHERE `id_employee` = ' . (int) Context::getContext()->employee->id);
 
         foreach ($this->types as $type) {
+            $notifications[$type] = Notification::getLastElementsIdsByType($type, $employeeInfos['id_last_' . $type]);
+        }
+
+        return $notifications;
+    }
+
+    /**
+     * getActiveLastElements returns all allowed notifications in the backoffice
+     * Get allowed notifications.
+     *
+     * @return array containing the notifications
+     */
+    public function getActiveLastElements(): array
+    {
+        $types = array_flip($this->types);
+
+        if (!(bool) Configuration::get('PS_SHOW_NEW_ORDERS')) {
+            unset($types['order']);
+        }
+        if (!(bool) Configuration::get('PS_SHOW_NEW_CUSTOMERS')) {
+            unset($types['customer']);
+        }
+        if (!(bool) Configuration::get('PS_SHOW_NEW_MESSAGES')) {
+            unset($types['customer_message']);
+        }
+
+        if (0 == count($types)) {
+            return [];
+        }
+
+        $notifications = [];
+        $employeeInfos = Db::getInstance(_PS_USE_SQL_SLAVE_)->getRow('
+        SELECT id_last_order, id_last_customer_message, id_last_customer
+        FROM `' . _DB_PREFIX_ . 'employee`
+        WHERE `id_employee` = ' . (int) Context::getContext()->employee->id);
+
+        $types = array_flip($types);
+
+        foreach ($types as $type) {
             $notifications[$type] = Notification::getLastElementsIdsByType($type, $employeeInfos['id_last_' . $type]);
         }
 
@@ -116,7 +135,7 @@ class NotificationCore
 
         $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql, true, false);
         $total = Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue('SELECT FOUND_ROWS()', false);
-        $json = array('total' => $total, 'results' => array());
+        $json = ['total' => $total, 'results' => []];
         foreach ($result as $value) {
             $customerName = '';
             if (isset($value['firstname'], $value['lastname'])) {
@@ -125,19 +144,47 @@ class NotificationCore
                 $customerName = Tools::safeOutput($value['email']);
             }
 
-            $json['results'][] = array(
+            $json['results'][] = [
                 'id_order' => ((!empty($value['id_order'])) ? (int) $value['id_order'] : 0),
                 'id_customer' => ((!empty($value['id_customer'])) ? (int) $value['id_customer'] : 0),
                 'id_customer_message' => ((!empty($value['id_customer_message'])) ? (int) $value['id_customer_message'] : 0),
                 'id_customer_thread' => ((!empty($value['id_customer_thread'])) ? (int) $value['id_customer_thread'] : 0),
-                'total_paid' => ((!empty($value['total_paid'])) ? Tools::displayPrice((float) $value['total_paid'], (int) $value['id_currency'], false) : 0),
+                'total_paid' => ((!empty($value['total_paid'])) ? Tools::getContextLocale(Context::getContext())->formatPrice((float) $value['total_paid'], Currency::getIsoCodeById((int) $value['id_currency'])) : 0),
                 'carrier' => ((!empty($value['name'])) ? Tools::safeOutput($value['name']) : ''),
                 'iso_code' => ((!empty($value['iso_code'])) ? Tools::safeOutput($value['iso_code']) : ''),
                 'company' => ((!empty($value['company'])) ? Tools::safeOutput($value['company']) : ''),
                 'status' => ((!empty($value['status'])) ? Tools::safeOutput($value['status']) : ''),
                 'customer_name' => $customerName,
                 'date_add' => isset($value['date_add']) ? Tools::displayDate($value['date_add']) : 0,
-            );
+                'order_view_url' => !empty($value['id_order'])
+                    ? Context::getContext()->link->getAdminLink(
+                        'AdminOrders',
+                        true,
+                        [
+                            'orderId' => $value['id_order'],
+                            'vieworder' => true,
+                        ]
+                    )
+                    : '',
+                'customer_view_url' => Context::getContext()->link->getAdminLink(
+                    'AdminCustomers',
+                    true,
+                    [
+                        'customerId' => $value['id_customer'],
+                        'viewcustomer' => true,
+                    ]
+                ),
+                'customer_thread_view_url' => !empty($value['id_customer_thread'])
+                    ? Context::getContext()->link->getAdminLink(
+                        'AdminCustomerThreads',
+                        true,
+                        [
+                            'customerThreadId' => $value['id_customer_thread'],
+                            'viewcustomer_thread' => true,
+                        ]
+                    )
+                    : '',
+            ];
         }
 
         return $json;

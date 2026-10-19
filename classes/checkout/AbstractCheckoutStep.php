@@ -1,29 +1,9 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 abstract class AbstractCheckoutStepCore implements CheckoutStepInterface
 {
@@ -45,6 +25,10 @@ abstract class AbstractCheckoutStepCore implements CheckoutStepInterface
     protected $template;
     protected $unreachableStepTemplate = 'checkout/_partials/steps/unreachable.tpl';
 
+    /**
+     * @param Context $context
+     * @param TranslatorInterface $translator
+     */
     public function __construct(Context $context, TranslatorInterface $translator)
     {
         $this->context = $context;
@@ -73,14 +57,21 @@ abstract class AbstractCheckoutStepCore implements CheckoutStepInterface
         return $this->translator;
     }
 
-    protected function renderTemplate($template, array $extraParams = array(), array $params = array())
+    protected function renderTemplate($template, array $extraParams = [], array $params = [])
     {
-        $defaultParams = array(
+        $defaultParams = [
             'title' => $this->getTitle(),
             'step_is_complete' => (int) $this->isComplete(),
             'step_is_reachable' => (int) $this->isReachable(),
             'step_is_current' => (int) $this->isCurrent(),
-        );
+        ];
+
+        Hook::exec('actionCheckoutStepRenderTemplate', [
+            'template' => &$template,
+            'params' => &$params,
+            'extraParams' => &$extraParams,
+            'defaultParams' => &$defaultParams,
+        ]);
 
         $scope = $this->smarty->createData(
             $this->smarty
@@ -137,6 +128,11 @@ abstract class AbstractCheckoutStepCore implements CheckoutStepInterface
         return $this->step_is_reachable;
     }
 
+    /**
+     * @param bool $step_is_complete
+     *
+     * @return self
+     */
     public function setComplete($step_is_complete)
     {
         $this->step_is_complete = $step_is_complete;
@@ -169,11 +165,30 @@ abstract class AbstractCheckoutStepCore implements CheckoutStepInterface
 
     public function getDataToPersist()
     {
-        return array();
+        return [];
     }
 
     public function restorePersistedData(array $data)
     {
         return $this;
+    }
+
+    /**
+     * Find next step and mark it as current
+     */
+    public function setNextStepAsCurrent()
+    {
+        $steps = $this->getCheckoutProcess()->getSteps();
+        $next = false;
+        foreach ($steps as $step) {
+            if ($next === true) {
+                $step->step_is_current = true;
+                break;
+            }
+
+            if ($step === $this) {
+                $next = true;
+            }
+        }
     }
 }

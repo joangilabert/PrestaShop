@@ -1,49 +1,120 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Entity\Repository;
 
 use Doctrine\ORM\EntityRepository;
+use PrestaShop\PrestaShop\Core\Language\LanguageRepositoryInterface;
+use PrestaShopBundle\Entity\Lang;
 
-class LangRepository extends EntityRepository
+class LangRepository extends EntityRepository implements LanguageRepositoryInterface
 {
+    public const ISO_CODE = 'isoCode';
+    public const LOCALE = 'locale';
+
     /**
-     * @param $isoCode
+     * Stores language instances in different arrays to match them quickly
+     * via a criteria and avoid multiple database queries.
      *
-     * @return array
+     * @var array
+     */
+    private $matches = [
+        self::ISO_CODE => [],
+        self::LOCALE => [],
+    ];
+
+    /**
+     * @param string $isoCode
+     *
+     * @return string
      */
     public function getLocaleByIsoCode($isoCode)
     {
-        static $isoCodes = array();
+        $language = $this->searchLanguage(self::ISO_CODE, $isoCode);
 
-        if (!array_key_exists($isoCode, $isoCodes)) {
-            return $isoCodes[$isoCode] = $this->findOneBy(array('isoCode' => $isoCode))
-                ->getLocale();
+        return $language->getLocale();
+    }
+
+    /**
+     * @param string $locale
+     *
+     * @return Lang|null
+     */
+    public function getOneByLocale($locale)
+    {
+        return $this->searchLanguage(self::LOCALE, $locale);
+    }
+
+    /**
+     * @param string $isoCode
+     *
+     * @return Lang|null
+     */
+    public function getOneByIsoCode($isoCode)
+    {
+        return $this->searchLanguage(self::ISO_CODE, $isoCode);
+    }
+
+    /**
+     * @param string $locale
+     *
+     * @return Lang|null
+     */
+    public function getOneByLocaleOrIsoCode($locale)
+    {
+        $language = $this->getOneByLocale($locale);
+        if (!$language) {
+            $localeParts = explode('-', $locale);
+            $isoCode = strtolower($localeParts[0]);
+            $language = $this->getOneByIsoCode($isoCode);
         }
 
-        return $isoCodes[$isoCode];
+        return $language;
+    }
+
+    /**
+     * Returns all the mapping for all installed languages, the returned array is indexed by Language ID,
+     * it contains an array with Language info, only locale is relevant for now but it may evolve in the future.
+     *
+     * @return array<int, array{'locale': string}>
+     */
+    public function getMapping(): array
+    {
+        $qb = $this->createQueryBuilder('l');
+        $qb->select('l.id, l.locale');
+        $result = $qb->getQuery()->getArrayResult();
+
+        $mapping = [];
+        foreach ($result as $row) {
+            $mapping[$row['id']] = [
+                'locale' => $row['locale'],
+            ];
+        }
+
+        return $mapping;
+    }
+
+    /**
+     * @param string $key
+     * @param string $value
+     *
+     * @return Lang|null
+     */
+    private function searchLanguage($key, $value)
+    {
+        if (isset($this->matches[$key][$value])) {
+            return $this->matches[$key][$value];
+        }
+
+        $language = $this->findOneBy([$key => $value]);
+        if ($language) {
+            $this->matches[self::ISO_CODE][$language->getIsoCode()] = $language;
+            $this->matches[self::LOCALE][$language->getLocale()] = $language;
+        }
+
+        return $language;
     }
 }

@@ -1,5 +1,10 @@
 <?php
 /**
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
+ */
+
+/**
  * $relations = array(
  *   TABLENAME => array(
  *      'field' => array(
@@ -861,6 +866,15 @@ $relations = array(
         ),
     ),
 
+    'product_attribute_lang' => array(
+        'id_lang' => array(
+            'lang' => 'id_lang',
+        ),
+        'id_product_attribute' => array(
+            'product_attribute' => 'id_product_attribute',
+        ),
+    ),
+
     'product_download' => array(
         'id_product' => array(
             'product' => 'id_product',
@@ -924,18 +938,6 @@ $relations = array(
     'range_weight' => array(
         'id_carrier' => array(
             'carrier' => 'id_carrier',
-        ),
-    ),
-
-    'referrer' => array(
-    ),
-
-    'referrer_cache' => array(
-        'id_connections_source' => array(
-            'connections_source' => 'id_connections_source',
-        ),
-        'id_referrer' => array(
-            'referrer' => 'id_referrer',
         ),
     ),
 

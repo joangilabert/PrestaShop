@@ -1,9 +1,14 @@
+/**
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
+ */
 .dropzone .dz-preview .dz-progress {
-    height: 10px;
+  height: 10px;
+  background: none;
+  background-color: $gray-700;
+
+  > .dz-upload {
     background: none;
-    background-color: #363a41;
-    > .dz-upload {
-        background: none;
-        background-color: #25b9d7;
-    }
+    background-color: $primary;
+  }
 }

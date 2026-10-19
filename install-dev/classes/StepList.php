@@ -1,52 +1,27 @@
 <?php
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
-
 class StepList implements IteratorAggregate
 {
     /**
-     *
-     * @var integer
+     * @var int
      */
     protected $offset = 0;
 
     /**
-     *
      * @var array
      */
-    protected $steps = array();
+    protected $steps = [];
 
     /**
-     *
      * @var array
      */
-    private $stepNames = array();
+    private $stepNames = [];
 
     /**
-     *
-     * @param array $stepNames
+     * @param array $stepConfig
      */
     public function __construct(array $stepConfig)
     {
@@ -60,7 +35,6 @@ class StepList implements IteratorAggregate
     }
 
     /**
-     *
      * @return int
      */
     public function getOffset()
@@ -69,8 +43,8 @@ class StepList implements IteratorAggregate
     }
 
     /**
-     *
      * @param int $offset
+     *
      * @return StepList
      */
     public function setOffset($offset)
@@ -81,8 +55,8 @@ class StepList implements IteratorAggregate
     }
 
     /**
-     *
      * @param string $stepName
+     *
      * @return StepList
      */
     public function setOffsetFromStepName($stepName)
@@ -93,8 +67,8 @@ class StepList implements IteratorAggregate
     }
 
     /**
-     *
      * @param string $stepName
+     *
      * @return int
      */
     public function getOffsetFromStepName($stepName)
@@ -103,7 +77,6 @@ class StepList implements IteratorAggregate
     }
 
     /**
-     *
      * @return Step[]
      */
     public function getSteps()
@@ -112,7 +85,6 @@ class StepList implements IteratorAggregate
     }
 
     /**
-     *
      * @return Step
      */
     public function current()
@@ -121,34 +93,31 @@ class StepList implements IteratorAggregate
     }
 
     /**
-     *
-     * @return Step
+     * @return self
      */
     public function next()
     {
-        if (array_key_exists($this->offset+1, $this->steps)) {
-            $this->offset++;
+        if (array_key_exists($this->offset + 1, $this->steps)) {
+            ++$this->offset;
         }
 
         return $this;
     }
 
     /**
-     *
-     * @return Step
+     * @return self
      */
     public function previous()
     {
-        if (array_key_exists($this->offset-1, $this->steps)) {
-            $this->offset--;
+        if (array_key_exists($this->offset - 1, $this->steps)) {
+            --$this->offset;
         }
 
         return $this;
     }
 
     /**
-     *
-     * @return boolean
+     * @return bool
      */
     public function isFirstStep()
     {
@@ -156,19 +125,17 @@ class StepList implements IteratorAggregate
     }
 
     /**
-     *
-     * @return boolean
+     * @return bool
      */
     public function isLastStep()
     {
-        return $this->offset == count($this->steps) -1;
+        return $this->offset == count($this->steps) - 1;
     }
 
     /**
-     *
      * @return Traversable
      */
-    public function getIterator()
+    public function getIterator(): Traversable
     {
         return new ArrayIterator($this->steps);
     }

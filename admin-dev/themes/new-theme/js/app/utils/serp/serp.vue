@@ -1,147 +1,151 @@
-
-<!--**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+<!--*
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *-->
 <template>
-  <div id="serp"">
+  <div id="serp">
     <div class="serp-preview">
-      <div class="serp-title">{{title}}</div>
-      <div class="serp-url">{{url}}<span class="serp-arrow"></span></div>
-      <div class="serp-description">{{description}}</div>
+      <div class="serp-url">
+        <span class="serp-base-url">{{ displayedBaseURL }}</span>
+        {{ displayedRelativePath }}
+        <i class="material-icons serp-url-more">more_vert</i>
+      </div>
+      <div class="serp-title">
+        {{ displayedTitle }}
+      </div>
+      <div class="serp-description">
+        {{ displayedDescription }}
+      </div>
     </div>
   </div>
 </template>
 
 <script>
-  export default {
-    name: 'serp',
+  import {defineComponent} from 'vue';
+
+  export default defineComponent({
+    name: 'Serp',
     props: {
-        title: {
-          type: String,
-          default: '',
-        },
-        url: {
-          type: String,
-          default: 'http://example.com/',
-        },
-        description: {
-          type: String,
-          default: '',
-        },
+      url: {
+        type: String,
+        default: 'https://www.example.com/',
+      },
+      description: {
+        type: String,
+        default: '',
+      },
+      title: {
+        type: String,
+        default: '',
+      },
+    },
+    computed: {
+      displayedBaseURL() {
+        const parseUrl = new URL(this.url);
+        const baseUrl = `${parseUrl.protocol}//${parseUrl.hostname}`;
+
+        return baseUrl;
+      },
+      displayedRelativePath() {
+        const parseUrl = new URL(this.url);
+        const relativePath = decodeURI(parseUrl.pathname).replaceAll('/', ' \u203a ');
+
+        if (relativePath.length > 50) {
+          return `${relativePath.substring(0, 50)}...`;
+        }
+
+        return relativePath;
+      },
+      displayedTitle() {
+        if (this.title.length > 70) {
+          return `${this.title.substring(0, 70)}...`;
+        }
+
+        return this.title;
+      },
+      displayedDescription() {
+        const plainTextDescription = this.stripHtml(this.description);
+
+        if (plainTextDescription.length > 150) {
+          return `${plainTextDescription.substring(0, 150)}...`;
+        }
+
+        return plainTextDescription;
+      },
     },
     methods: {
-        setTitle(title) {
-            if(title.length > 70) {
-                title = title.substring(0, 70) + ' ...';
-            }
-            this.title = title;
-        },
-        setUrl(url) {
-            this.url = url;
-        },
-        setDescription(description) {
-            if(description.length > 150) {
-                description = description.substring(0, 150) + ' ...';
-            }
-            this.description = description;
-        }
-    }
-  };
+      stripHtml(html) {
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        return div.textContent || '';
+      },
+    },
+  });
 </script>
 
-<style lang="sass" type="text/scss" scoped>
-    .serp-preview {
-        margin-top: 15px;
-        margin-bottom: 15px;
-        border-radius: 2px;
-        box-shadow: 0 0 5px 0 rgba(0, 0, 0, 0.12);
-        background-color: #ffffff;
-        border: solid 1px #e7e7e7;
-        padding: 30px;
-        max-width: 700px;
+<style lang="scss" type="text/scss" scoped>
+  @import "~@scss/config/bootstrap.scss";
+  @import "~@scss/config/settings.scss";
 
-        .serp-arrow {
-            border-bottom-color: rgb(0, 102, 33);
-            border-bottom-style: solid;
-            border-bottom-width: 0px;
-            border-left-color: rgba(0, 0, 0, 0);
-            border-left-style: solid;
-            border-left-width: 4px;
-            border-right-color: rgba(0, 0, 0, 0);
-            border-right-style: solid;
-            border-right-width: 4px;
-            border-top-color: rgb(0, 102, 33);
-            border-top-style: solid;
-            border-top-width: 5px;
-            color: rgb(128, 128, 128);
-            cursor: default;
-            font-family: arial, sans-serif;
-            font-size: 11px;
-            font-weight: bold;
-            height: 0px;
-            position: absolute;
-            line-height: 27px;
-            margin-left: 3px;
-            margin-top: 6px;
-            text-align: center;
-            user-select: none;
-            visibility: visible;
-            white-space: nowrap;
-            width: 0px;
-        }
+  .serp-preview {
+    padding: var(--#{$cdk}size-24) var(--#{$cdk}size-30);
+    margin: var(--#{$cdk}size-16) 0;
+    background-color: var(--#{$cdk}white);
+    border: 1px solid var(--#{$cdk}primary-400);
+    box-shadow: var(--#{$cdk}box-shadow-default);
 
-        .serp-title {
-            color: #1A0DAB;
-            cursor: pointer;
-            font-family: arial, regular;
-            font-size: 18px;
-            font-weight: normal;
-            text-align: left;
-            text-decoration: none;
-            visibility: visible;
-            white-space: nowrap;
-        }
-
-        .serp-url {
-            color: #006621;
-            font-family: arial, regular;
-            font-size: 14px;
-            font-style: normal;
-            font-weight: normal;
-            line-height: 24px;
-            text-align: left;
-            visibility: visible;
-        }
-
-        .serp-description {
-            color: #545454;
-            font-family: arial, regular;
-            font-size: 13px;
-            font-weight: normal;
-            text-align: left;
-            visibility: visible;
-            word-wrap: break-word;
-        }
+    .serp-url {
+      font-family: arial, sans-serif;
+      font-size: var(--#{$cdk}size-12);
+      font-style: normal;
+      font-weight: 400;
+      line-height: var(--#{$cdk}size-18);
+      color: $serp-url-light-color;
+      text-align: left;
+      direction: ltr;
+      cursor: pointer;
+      visibility: visible;
+      display: flex;
+      align-items: center;
     }
+
+    .serp-base-url {
+      color: $serp-url-dark-color;
+    }
+
+    .serp-url-more {
+      margin-left: var(--#{$cdk}size-12);
+      font-size: var(--#{$cdk}size-18);
+      color: $serp-url-light-color;
+      cursor: pointer;
+    }
+
+    .serp-title {
+      font-family: arial, sans-serif;
+      font-size: 1.25rem;
+      font-weight: 400;
+      color: $serp-title-color;
+      text-align: left;
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
+      visibility: visible;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    .serp-title:hover {
+      text-decoration: underline;
+    }
+
+    .serp-description {
+      font-family: arial, sans-serif;
+      font-size: 0.875rem;
+      font-weight: 400;
+      color: $serp-description-color;
+      text-align: left;
+      word-wrap: break-word;
+      visibility: visible;
+    }
+  }
 </style>

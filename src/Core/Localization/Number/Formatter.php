@@ -1,33 +1,13 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Localization\Number;
 
 use InvalidArgumentException as SPLInvalidArgumentException;
-use PrestaShop\Decimal\Number as DecimalNumber;
+use PrestaShop\Decimal\DecimalNumber;
 use PrestaShop\Decimal\Operation\Rounding;
 use PrestaShop\PrestaShop\Core\Localization\Exception\LocalizationException;
 use PrestaShop\PrestaShop\Core\Localization\Specification\NumberInterface as NumberSpecification;
@@ -42,12 +22,12 @@ class Formatter
      * These placeholders are used in CLDR number formatting templates.
      * They are meant to be replaced by the correct localized symbols in the number formatting process.
      */
-    const CURRENCY_SYMBOL_PLACEHOLDER = '¤';
-    const DECIMAL_SEPARATOR_PLACEHOLDER = '.';
-    const GROUP_SEPARATOR_PLACEHOLDER = ',';
-    const MINUS_SIGN_PLACEHOLDER = '-';
-    const PERCENT_SYMBOL_PLACEHOLDER = '%';
-    const PLUS_SIGN_PLACEHOLDER = '+';
+    public const CURRENCY_SYMBOL_PLACEHOLDER = '¤';
+    public const DECIMAL_SEPARATOR_PLACEHOLDER = '.';
+    public const GROUP_SEPARATOR_PLACEHOLDER = ',';
+    public const MINUS_SIGN_PLACEHOLDER = '-';
+    public const PERCENT_SYMBOL_PLACEHOLDER = '%';
+    public const PLUS_SIGN_PLACEHOLDER = '+';
 
     /**
      * @var string The wanted rounding mode when formatting numbers.
@@ -72,11 +52,11 @@ class Formatter
     /**
      * Create a number formatter instance.
      *
-     * @param int $roundingMode
-     *                          The wanted rounding mode when formatting numbers
-     *                          Cf. PrestaShop\Decimal\Operation\Rounding::ROUND_* values
-     * @param string $numberingSystem
-     *                                Numbering system to use when formatting numbers. @see http://cldr.unicode.org/translation/numbering-systems
+     * @param string $roundingMode The wanted rounding mode when formatting numbers
+     *                             Cf. PrestaShop\Decimal\Operation\Rounding::ROUND_* values
+     * @param string $numberingSystem Numbering system to use when formatting numbers
+     *
+     *                             @see http://cldr.unicode.org/translation/numbering-systems
      */
     public function __construct($roundingMode, $numberingSystem)
     {
@@ -105,7 +85,7 @@ class Formatter
         try {
             $decimalNumber = $this->prepareNumber($number);
         } catch (SPLInvalidArgumentException $e) {
-            throw new LocalizationException('Invalid $number parameter : ' . $e->getMessage(), 0, $e);
+            throw new LocalizationException('Invalid $number parameter: ' . $e->getMessage(), 0, $e);
         }
 
         /*
@@ -115,13 +95,13 @@ class Formatter
         $isNegative = $decimalNumber->isNegative();
         $decimalNumber = $decimalNumber->toPositive();
 
-        list($majorDigits, $minorDigits) = $this->extractMajorMinorDigits($decimalNumber);
+        [$majorDigits, $minorDigits] = $this->extractMajorMinorDigits($decimalNumber);
         $majorDigits = $this->splitMajorGroups($majorDigits);
         $minorDigits = $this->adjustMinorDigitsZeroes($minorDigits);
 
         // Assemble the final number
         $formattedNumber = $majorDigits;
-        if ($minorDigits) {
+        if (strlen($minorDigits)) {
             $formattedNumber .= self::DECIMAL_SEPARATOR_PLACEHOLDER . $minorDigits;
         }
 
@@ -138,32 +118,29 @@ class Formatter
     /**
      * Prepares a basic number (either a string, an integer or a float) to be formatted.
      *
-     * @param $number
-     *  The number to be prepared
+     * @param string|float|int $number The number to be prepared
      *
-     * @return DecimalNumber
-     *                       The prepared number
+     * @return DecimalNumber The prepared number
      */
     protected function prepareNumber($number)
     {
         $decimalNumber = new DecimalNumber((string) $number);
         $precision = $this->numberSpecification->getMaxFractionDigits();
-        $roundedNumber = (new Rounding())->compute(
+
+        return (new Rounding())->compute(
             $decimalNumber,
             $precision,
             $this->roundingMode
         );
-
-        return $roundedNumber;
     }
 
     /**
      * Get $number's major and minor digits.
      *
      * Major digits are the "integer" part (before decimal separator), minor digits are the fractional part
-     * Result will be an array of exactly 2 items : [$majorDigits, $minorDigits]
+     * Result will be an array of exactly 2 items: [$majorDigits, $minorDigits]
      *
-     * Usage example :
+     * Usage example:
      *  list($majorDigits, $minorDigits) = $this->getMajorMinorDigits($decimalNumber);
      *
      * @param DecimalNumber $number
@@ -183,14 +160,12 @@ class Formatter
     /**
      * Splits major digits into groups.
      *
-     * eg. : Given the major digits "1234567", and major group size
+     * e.g.: Given the major digits "1234567", and major group size
      *  configured to 3 digits, the result would be "1 234 567"
      *
-     * @param $majorDigits
-     *  The major digits to be grouped
+     * @param string $majorDigits The major digits to be grouped
      *
-     * @return string
-     *                The grouped major digits
+     * @return string The grouped major digits
      */
     protected function splitMajorGroups($majorDigits)
     {
@@ -198,18 +173,18 @@ class Formatter
             // Reverse the major digits, since they are grouped from the right.
             $majorDigits = array_reverse(str_split($majorDigits));
             // Group the major digits.
-            $groups = array();
+            $groups = $groupsDigits = [];
             $groups[] = array_splice($majorDigits, 0, $this->numberSpecification->getPrimaryGroupSize());
             while (!empty($majorDigits)) {
                 $groups[] = array_splice($majorDigits, 0, $this->numberSpecification->getSecondaryGroupSize());
             }
             // Reverse back the digits and the groups
             $groups = array_reverse($groups);
-            foreach ($groups as &$group) {
-                $group = implode('', array_reverse($group));
+            foreach ($groups as $group) {
+                $groupsDigits[] = implode('', array_reverse($group));
             }
             // Reconstruct the major digits.
-            $majorDigits = implode(self::GROUP_SEPARATOR_PLACEHOLDER, $groups);
+            $majorDigits = implode(self::GROUP_SEPARATOR_PLACEHOLDER, $groupsDigits);
         }
 
         return $majorDigits;
@@ -218,19 +193,12 @@ class Formatter
     /**
      * Adds or remove trailing zeroes, depending on specified min and max fraction digits numbers.
      *
-     * @param string $minorDigits
-     *                            Digits to be adjusted with (trimmed or padded) zeroes
+     * @param string $minorDigits Digits to be adjusted with (trimmed or padded) zeroes
      *
-     * @return string
-     *                The adjusted minor digits
+     * @return string The adjusted minor digits
      */
     protected function adjustMinorDigitsZeroes($minorDigits)
     {
-        if (strlen($minorDigits) > $this->numberSpecification->getMaxFractionDigits()) {
-            // Strip any trailing zeroes.
-            $minorDigits = rtrim($minorDigits, '0');
-        }
-
         if (strlen($minorDigits) < $this->numberSpecification->getMinFractionDigits()) {
             // Re-add needed zeroes
             $minorDigits = str_pad(
@@ -238,6 +206,11 @@ class Formatter
                 $this->numberSpecification->getMinFractionDigits(),
                 '0'
             );
+        }
+
+        if (strlen($minorDigits) > $this->numberSpecification->getMaxFractionDigits()) {
+            // Strip any trailing zeroes.
+            $minorDigits = rtrim($minorDigits, '0');
         }
 
         return $minorDigits;
@@ -331,30 +304,28 @@ class Formatter
      *
      * Missing placeholders can be the percent sign, currency symbol, etc.
      *
-     * e.g. with a currency CLDR pattern :
-     *  - Passed number (partially formatted) : 1,234.567
-     *  - Returned number : 1,234.567 ¤
+     * e.g. with a currency CLDR pattern:
+     *  - Passed number (partially formatted): 1,234.567
+     *  - Returned number: 1,234.567 ¤
      *  ("¤" symbol is the currency symbol placeholder)
      *
      * @see http://cldr.unicode.org/translation/number-patterns
      *
-     * @param $formattedNumber
-     *  Number to process
-     * @param $pattern
-     *  CLDR formatting pattern to use
+     * @param string $formattedNumber Number to process
+     * @param string $pattern CLDR formatting pattern to use
      *
      * @return string
      */
     protected function addPlaceholders($formattedNumber, $pattern)
     {
         /*
-         * Regex groups explanation :
+         * Regex groups explanation:
          * #          : literal "#" character. Once.
          * (,#+)*     : any other "#" characters group, separated by ",". Zero to infinity times.
          * 0          : literal "0" character. Once.
          * (\.[0#]+)* : any combination of "0" and "#" characters groups, separated by '.'. Zero to infinity times.
          */
-        $formattedNumber = preg_replace('/#(,#+)*0(\.[0#]+)*/', $formattedNumber, $pattern);
+        $formattedNumber = preg_replace('/#?(,#+)*0(\.[0#]+)*/', $formattedNumber, $pattern);
 
         return $formattedNumber;
     }
@@ -382,11 +353,9 @@ class Formatter
      *
      * Placeholder will be replaced either by the symbol or the ISO code, depending on price specification
      *
-     * @param $formattedNumber
-     *  The number to format
+     * @param string $formattedNumber The number to format
      *
-     * @return string
-     *                The number after currency replacement
+     * @return string The number after currency replacement
      */
     protected function tryCurrencyReplacement($formattedNumber)
     {

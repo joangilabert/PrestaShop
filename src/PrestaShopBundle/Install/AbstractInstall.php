@@ -1,30 +1,13 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Install;
+
+use NullLogger;
+use PrestaShopLoggerInterface;
 
 abstract class AbstractInstall
 {
@@ -41,7 +24,16 @@ abstract class AbstractInstall
     /**
      * @var array List of errors
      */
-    protected $errors = array();
+    protected $errors = [];
+    /**
+     * @var array List of warnings
+     */
+    protected $warnings = [];
+
+    /**
+     * @var PrestaShopLoggerInterface|null
+     */
+    protected $logger;
 
     public function __construct()
     {
@@ -51,7 +43,7 @@ abstract class AbstractInstall
     public function setError($errors)
     {
         if (!is_array($errors)) {
-            $errors = array($errors);
+            $errors = [$errors];
         }
 
         $this->errors = array_merge($this->errors, $errors);
@@ -62,10 +54,54 @@ abstract class AbstractInstall
         return $this->errors;
     }
 
+    public function resetErrors(): void
+    {
+        $this->errors = [];
+    }
+
+    public function setWarning($warnings): void
+    {
+        if (!is_array($warnings)) {
+            $warnings = [$warnings];
+        }
+
+        $this->warnings = array_merge($this->warnings, $warnings);
+    }
+
+    public function getWarnings(): array
+    {
+        return $this->warnings;
+    }
+
+    public function resetWarnings(): void
+    {
+        $this->warnings = [];
+    }
+
     public function setTranslator($translator)
     {
         $this->translator = $translator;
 
         return $this;
+    }
+
+    /**
+     * @return PrestaShopLoggerInterface
+     */
+    public function getLogger(): PrestaShopLoggerInterface
+    {
+        if (null === $this->logger) {
+            $this->logger = new NullLogger();
+        }
+
+        return $this->logger;
+    }
+
+    /**
+     * @param PrestaShopLoggerInterface $logger
+     */
+    public function setLogger(PrestaShopLoggerInterface $logger): void
+    {
+        $this->logger = $logger;
     }
 }

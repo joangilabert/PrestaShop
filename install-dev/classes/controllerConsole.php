@@ -1,40 +1,21 @@
 <?php
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 use PrestaShopBundle\Install\AbstractInstall;
 use PrestaShopBundle\Install\LanguageList;
+use PrestaShopBundle\Translation\TranslatorComponent;
 
 abstract class InstallControllerConsole
 {
     /**
      * @var array List of installer steps
      */
-    protected static $steps = array('process');
+    protected static $steps = ['process'];
 
-    protected static $instances = array();
+    protected static $instances = [];
 
     /**
      * @var string Current step
@@ -44,7 +25,7 @@ abstract class InstallControllerConsole
     /**
      * @var array List of errors
      */
-    public $errors = array();
+    public $errors = [];
 
     public $controller;
 
@@ -69,6 +50,16 @@ abstract class InstallControllerConsole
     protected $model_database;
 
     /**
+     * @var Datas|null
+     */
+    public $datas;
+
+    /**
+     * @var TranslatorComponent|null
+     */
+    public $translator;
+
+    /**
      * Validate current step.
      */
     abstract public function validate();
@@ -77,34 +68,45 @@ abstract class InstallControllerConsole
     {
         if (!($argc - 1)) {
             $available_arguments = Datas::getInstance()->getArgs();
-            echo 'Arguments available:'.PHP_EOL;
+            echo 'Arguments available:' . PHP_EOL;
             foreach ($available_arguments as $key => $arg) {
                 $name = isset($arg['name']) ? $arg['name'] : $key;
-                echo '--'.$name."\t".(isset($arg['help']) ? $arg['help'] : '').(isset($arg['default']) ? "\t".'(Default: '.$arg['default'].')' : '').PHP_EOL;
+                $help = isset($arg['help']) ? $arg['help'] : '';
+                $default = '';
+
+                if (isset($arg['default'])) {
+                    if (is_array($arg['default'])) {
+                        $default = '(Default: [' . implode(',', $arg['default']) . '])';
+                    } else {
+                        $default = '(Default: ' . $arg['default'] . ')';
+                    }
+                }
+
+                echo '--' . $name . "\t" . $help . "\t" . $default . PHP_EOL;
             }
             exit;
         }
 
         $errors = Datas::getInstance()->getAndCheckArgs($argv);
         if (Datas::getInstance()->show_license) {
-            echo strip_tags(file_get_contents(_PS_INSTALL_PATH_.'theme/views/license_content.php'));
+            echo strip_tags(file_get_contents(_PS_INSTALL_PATH_ . 'theme/views/license_content.php'));
             exit;
         }
 
         if ($errors !== true) {
             if (count($errors)) {
                 foreach ($errors as $error) {
-                    echo $error.PHP_EOL;
+                    echo $error . PHP_EOL;
                 }
             }
-            exit;
+            exit(1);
         }
 
-        if (!file_exists(_PS_INSTALL_CONTROLLERS_PATH_.'console/process.php')) {
+        if (!file_exists(_PS_INSTALL_CONTROLLERS_PATH_ . 'console/process.php')) {
             throw new PrestashopInstallerException("Controller file 'console/process.php' not found");
         }
 
-        require_once _PS_INSTALL_CONTROLLERS_PATH_.'console/process.php';
+        require_once _PS_INSTALL_CONTROLLERS_PATH_ . 'console/process.php';
         self::$instances['process'] = new InstallControllerConsoleProcess('process');
 
         $datas = Datas::getInstance();
@@ -126,7 +128,9 @@ abstract class InstallControllerConsole
         $this->language = LanguageList::getInstance();
         Context::getContext()->language = $this->language->getLanguage($this->datas->language);
 
-        $this->translator = Context::getContext()->getTranslator();
+        // Installer translator, not the Symfony one: a settings file left by a previous run may point to an
+        // unreachable database, and building the Symfony translator needs a connection
+        $this->translator = Context::getContext()->getTranslator(true);
 
         if (!$this->datas->language) {
             die('No language defined');
@@ -143,26 +147,23 @@ abstract class InstallControllerConsole
     {
     }
 
-    public function printErrors()
+    public function printErrors($context = null)
     {
         $errors = array_merge(
             $this->model_database->getErrors(),
             $this->model_install->getErrors()
         );
         if (count($errors)) {
-            if (!is_array($errors)) {
-                $errors = array($errors);
-            }
-            echo 'Errors :'. PHP_EOL;
+            echo 'Errors ' . ($context === null ?: $context) . ':' . PHP_EOL;
             foreach ($errors as $error_process) {
                 if (!is_array($error_process)) {
                     $error_process = [$error_process];
                 }
                 foreach ($error_process as $error) {
-                    echo(is_string($error) ? $error : print_r($error, true)).PHP_EOL;
+                    echo(is_string($error) ? $error : print_r($error, true)) . PHP_EOL;
                 }
             }
-            die;
+            exit(1);
         }
     }
 

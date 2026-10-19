@@ -1,31 +1,12 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Service\Hook;
 
+use Exception;
 use PrestaShop\PrestaShop\Adapter\HookManager;
 
 /**
@@ -39,9 +20,9 @@ class HookFinder
      * instance of specific classes.
      * Please note it must implement the function toArray().
      *
-     * @var string
+     * @var array<int, string>
      */
-    protected $expectedInstanceClasses = array();
+    protected $expectedInstanceClasses = [];
 
     /**
      * Because we cannot send the same parameters between two different finders,
@@ -49,7 +30,7 @@ class HookFinder
      *
      * @var array
      */
-    protected $params = array();
+    protected $params = [];
 
     /**
      * The hook to call.
@@ -63,13 +44,13 @@ class HookFinder
      *
      * @return array Content returned by modules
      *
-     * @throws \Exception if class doesn't match interface or expected classes
+     * @throws Exception if class doesn't match interface or expected classes
      */
     public function find()
     {
         $hookContent = (new HookManager())->exec($this->hookName, $this->params, null, true);
         if (!is_array($hookContent)) {
-            $hookContent = array();
+            $hookContent = [];
         }
 
         foreach ($hookContent as $moduleName => $moduleContents) {
@@ -81,10 +62,10 @@ class HookFinder
                 if (!count($this->expectedInstanceClasses)) {
                     continue;
                 }
-                if (is_object($content) && !in_array(get_class($content), $this->expectedInstanceClasses)) {
-                    throw new \Exception('The module ' . $moduleName . ' did not return expected class. Was ' . get_class($content) . ' instead of ' . implode(' or ', $this->expectedInstanceClasses) . '.');
+                if (is_object($content) && !in_array($content::class, $this->expectedInstanceClasses)) {
+                    throw new Exception('The module ' . $moduleName . ' did not return expected class. Was ' . $content::class . ' instead of ' . implode(' or ', $this->expectedInstanceClasses) . '.');
                 } elseif (!is_object($content)) {
-                    throw new \Exception('The module ' . $moduleName . ' did not return expected type. Was ' . gettype($content) . ' instead of ' . implode(' or ', $this->expectedInstanceClasses) . '.');
+                    throw new Exception('The module ' . $moduleName . ' did not return expected type. Was ' . gettype($content) . ' instead of ' . implode(' or ', $this->expectedInstanceClasses) . '.');
                 }
             }
         }
@@ -100,7 +81,7 @@ class HookFinder
     public function present()
     {
         $hookContent = $this->find();
-        $presentedContents = array();
+        $presentedContents = [];
 
         foreach ($hookContent as $moduleName => $moduleContents) {
             if (!is_array($moduleContents)) {
@@ -108,7 +89,7 @@ class HookFinder
             }
             foreach ($moduleContents as $content) {
                 if (!$content instanceof HookContentClassInterface) {
-                    throw new \Exception('The class returned must implement HookContentClassInterface to be presented');
+                    throw new Exception('The class returned must implement HookContentClassInterface to be presented');
                 }
 
                 $presentedContent = $content->toArray();
@@ -157,12 +138,12 @@ class HookFinder
      *
      * @param string|array $expectedInstanceClasses
      *
-     * @return \PrestaShopBundle\Service\Hook\Finder
+     * @return self
      */
     public function addExpectedInstanceClasses($expectedInstanceClasses)
     {
         if (is_array($expectedInstanceClasses)) {
-            array_merge($this->expectedInstanceClasses, $expectedInstanceClasses);
+            $this->expectedInstanceClasses = array_merge($this->expectedInstanceClasses, $expectedInstanceClasses);
         } else {
             $this->expectedInstanceClasses[] = $expectedInstanceClasses;
         }
@@ -175,7 +156,7 @@ class HookFinder
      *
      * @param array $expectedInstanceClasses
      *
-     * @return \PrestaShopBundle\Service\Hook\Finder
+     * @return self
      */
     public function setExpectedInstanceClasses($expectedInstanceClasses)
     {
@@ -189,7 +170,7 @@ class HookFinder
      *
      * @param string $hookName
      *
-     * @return \PrestaShopBundle\Service\Hook\Finder
+     * @return self
      */
     public function setHookName($hookName)
     {
@@ -203,7 +184,7 @@ class HookFinder
      *
      * @param array $params
      *
-     * @return \PrestaShopBundle\Service\Hook\Finder
+     * @return self
      */
     public function addParams($params)
     {
@@ -217,7 +198,7 @@ class HookFinder
      *
      * @param array $params
      *
-     * @return \PrestaShopBundle\Service\Hook\Finder
+     * @return self
      */
     public function setParams($params)
     {

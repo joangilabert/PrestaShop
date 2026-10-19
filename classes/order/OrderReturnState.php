@@ -1,50 +1,37 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShop\PrestaShop\Core\Domain\OrderReturnState\OrderReturnStateSettings;
+
 class OrderReturnStateCore extends ObjectModel
 {
-    /** @var string Name */
+    /** @var string|array<int, string> Name */
     public $name;
 
     /** @var string Display state in the specified color */
     public $color;
 
+    /** Cancel return products */
+    public bool $is_cancelling_return = false;
+
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'order_return_state',
         'primary' => 'id_order_return_state',
         'multilang' => true,
-        'fields' => array(
-            'color' => array('type' => self::TYPE_STRING, 'validate' => 'isColor'),
+        'fields' => [
+            'color' => ['type' => self::TYPE_STRING, 'validate' => 'isColor', 'size' => 32],
+            'is_cancelling_return' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
 
             /* Lang fields */
-            'name' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 64),
-        ),
-    );
+            'name' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => OrderReturnStateSettings::NAME_MAX_LENGTH],
+        ],
+    ];
 
     /**
      * Get all available order statuses.

@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter\Module\Configuration;
@@ -29,7 +9,7 @@ namespace PrestaShop\PrestaShop\Adapter\Module\Configuration;
 use Doctrine\DBAL\Connection;
 use Exception;
 use PrestaShop\PrestaShop\Adapter\Configuration;
-use PrestaShop\PrestaShop\Core\Addon\Module\ModuleRepository;
+use PrestaShop\PrestaShop\Core\Module\ModuleRepository;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Process\Exception\InvalidArgumentException;
@@ -59,7 +39,7 @@ class ModuleSelfConfigurator
     /**
      * @var array
      */
-    protected $configs = array();
+    protected $configs = [];
 
     /**
      * @var string
@@ -155,7 +135,7 @@ class ModuleSelfConfigurator
         $files = Finder::create()
             ->files()
             ->in(_PS_MODULE_DIR_ . $this->module)
-            ->name($this->defaultConfigFile, null, true);
+            ->name($this->defaultConfigFile);
 
         foreach ($files as $file) {
             $this->configFile = $file->getRealPath();
@@ -206,7 +186,7 @@ class ModuleSelfConfigurator
      */
     public function validate()
     {
-        $errors = array();
+        $errors = [];
         if ($this->module === null) {
             $errors[] = 'Module name not specified';
         }
@@ -285,7 +265,7 @@ class ModuleSelfConfigurator
      * Finds and returns filepath from a config key in the YML config file.
      * Can be a string of a value of "file" key.
      *
-     * @param array $data
+     * @param array|string $data
      *
      * @return string
      *
@@ -309,7 +289,7 @@ class ModuleSelfConfigurator
      *
      * @param string $file
      *
-     * @return stdClass
+     * @return object
      */
     protected function loadPhpFile($file)
     {
@@ -379,7 +359,7 @@ class ModuleSelfConfigurator
             }
 
             // If we get a relative path from the yml, add the original path
-            foreach (array('source', 'dest') as $prop) {
+            foreach (['source', 'dest'] as $prop) {
                 $copy[$prop] = $this->convertRelativeToAbsolutePaths($copy[$prop]);
             }
 
@@ -405,7 +385,7 @@ class ModuleSelfConfigurator
             $file = $this->extractFilePath($data);
 
             $module = $this->moduleRepository->getModule($this->module);
-            $params = !empty($data['params']) ? $data['params'] : array();
+            $params = !empty($data['params']) ? $data['params'] : [];
 
             $this->loadPhpFile($file)->run($module, $params);
         }
@@ -451,8 +431,19 @@ class ModuleSelfConfigurator
             if (empty($sql)) {
                 continue;
             }
+
             // Set _DB_PREFIX_
-            $sql = str_replace('PREFIX_', $this->configuration->get('_DB_PREFIX_'), $sql);
+            $sql = str_replace(
+                [
+                    'PREFIX_',
+                    'DB_NAME',
+                ],
+                [
+                    $this->configuration->get('_DB_PREFIX_'),
+                    $this->configuration->get('_DB_NAME_'),
+                ],
+                $sql
+            );
 
             $stmt = $this->connection->prepare($sql);
             $stmt->execute();
@@ -489,7 +480,7 @@ class ModuleSelfConfigurator
     protected function runConfigurationDelete($config)
     {
         foreach ($config as $key) {
-            $this->configuration->delete($key);
+            $this->configuration->remove($key);
         }
     }
 }

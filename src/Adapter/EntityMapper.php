@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter;
@@ -29,32 +9,31 @@ namespace PrestaShop\PrestaShop\Adapter;
 use Cache;
 use Db;
 use DbQuery;
+use Language;
+use ObjectModel;
+use ObjectModelCore;
+use PrestaShopDatabaseException;
 use Shop;
 
-/**
- * Not used in PrestaShop core, only in tests.
- *
- * @deprecated since 1.7.5, to be removed in 1.8
- */
 class EntityMapper
 {
     /**
      * Load ObjectModel.
      *
-     * @param $id
-     * @param $id_lang
-     * @param $entity \ObjectModel
-     * @param $entity_defs
-     * @param $id_shop
-     * @param $should_cache_objects
+     * @param int $id
+     * @param int $id_lang
+     * @param ObjectModelCore $entity
+     * @param array<string,string|array> $entity_defs
+     * @param int $id_shop
+     * @param bool $should_cache_objects
      *
-     * @throws \PrestaShopDatabaseException
+     * @throws PrestaShopDatabaseException
      */
     public function load($id, $id_lang, $entity, $entity_defs, $id_shop, $should_cache_objects)
     {
         // Load object from database if object id is present
         $cache_id = 'objectmodel_' . $entity_defs['classname'] . '_' . (int) $id . '_' . (int) $id_shop . '_' . (int) $id_lang;
-        if (!$should_cache_objects || !\Cache::isStored($cache_id)) {
+        if (!$should_cache_objects || !Cache::isStored($cache_id)) {
             $sql = new DbQuery();
             $sql->from($entity_defs['table'], 'a');
             $sql->where('a.`' . bqSQL($entity_defs['primary']) . '` = ' . (int) $id);
@@ -73,6 +52,7 @@ class EntityMapper
             }
 
             if ($object_datas = Db::getInstance()->getRow($sql)) {
+                $objectVars = get_object_vars($entity);
                 if (!$id_lang && isset($entity_defs['multilang']) && $entity_defs['multilang']) {
                     $sql = 'SELECT *
 							FROM `' . bqSQL(_DB_PREFIX_ . $entity_defs['table']) . '_lang`
@@ -82,22 +62,45 @@ class EntityMapper
                     if ($object_datas_lang = Db::getInstance()->executeS($sql)) {
                         foreach ($object_datas_lang as $row) {
                             foreach ($row as $key => $value) {
-                                if ($key != $entity_defs['primary'] && array_key_exists($key, $entity)) {
+                                if ($key != $entity_defs['primary'] && array_key_exists($key, $objectVars)) {
                                     if (!isset($object_datas[$key]) || !is_array($object_datas[$key])) {
-                                        $object_datas[$key] = array();
+                                        $object_datas[$key] = [];
                                     }
 
                                     $object_datas[$key][$row['id_lang']] = $value;
                                 }
                             }
                         }
+                    } else {
+                        // Initialize multilingual fields with empty values for each language.
+                        // This prevents errors when _lang records are missing (e.g. entity deleted from a shop but accessed in "all shops" context).
+                        $languages = Language::getLanguages();
+                        foreach ($entity_defs['fields'] as $key => $field) {
+                            if (!empty($field['lang'])) {
+                                foreach ($languages as $language) {
+                                    $object_datas[$key][$language['id_lang']] = '';
+                                }
+                            }
+                        }
                     }
                 }
+
                 $entity->id = (int) $id;
                 foreach ($object_datas as $key => $value) {
                     if (array_key_exists($key, $entity_defs['fields'])
-                        || array_key_exists($key, $entity)) {
-                        $entity->{$key} = $value;
+                        || array_key_exists($key, $objectVars)) {
+                        if (isset($entity_defs['fields'][$key]['type']) && in_array($entity_defs['fields'][$key]['type'], [
+                            ObjectModel::TYPE_BOOL,
+                        ])) {
+                            if (is_array($value)) {
+                                array_walk($value, function (&$v) { $v = strval($v); });
+                                $entity->{$key} = $value;
+                            } else {
+                                $entity->{$key} = strval($value);
+                            }
+                        } else {
+                            $entity->{$key} = $value;
+                        }
                     } else {
                         unset($object_datas[$key]);
                     }

@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 use PrestaShop\PrestaShop\Core\Product\Search\Facet;
 use PrestaShop\PrestaShop\Core\Product\Search\FacetsRendererInterface;
@@ -40,6 +20,56 @@ use PrestaShop\PrestaShop\Core\Product\Search\SortOrder;
 abstract class ProductListingFrontControllerCore extends ProductPresentingFrontController
 {
     /**
+     * This variable is used to cache the result of "getProductSearchVariables", which
+     * is an expensive method that should not be called twice during the same request.
+     */
+    private $productSearchVariablesCache = null;
+
+    /**
+     * Generates an URL to a product listing controller
+     * with only the essential query params and page remaining.
+     *
+     * @param string $canonicalUrl an url to a listing controller page
+     *
+     * @return string a canonical URL for the current page in the list
+     */
+    public function buildPaginatedUrl(string $canonicalUrl): string
+    {
+        $parsedUrl = parse_url($canonicalUrl);
+        if (isset($parsedUrl['query'])) {
+            parse_str($parsedUrl['query'], $params);
+        } else {
+            $params = [];
+        }
+        $page = (int) Tools::getValue('page');
+        if ($page > 1) {
+            $params['page'] = $page;
+        } else {
+            unset($params['page']);
+        }
+
+        return http_build_url($parsedUrl, ['query' => http_build_query($params)]);
+    }
+
+    /**
+     * Returns alternative language URLs for the current page of the product listing.
+     *
+     * @return array
+     */
+    protected function getAlternativeLangsUrl()
+    {
+        // Get the available language URLs for the current listing.
+        $alternativeLangs = parent::getAlternativeLangsUrl();
+
+        // Apply the same pagination rules as the canonical URL to each language.
+        foreach ($alternativeLangs as $languageCode => $url) {
+            $alternativeLangs[$languageCode] = $this->buildPaginatedUrl($url);
+        }
+
+        return $alternativeLangs;
+    }
+
+    /**
      * Takes an associative array with at least the "id_product" key
      * and returns an array containing all information necessary for
      * rendering the product in the template.
@@ -48,14 +78,17 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
      *
      * @return array a product ready for templating
      */
+    // @phpstan-ignore-next-line
     private function prepareProductForTemplate(array $rawProduct)
     {
-        $product = (new ProductAssembler($this->context))
-            ->assembleProduct($rawProduct);
+        // Enrich data of product
+        $product = (new ProductAssembler($this->context))->assembleProduct($rawProduct);
 
+        // Prepare configuration
         $presenter = $this->getProductPresenter();
         $settings = $this->getProductPresentationSettings();
 
+        // Present and return product
         return $presenter->present(
             $settings,
             $product,
@@ -73,7 +106,23 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
      */
     protected function prepareMultipleProductsForTemplate(array $products)
     {
-        return array_map(array($this, 'prepareProductForTemplate'), $products);
+        // Enrich data set of products
+        $products = (new ProductAssembler($this->context))->assembleProducts($products);
+
+        // Prepare configuration
+        $presenter = $this->getProductPresenter();
+        $settings = $this->getProductPresentationSettings();
+
+        // Present and return each product
+        foreach ($products as &$product) {
+            $product = $presenter->present(
+                $settings,
+                $product,
+                $this->context->language
+            );
+        }
+
+        return $products;
     }
 
     /**
@@ -89,11 +138,7 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
             ->setIdShop($this->context->shop->id)
             ->setIdLang($this->context->language->id)
             ->setIdCurrency($this->context->currency->id)
-            ->setIdCustomer(
-                $this->context->customer ?
-                    $this->context->customer->id :
-                    null
-            );
+            ->setIdCustomer($this->context->customer ? $this->context->customer->id : null);
     }
 
     /**
@@ -110,14 +155,14 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
         foreach ($facetsArray['filters'] as &$filter) {
             $filter['facetLabel'] = $facet->getLabel();
             if ($filter['nextEncodedFacets']) {
-                $filter['nextEncodedFacetsURL'] = $this->updateQueryString(array(
+                $filter['nextEncodedFacetsURL'] = Tools::updateCurrentQueryString([
                     'q' => $filter['nextEncodedFacets'],
                     'page' => null,
-                ));
+                ]);
             } else {
-                $filter['nextEncodedFacetsURL'] = $this->updateQueryString(array(
+                $filter['nextEncodedFacetsURL'] = Tools::updateCurrentQueryString([
                     'q' => null,
-                ));
+                ]);
             }
         }
         unset($filter);
@@ -128,7 +173,7 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
     /**
      * Renders an array of facets.
      *
-     * @param array $facets
+     * @param ProductSearchResult $result
      *
      * @return string the HTML of the facets
      */
@@ -141,11 +186,11 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
         }
 
         $facetsVar = array_map(
-            array($this, 'prepareFacetForTemplate'),
+            [$this, 'prepareFacetForTemplate'],
             $facetCollection->getFacets()
         );
 
-        $activeFilters = array();
+        $activeFilters = [];
         foreach ($facetsVar as $facet) {
             foreach ($facet['filters'] as $filter) {
                 if ($filter['active']) {
@@ -154,19 +199,19 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
             }
         }
 
-        return $this->render('catalog/_partials/facets', array(
+        return $this->render('catalog/_partials/facets', [
             'facets' => $facetsVar,
             'js_enabled' => $this->ajax,
             'activeFilters' => $activeFilters,
             'sort_order' => $result->getCurrentSortOrder()->toString(),
-            'clear_all_link' => $this->updateQueryString(array('q' => null, 'page' => null)),
-        ));
+            'clear_all_link' => Tools::updateCurrentQueryString(['q' => null, 'page' => null]),
+        ]);
     }
 
     /**
      * Renders an array of active filters.
      *
-     * @param array $facets
+     * @param ProductSearchResult $result
      *
      * @return string the HTML of the facets
      */
@@ -179,11 +224,11 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
         }
 
         $facetsVar = array_map(
-            array($this, 'prepareFacetForTemplate'),
+            [$this, 'prepareFacetForTemplate'],
             $facetCollection->getFacets()
         );
 
-        $activeFilters = array();
+        $activeFilters = [];
         foreach ($facetsVar as $facet) {
             foreach ($facet['filters'] as $filter) {
                 if ($filter['active']) {
@@ -192,10 +237,10 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
             }
         }
 
-        return $this->render('catalog/_partials/active_filters', array(
+        return $this->render('catalog/_partials/active_filters', [
             'activeFilters' => $activeFilters,
-            'clear_all_link' => $this->updateQueryString(array('q' => null, 'page' => null)),
-        ));
+            'clear_all_link' => Tools::updateCurrentQueryString(['q' => null, 'page' => null]),
+        ]);
     }
 
     /**
@@ -220,19 +265,20 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
      *
      * @param ProductSearchQuery $query
      *
-     * @return ProductSearchProviderInterface or null
+     * @return ProductSearchProviderInterface|null
      */
     private function getProductSearchProviderFromModules($query)
     {
+        // An array [module_name => module_output] will be returned
         $providers = Hook::exec(
             'productSearchProvider',
-            array('query' => $query),
+            ['query' => $query],
             null,
             true
         );
 
         if (!is_array($providers)) {
-            $providers = array();
+            $providers = [];
         }
 
         foreach ($providers as $provider) {
@@ -240,6 +286,8 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
                 return $provider;
             }
         }
+
+        return null;
     }
 
     /**
@@ -250,6 +298,11 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
      */
     protected function getProductSearchVariables()
     {
+        // If we've already done the work, no need to do it again
+        if ($this->productSearchVariablesCache !== null) {
+            return $this->productSearchVariablesCache;
+        }
+
         /*
          * To render the page we need to find something (a ProductSearchProviderInterface)
          * that knows how to query products.
@@ -277,10 +330,11 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
         // we need to set a few parameters from back-end preferences
         $query
             ->setResultsPerPage($resultsPerPage)
-            ->setPage(max((int) Tools::getValue('page'), 1));
+            ->setPage(max((int) Tools::getValue('page'), 1))
+        ;
 
         // set the sort order if provided in the URL
-        if (($encodedSortOrder = Tools::getValue('order'))) {
+        if ($encodedSortOrder = Tools::getValue('order')) {
             $query->setSortOrder(SortOrder::newFromString(
                 $encodedSortOrder
             ));
@@ -299,12 +353,26 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
 
         $query->setEncodedFacets($encodedFacets);
 
+        Hook::exec('actionProductSearchProviderRunQueryBefore', [
+            'query' => $query,
+        ]);
+
         // We're ready to run the actual query!
 
+        /** @var ProductSearchResult $result */
         $result = $provider->runQuery(
             $context,
             $query
         );
+
+        Hook::exec('actionProductSearchProviderRunQueryAfter', [
+            'query' => $query,
+            'result' => $result,
+        ]);
+
+        if (Configuration::get('PS_CATALOG_MODE') && !Configuration::get('PS_CATALOG_MODE_WITH_PRICES')) {
+            $this->disablePriceControls($result);
+        }
 
         // sort order is useful for template,
         // add it if undefined - it should be the same one
@@ -365,7 +433,7 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
             }
         }
 
-        $searchVariables = array(
+        $searchVariables = [
             'result' => $result,
             'label' => $this->getListingLabel(),
             'products' => $products,
@@ -375,15 +443,51 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
             'rendered_facets' => $rendered_facets,
             'rendered_active_filters' => $rendered_active_filters,
             'js_enabled' => $this->ajax,
-            'current_url' => $this->updateQueryString(array(
+            'current_url' => Tools::updateCurrentQueryString([
                 'q' => $result->getEncodedFacets(),
-            )),
-        );
+            ]),
+        ];
 
-        Hook::exec('filterProductSearch', array('searchVariables' => &$searchVariables));
+        Hook::exec('filterProductSearch', ['searchVariables' => &$searchVariables]);
         Hook::exec('actionProductSearchAfter', $searchVariables);
 
+        // Cache the result in case it's needed later during the same request
+        $this->productSearchVariablesCache = $searchVariables;
+
         return $searchVariables;
+    }
+
+    /**
+     * Removes price information from result (in facet collection and available sorters)
+     * Usually used for catalog mode.
+     *
+     * @param ProductSearchResult $result
+     */
+    protected function disablePriceControls(ProductSearchResult $result)
+    {
+        if ($result->getFacetCollection()) {
+            $filteredFacets = [];
+            /** @var Facet $facet */
+            foreach ($result->getFacetCollection()->getFacets() as $facet) {
+                if ('price' === $facet->getType()) {
+                    continue;
+                }
+                $filteredFacets[] = $facet;
+            }
+            $result->getFacetCollection()->setFacets($filteredFacets);
+        }
+
+        if ($result->getAvailableSortOrders()) {
+            $filteredOrders = [];
+            /** @var SortOrder $sortOrder */
+            foreach ($result->getAvailableSortOrders() as $sortOrder) {
+                if ('price' === $sortOrder->getField()) {
+                    continue;
+                }
+                $filteredOrders[] = $sortOrder;
+            }
+            $result->setAvailableSortOrders($filteredOrders);
+        }
     }
 
     /**
@@ -396,7 +500,7 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
      * @param ProductSearchQuery $query
      * @param ProductSearchResult $result
      *
-     * @return an array that makes rendering the pagination very easy
+     * @return array An array that makes rendering the pagination very easy
      */
     protected function getTemplateVarPagination(
         ProductSearchQuery $query,
@@ -406,22 +510,23 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
         $pagination
             ->setPage($query->getPage())
             ->setPagesCount(
-                ceil($result->getTotalProductsCount() / $query->getResultsPerPage())
-            );
+                (int) ceil($result->getTotalProductsCount() / $query->getResultsPerPage())
+            )
+        ;
 
         $totalItems = $result->getTotalProductsCount();
         $itemsShownFrom = ($query->getResultsPerPage() * ($query->getPage() - 1)) + 1;
         $itemsShownTo = $query->getResultsPerPage() * $query->getPage();
 
         $pages = array_map(function ($link) {
-            $link['url'] = $this->updateQueryString(array(
+            $link['url'] = Tools::updateCurrentQueryString([
                 'page' => $link['page'] > 1 ? $link['page'] : null,
-            ));
+            ]);
 
             return $link;
         }, $pagination->buildLinks());
 
-        //Filter next/previous link on first/last page
+        // Filter next/previous link on first/last page
         $pages = array_filter($pages, function ($page) use ($pagination) {
             if ('previous' === $page['type'] && 1 === $pagination->getPage()) {
                 return false;
@@ -433,7 +538,7 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
             return true;
         });
 
-        return array(
+        return [
             'total_items' => $totalItems,
             'items_shown_from' => $itemsShownFrom,
             'items_shown_to' => ($itemsShownTo <= $totalItems) ? $itemsShownTo : $totalItems,
@@ -442,7 +547,7 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
             'pages' => $pages,
             // Compare to 3 because there are the next and previous links
             'should_be_displayed' => (count($pagination->buildLinks()) > 3),
-        );
+        ];
     }
 
     /**
@@ -462,13 +567,79 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
         return array_map(function ($sortOrder) use ($currentSortOrderURLParameter) {
             $order = $sortOrder->toArray();
             $order['current'] = $order['urlParameter'] === $currentSortOrderURLParameter;
-            $order['url'] = $this->updateQueryString(array(
+            $order['url'] = Tools::updateCurrentQueryString([
                 'order' => $order['urlParameter'],
                 'page' => null,
-            ));
+            ]);
 
             return $order;
         }, $sortOrders);
+    }
+
+    /**
+     * Do not index filtered pages or when sorting was used.
+     * This should correlate with robots.txt content. Make sure to update it also,
+     * if you change anything here.
+     */
+    public function getTemplateVarPage()
+    {
+        $page = parent::getTemplateVarPage();
+
+        // If some search parameters are submitted, or user selected some custom sorting,
+        if (Tools::isSubmit('q') || Tools::isSubmit('order')) {
+            $page['meta']['robots'] = 'noindex';
+        }
+
+        return $page;
+    }
+
+    /**
+     * Generates structured data for the current listing, extending the default ones.
+     *
+     * @return array
+     */
+    public function getStructuredData(): array
+    {
+        $structuredData = parent::getStructuredData();
+
+        // Prepare the new key
+        $structuredData['itemlist'] = [
+            '@context' => 'https://schema.org/',
+            '@type' => 'ItemList',
+            'itemListElement' => [],
+        ];
+
+        // Get search data
+        $variables = $this->getProductSearchVariables();
+
+        // Fill the itemListElement with the products of the listing
+        if (!empty($variables['products']) && is_array($variables['products'])) {
+            $index = 0;
+            foreach ($variables['products'] as $product) {
+                $structuredData['itemlist']['itemListElement'][] = [
+                    '@type' => 'ListItem',
+                    'position' => $index + 1,
+                    'name' => $product['name'],
+                    'url' => $product['url'],
+                ];
+                ++$index;
+            }
+        }
+
+        // Fill total count
+        if (isset($variables['pagination']['total_items'])) {
+            $structuredData['itemlist']['numberOfItems'] = $variables['pagination']['total_items'];
+        }
+
+        // Fill label name
+        if (isset($variables['label'])) {
+            $structuredData['itemlist']['name'] = $variables['label'];
+        }
+
+        // Fill canonical URL of this listing
+        $structuredData['itemlist']['url'] = $this->getCanonicalURL();
+
+        return $structuredData;
     }
 
     /**
@@ -484,16 +655,16 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
     {
         $search = $this->getProductSearchVariables();
 
-        $rendered_products_top = $this->render('catalog/_partials/products-top', array('listing' => $search));
-        $rendered_products = $this->render('catalog/_partials/products', array('listing' => $search));
-        $rendered_products_bottom = $this->render('catalog/_partials/products-bottom', array('listing' => $search));
+        $rendered_products_top = $this->render('catalog/_partials/products-top', ['listing' => $search]);
+        $rendered_products = $this->render('catalog/_partials/products', ['listing' => $search]);
+        $rendered_products_bottom = $this->render('catalog/_partials/products-bottom', ['listing' => $search]);
 
         $data = array_merge(
-            array(
+            [
                 'rendered_products_top' => $rendered_products_top,
                 'rendered_products' => $rendered_products,
                 'rendered_products_bottom' => $rendered_products_bottom,
-            ),
+            ],
             $search
         );
 
@@ -528,7 +699,7 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
      *
      * @param string $template the template for this page
      */
-    protected function doProductSearch($template, $params = array(), $locale = null)
+    protected function doProductSearch($template, $params = [], $locale = null)
     {
         if ($this->ajax) {
             ob_end_clean();
@@ -538,9 +709,9 @@ abstract class ProductListingFrontControllerCore extends ProductPresentingFrontC
             return;
         } else {
             $variables = $this->getProductSearchVariables();
-            $this->context->smarty->assign(array(
+            $this->context->smarty->assign([
                 'listing' => $variables,
-            ));
+            ]);
             $this->setTemplate($template, $params, $locale);
         }
     }

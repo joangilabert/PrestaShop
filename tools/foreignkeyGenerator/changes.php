@@ -1,5 +1,10 @@
 <?php
 /**
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
+ */
+
+/**
  * $changes = array(
  *   'tablename' => array(
  *     'field' => array(
@@ -118,12 +123,6 @@ $changes = array(
             '#unsigned' => true,
         ),
         'id_tax' => array(
-            '#type' => 'INT(11)',
-            '#unsigned' => true,
-        ),
-    ),
-    'tax_rules_group' => array(
-        'id_tax_rules_group' => array(
             '#type' => 'INT(11)',
             '#unsigned' => true,
         ),

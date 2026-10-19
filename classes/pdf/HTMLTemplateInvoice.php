@@ -1,54 +1,56 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
-/**
- * @since 1.5
- */
+use PrestaShop\PrestaShop\Adapter\ContainerFinder;
+use PrestaShop\PrestaShop\Core\Util\Sorter;
+use PrestaShopBundle\Entity\Repository\ShipmentRepository;
+
 class HTMLTemplateInvoiceCore extends HTMLTemplate
 {
+    /**
+     * @var Order
+     */
     public $order;
+
+    /**
+     * @var OrderInvoice
+     */
     public $order_invoice;
+
+    /**
+     * @var bool
+     */
     public $available_in_your_account = false;
 
     /**
+     * @var ShipmentRepository
+     */
+    private $shipmentRepository;
+
+    /**
      * @param OrderInvoice $order_invoice
-     * @param $smarty
+     * @param Smarty $smarty
+     * @param bool $bulk_mode
      *
      * @throws PrestaShopException
      */
-    public function __construct(OrderInvoice $order_invoice, $smarty, $bulk_mode = false)
+    public function __construct(OrderInvoice $order_invoice, Smarty $smarty, $bulk_mode = false)
     {
         $this->order_invoice = $order_invoice;
         $this->order = new Order((int) $this->order_invoice->id_order);
         $this->smarty = $smarty;
+        $this->smarty->assign('isTaxEnabled', (bool) Configuration::get('PS_TAX'));
+
+        $containerFinder = new ContainerFinder(Context::getContext());
+        $this->shipmentRepository = $containerFinder->getContainer()->get(ShipmentRepository::class);
 
         // If shop_address is null, then update it with current one.
         // But no DB save required here to avoid massive updates for bulk PDF generation case.
         // (DB: bug fixed in 1.6.1.1 with upgrade SQL script to avoid null shop_address in old orderInvoices)
-        if (!isset($this->order_invoice->shop_address) || !$this->order_invoice->shop_address) {
+        if (empty($this->order_invoice->shop_address)) {
             $this->order_invoice->shop_address = OrderInvoice::getCurrentFormattedShopAddress((int) $this->order->id_shop);
             if (!$bulk_mode) {
                 OrderInvoice::fixAllShopAddresses();
@@ -59,7 +61,8 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
         $this->date = Tools::displayDate($order_invoice->date_add);
 
         $id_lang = Context::getContext()->language->id;
-        $this->title = $order_invoice->getInvoiceNumberFormatted($id_lang);
+        $id_shop = Context::getContext()->shop->id;
+        $this->title = $order_invoice->getInvoiceNumberFormatted($id_lang, $id_shop);
 
         $this->shop = new Shop((int) $this->order->id_shop);
     }
@@ -72,7 +75,7 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
     public function getHeader()
     {
         $this->assignCommonHeaderData();
-        $this->smarty->assign(array('header' => Context::getContext()->getTranslator()->trans('Invoice', array(), 'Shop.Pdf')));
+        $this->smarty->assign(['header' => Context::getContext()->getTranslator()->trans('Invoice', [], 'Shop.Pdf')]);
 
         return $this->smarty->fetch($this->getTemplate('header'));
     }
@@ -80,35 +83,35 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
     /**
      * Compute layout elements size.
      *
-     * @param $params Array Layout elements
+     * @param array $params Layout elements
      *
      * @return array Layout elements columns size
      */
-    protected function computeLayout($params)
+    protected function computeLayout(array $params)
     {
-        $layout = array(
-            'reference' => array(
+        $layout = [
+            'reference' => [
                 'width' => 15,
-            ),
-            'product' => array(
+            ],
+            'product' => [
                 'width' => 40,
-            ),
-            'quantity' => array(
+            ],
+            'quantity' => [
+                'width' => 12,
+            ],
+            'tax_code' => [
                 'width' => 8,
-            ),
-            'tax_code' => array(
-                'width' => 8,
-            ),
-            'unit_price_tax_excl' => array(
+            ],
+            'unit_price_tax_excl' => [
                 'width' => 0,
-            ),
-            'total_tax_excl' => array(
+            ],
+            'total_tax_excl' => [
                 'width' => 0,
-            ),
-        );
+            ],
+        ];
 
         if (isset($params['has_discount']) && $params['has_discount']) {
-            $layout['before_discount'] = array('width' => 0);
+            $layout['before_discount'] = ['width' => 0];
             $layout['product']['width'] -= 7;
             $layout['reference']['width'] -= 3;
         }
@@ -152,7 +155,7 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
 
         $delivery_address = null;
         $formatted_delivery_address = '';
-        if (isset($this->order->id_address_delivery) && $this->order->id_address_delivery) {
+        if (!empty($this->order->id_address_delivery)) {
             $delivery_address = new Address((int) $this->order->id_address_delivery);
             $formatted_delivery_address = AddressFormat::generateAddress($delivery_address, $deliveryAddressPatternRules, '<br />', ' ');
         }
@@ -179,16 +182,16 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
 
             // Set tax_code
             $taxes = OrderDetail::getTaxListStatic($id);
-            $tax_temp = array();
+            $tax_temp = [];
             foreach ($taxes as $tax) {
                 $obj = new Tax($tax['id_tax']);
                 $translator = Context::getContext()->getTranslator();
                 $tax_temp[] = $translator->trans(
                     '%taxrate%%space%%',
-                    array(
+                    [
                         '%taxrate%' => ($obj->rate + 0),
                         '%space%' => '&nbsp;',
-                    ),
+                    ],
                     'Shop.Pdf'
                 );
             }
@@ -205,7 +208,7 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
             foreach ($order_details as &$order_detail) {
                 if ($order_detail['image'] != null) {
                     $name = 'product_mini_' . (int) $order_detail['product_id'] . (isset($order_detail['product_attribute_id']) ? '_' . (int) $order_detail['product_attribute_id'] : '') . '.jpg';
-                    $path = _PS_PROD_IMG_DIR_ . $order_detail['image']->getExistingImgPath() . '.jpg';
+                    $path = _PS_PRODUCT_IMG_DIR_ . $order_detail['image']->getExistingImgPath() . '.jpg';
 
                     $order_detail['image_tag'] = preg_replace(
                         '/\.*' . preg_quote(__PS_BASE_URI__, '/') . '/',
@@ -224,7 +227,16 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
             unset($order_detail); // don't overwrite the last order_detail later
         }
 
-        $cart_rules = $this->order->getCartRules($this->order_invoice->id);
+        // Sort products by Reference ID (and if equals (like combination) by Supplier Reference)
+        $sorter = new Sorter();
+        $order_details = $sorter->natural($order_details, Sorter::ORDER_DESC, 'product_reference', 'product_supplier_reference');
+
+        $shipmentCarrierNames = $this->getCarrierNamesFromShipments($this->order->id);
+        if (!empty($shipmentCarrierNames)) {
+            $carrier->name = $shipmentCarrierNames;
+        }
+
+        $cart_rules = $this->order->getCartRules();
         $free_shipping = false;
         foreach ($cart_rules as $key => $cart_rule) {
             if ($cart_rule['free_shipping']) {
@@ -269,7 +281,7 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
 
         $total_taxes = $this->order_invoice->total_paid_tax_incl - $this->order_invoice->total_paid_tax_excl;
 
-        $footer = array(
+        $footer = [
             'products_before_discounts_tax_excl' => $this->order_invoice->total_products,
             'product_discounts_tax_excl' => $product_discounts_tax_excl,
             'products_after_discounts_tax_excl' => $products_after_discounts_tax_excl,
@@ -287,16 +299,15 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
             'total_taxes' => $total_taxes,
             'total_paid_tax_excl' => $this->order_invoice->total_paid_tax_excl,
             'total_paid_tax_incl' => $this->order_invoice->total_paid_tax_incl,
-        );
+        ];
 
         foreach ($footer as $key => $value) {
-            $footer[$key] = Tools::ps_round($value, _PS_PRICE_COMPUTE_PRECISION_, $this->order->round_mode);
+            $footer[$key] = Tools::ps_round($value, Context::getContext()->getComputingPrecision(), $this->order->round_mode);
         }
 
-        /**
+        /*
          * Need the $round_mode for the tests.
          */
-        $round_type = null;
         switch ($this->order->round_type) {
             case Order::ROUND_TOTAL:
                 $round_type = 'total';
@@ -319,14 +330,14 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
         $display_product_images = Configuration::get('PS_PDF_IMG_INVOICE');
         $tax_excluded_display = Group::getPriceDisplayMethod($customer->id_default_group);
 
-        $layout = $this->computeLayout(array('has_discount' => $has_discount));
+        $layout = $this->computeLayout(['has_discount' => $has_discount]);
 
-        $legal_free_text = Hook::exec('displayInvoiceLegalFreeText', array('order' => $this->order));
+        $legal_free_text = Hook::exec('displayInvoiceLegalFreeText', ['order' => $this->order]);
         if (!$legal_free_text) {
             $legal_free_text = Configuration::get('PS_INVOICE_LEGAL_FREE_TEXT', (int) Context::getContext()->language->id, null, (int) $this->order->id_shop);
         }
 
-        $data = array(
+        $data = [
             'order' => $this->order,
             'order_invoice' => $this->order_invoice,
             'order_details' => $order_details,
@@ -334,25 +345,21 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
             'cart_rules' => $cart_rules,
             'delivery_address' => $formatted_delivery_address,
             'invoice_address' => $formatted_invoice_address,
-            'addresses' => array('invoice' => $invoice_address, 'delivery' => $delivery_address),
+            'addresses' => ['invoice' => $invoice_address, 'delivery' => $delivery_address],
             'tax_excluded_display' => $tax_excluded_display,
             'display_product_images' => $display_product_images,
             'layout' => $layout,
             'tax_tab' => $this->getTaxTabContent(),
             'customer' => $customer,
             'footer' => $footer,
-            'ps_price_compute_precision' => _PS_PRICE_COMPUTE_PRECISION_,
+            'ps_price_compute_precision' => Context::getContext()->getComputingPrecision(),
             'round_type' => $round_type,
             'legal_free_text' => $legal_free_text,
-        );
-
-        if (Tools::getValue('debug')) {
-            die(json_encode($data));
-        }
+        ];
 
         $this->smarty->assign($data);
 
-        $tpls = array(
+        $tpls = [
             'style_tab' => $this->smarty->fetch($this->getTemplate('invoice.style-tab')),
             'addresses_tab' => $this->smarty->fetch($this->getTemplate('invoice.addresses-tab')),
             'summary_tab' => $this->smarty->fetch($this->getTemplate('invoice.summary-tab')),
@@ -362,7 +369,7 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
             'note_tab' => $this->smarty->fetch($this->getTemplate('invoice.note-tab')),
             'total_tab' => $this->smarty->fetch($this->getTemplate('invoice.total-tab')),
             'shipping_tab' => $this->smarty->fetch($this->getTemplate('invoice.shipping-tab')),
-        );
+        ];
         $this->smarty->assign($tpls);
 
         return $this->smarty->fetch($this->getTemplateByCountry($country->iso_code));
@@ -371,21 +378,16 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
     /**
      * Returns the tax tab content.
      *
-     * @return string Tax tab html content
+     * @return string|array Tax tab html content
      */
     public function getTaxTabContent()
     {
-        $debug = Tools::getValue('debug');
-
         $address = new Address((int) $this->order->{Configuration::get('PS_TAX_ADDRESS_TYPE')});
         $tax_exempt = Configuration::get('VATNUMBER_MANAGEMENT')
-                            && !empty($address->vat_number)
-                            && $address->id_country != Configuration::get('VATNUMBER_COUNTRY');
-        $carrier = new Carrier($this->order->id_carrier);
+            && !empty($address->vat_number)
+            && $address->id_country != Configuration::get('VATNUMBER_COUNTRY');
 
-        $tax_breakdowns = $this->getTaxBreakdown();
-
-        $data = array(
+        $data = [
             'tax_exempt' => $tax_exempt,
             'use_one_after_another_method' => $this->order_invoice->useOneAfterAnotherTaxComputationMethod(),
             'display_tax_bases_in_breakdowns' => $this->order_invoice->displayTaxBasesInProductTaxesBreakdown(),
@@ -393,15 +395,10 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
             'shipping_tax_breakdown' => $this->order_invoice->getShippingTaxesBreakdown($this->order),
             'ecotax_tax_breakdown' => $this->order_invoice->getEcoTaxTaxesBreakdown(),
             'wrapping_tax_breakdown' => $this->order_invoice->getWrappingTaxesBreakdown(),
-            'tax_breakdowns' => $tax_breakdowns,
-            'order' => $debug ? null : $this->order,
-            'order_invoice' => $debug ? null : $this->order_invoice,
-            'carrier' => $debug ? null : $carrier,
-        );
-
-        if ($debug) {
-            return $data;
-        }
+            'tax_breakdowns' => $this->getTaxBreakdown(),
+            'order' => $this->order,
+            'order_invoice' => $this->order_invoice,
+        ];
 
         $this->smarty->assign($data);
 
@@ -411,16 +408,16 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
     /**
      * Returns different tax breakdown elements.
      *
-     * @return array Different tax breakdown elements
+     * @return array|bool Different tax breakdown elements
      */
     protected function getTaxBreakdown()
     {
-        $breakdowns = array(
+        $breakdowns = [
             'product_tax' => $this->order_invoice->getProductTaxesBreakdown($this->order),
             'shipping_tax' => $this->order_invoice->getShippingTaxesBreakdown($this->order),
-            'ecotax_tax' => $this->order_invoice->getEcoTaxTaxesBreakdown(),
+            'ecotax_tax' => Configuration::get('PS_USE_ECOTAX') ? $this->order_invoice->getEcoTaxTaxesBreakdown() : [],
             'wrapping_tax' => $this->order_invoice->getWrappingTaxesBreakdown(),
-        );
+        ];
 
         foreach ($breakdowns as $type => $bd) {
             if (empty($bd)) {
@@ -429,7 +426,7 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
         }
 
         if (empty($breakdowns)) {
-            $breakdowns = false;
+            return false;
         }
 
         if (isset($breakdowns['product_tax'])) {
@@ -448,32 +445,12 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
         return $breakdowns;
     }
 
-    /*
-    protected function getTaxLabel($tax_breakdowns)
-    {
-        $tax_label = '';
-        $all_taxes = array();
-
-        foreach ($tax_breakdowns as $type => $bd)
-            foreach ($bd as $line)
-                if(isset($line['id_tax']))
-                    $all_taxes[] = $line['id_tax'];
-
-        $taxes = array_unique($all_taxes);
-
-        foreach ($taxes as $id_tax) {
-            $tax = new Tax($id_tax);
-            $tax_label .= $tax->id.': '.$tax->name[$this->order->id_lang].' ('.$tax->rate.'%) ';
-        }
-
-        return $tax_label;
-    }
-    */
-
     /**
      * Returns the invoice template associated to the country iso_code.
      *
      * @param string $iso_country
+     *
+     * @return string
      */
     protected function getTemplateByCountry($iso_country)
     {
@@ -509,17 +486,37 @@ class HTMLTemplateInvoiceCore extends HTMLTemplate
     {
         $id_lang = Context::getContext()->language->id;
         $id_shop = (int) $this->order->id_shop;
-        $format = '%1$s%2$06d';
 
-        if (Configuration::get('PS_INVOICE_USE_YEAR')) {
-            $format = Configuration::get('PS_INVOICE_YEAR_POS') ? '%1$s%3$s-%2$06d' : '%1$s%2$06d-%3$s';
+        $invoiceNumber = $this->order_invoice->getInvoiceNumberFormatted($id_lang, $id_shop);
+        $safeNumber = str_replace(['/', '\\'], '-', $invoiceNumber);
+
+        return sprintf('%s.pdf', $safeNumber);
+    }
+
+    /**
+     * Get all carrier names from shipments for an order, joined by ", ".
+     * Falls back to an empty string if no shipments exist or on error.
+     */
+    private function getCarrierNamesFromShipments(int $orderId): string
+    {
+        try {
+            $shipments = $this->shipmentRepository->findByOrderId($orderId);
+        } catch (Throwable $e) {
+            return '';
         }
 
-        return sprintf(
-            $format,
-            Configuration::get('PS_INVOICE_PREFIX', $id_lang, null, $id_shop),
-            $this->order_invoice->number,
-            date('Y', strtotime($this->order_invoice->date_add))
-        ) . '.pdf';
+        if (empty($shipments)) {
+            return '';
+        }
+
+        $carrierNames = [];
+        foreach ($shipments as $shipment) {
+            $carrier = new Carrier($shipment->getCarrierId());
+            if ($carrier->name && !in_array($carrier->name, $carrierNames)) {
+                $carrierNames[] = $carrier->name;
+            }
+        }
+
+        return implode(', ', $carrierNames);
     }
 }

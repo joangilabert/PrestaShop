@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Email;
@@ -34,32 +14,38 @@ final class MailOption
     /**
      * @var int Option defines that emails should be sent using native mail() function
      */
-    const METHOD_NATIVE = 1;
+    public const METHOD_NATIVE = 1;
 
     /**
-     *  @var int Option defines that emails should be sent using configured SMTP settings
+     * @var int Option defines that emails should be sent using configured SMTP settings
      */
-    const METHOD_SMTP = 2;
+    public const METHOD_SMTP = 2;
 
     /**
      * @var int Option defines that emails should not be sent
      */
-    const METHOD_NONE = 3;
+    public const METHOD_NONE = 3;
 
     /**
      * @var int Option defines that emails should be sent in HTML format only
      */
-    const TYPE_HTML = 1;
+    public const TYPE_HTML = 1;
 
     /**
      * @var int Option defines that emails should be sent in TXT format only
      */
-    const TYPE_TXT = 2;
+    public const TYPE_TXT = 2;
 
     /**
      * @var int Option defines that emails should be sent in both HTML and TXT formats
      */
-    const TYPE_BOTH = 3;
+    public const TYPE_BOTH = 3;
+
+    /**
+     * @var int Option defines that emails should be sent in both HTML and TXT formats,
+     *          with TXT format being automatically generated from HTML content
+     */
+    public const TYPE_BOTH_AUTOMATIC_TEXT = 4;
 
     /**
      * Class should not be initialized as its responsibility is to hold mail method options.

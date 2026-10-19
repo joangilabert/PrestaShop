@@ -1,36 +1,20 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Form\Admin\Configure\ShopParameters\CustomerPreferences;
 
+use PrestaShopBundle\Form\Admin\Type\MultistoreConfigurationType;
 use PrestaShopBundle\Form\Admin\Type\SwitchType;
-use PrestaShopBundle\Form\Admin\Type\TextWithUnitType;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
+use PrestaShopBundle\Form\Extension\MultistoreConfigurationTypeExtension;
+use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\GreaterThanOrEqual;
+use Symfony\Component\Validator\Constraints\Type;
 
 /**
  * Class generates "General" form
@@ -41,14 +25,87 @@ class GeneralType extends TranslatorAwareType
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
         $builder
-            ->add('redisplay_cart_at_login', SwitchType::class)
-            ->add('send_email_after_registration', SwitchType::class)
-            ->add('password_reset_delay', TextWithUnitType::class, [
-                'unit' => $this->trans('minutes', 'Admin.Shopparameters.Feature'),
+            ->add('redisplay_cart_at_login', SwitchType::class, [
+                'label' => $this->trans(
+                    'Re-display cart at login',
+                    'Admin.Shopparameters.Feature'
+                ),
+                'help' => $this->trans(
+                    'If this option is enabled, the customer\'s last cart will be restored when they log back in. Otherwise, a new, empty cart will be created.',
+                    'Admin.Shopparameters.Help'
+                ),
+                'multistore_configuration_key' => 'PS_CART_FOLLOWING',
             ])
-            ->add('enable_b2b_mode', SwitchType::class)
-            ->add('ask_for_birthday', SwitchType::class)
-            ->add('enable_offers', SwitchType::class);
+            ->add('send_email_after_registration', SwitchType::class, [
+                'label' => $this->trans(
+                    'Send an email after registration',
+                    'Admin.Shopparameters.Feature'
+                ),
+                'help' => $this->trans(
+                    'Send an email with a summary of the account information after registration.',
+                    'Admin.Shopparameters.Help'
+                ),
+                'multistore_configuration_key' => 'PS_CUSTOMER_CREATION_EMAIL',
+            ])
+            ->add('password_reset_delay', IntegerType::class, [
+                'label' => $this->trans(
+                    'Password reset delay',
+                    'Admin.Shopparameters.Feature'
+                ),
+                'constraints' => [
+                    new GreaterThanOrEqual(
+                        [
+                            'value' => 0,
+                            'message' => $this->trans('The field is invalid. Please enter a positive integer.', 'Admin.Notifications.Error'),
+                        ]
+                    ),
+                    new Type(
+                        [
+                            'value' => 'numeric',
+                            'message' => $this->trans('The field is invalid. Please enter a positive integer.', 'Admin.Notifications.Error'),
+                        ]
+                    ),
+                ],
+                'help' => $this->trans(
+                    'Minimum time required between two requests for a password reset.',
+                    'Admin.Shopparameters.Help'
+                ),
+                'unit' => $this->trans('minutes', 'Admin.Shopparameters.Feature'),
+                'multistore_configuration_key' => 'PS_PASSWD_TIME_FRONT',
+            ])
+            ->add('enable_b2b_mode', SwitchType::class, [
+                'label' => $this->trans(
+                    'Enable B2B mode',
+                    'Admin.Shopparameters.Feature'
+                ),
+                'help' => $this->trans(
+                    'Activate or deactivate B2B mode. When this option is enabled, B2B features will be made available.',
+                    'Admin.Shopparameters.Help'
+                ),
+                'multistore_configuration_key' => 'PS_B2B_ENABLE',
+            ])
+            ->add('ask_for_birthday', SwitchType::class, [
+                'label' => $this->trans(
+                    'Ask for birth date',
+                    'Admin.Shopparameters.Feature'
+                ),
+                'help' => $this->trans(
+                    'Display or not the birth date field.',
+                    'Admin.Shopparameters.Help'
+                ),
+                'multistore_configuration_key' => 'PS_CUSTOMER_BIRTHDATE',
+            ])
+            ->add('enable_offers', SwitchType::class, [
+                'label' => $this->trans(
+                    'Enable partner offers',
+                    'Admin.Shopparameters.Feature'
+                ),
+                'help' => $this->trans(
+                    'Display or not the partner offers tick box, to receive offers from the store\'s partners.',
+                    'Admin.Shopparameters.Help'
+                ),
+                'multistore_configuration_key' => 'PS_CUSTOMER_OPTIN',
+            ]);
     }
 
     /**
@@ -67,5 +124,15 @@ class GeneralType extends TranslatorAwareType
     public function getBlockPrefix()
     {
         return 'customer_preferences_general_block';
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * @see MultistoreConfigurationTypeExtension
+     */
+    public function getParent(): string
+    {
+        return MultistoreConfigurationType::class;
     }
 }

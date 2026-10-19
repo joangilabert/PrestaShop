@@ -1,32 +1,12 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Entity\Repository;
 
-use Doctrine\DBAL\Driver\Connection;
+use Doctrine\DBAL\Connection;
 use Employee;
 use PrestaShop\PrestaShop\Adapter\Category\CategoryDataProvider;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
@@ -67,7 +47,7 @@ class CategoryRepository
     /**
      * @param Connection $connection
      * @param ContextAdapter $contextAdapter
-     * @param $tablePrefix
+     * @param string $tablePrefix
      *
      * @throws NotImplementedException
      */
@@ -125,9 +105,9 @@ class CategoryRepository
         $statement->bindValue('language_id', $this->languageId);
         $statement->bindValue('shop_id', $this->shopId);
 
-        $statement->execute();
+        $result = $statement->executeQuery();
 
-        $rows = $statement->fetchAll();
+        $rows = $result->fetchAllAssociative();
         $rows = $this->castNumericToInt($rows);
 
         if (true === $tree && !empty($rows)) {
@@ -138,7 +118,7 @@ class CategoryRepository
     }
 
     /**
-     * @param $rows array categories rows
+     * @param array $rows categories rows
      *
      * @return array
      */
@@ -146,8 +126,8 @@ class CategoryRepository
     {
         $idRootCategory = (new CategoryDataProvider($this->contextAdapter))->getRootCategory()->id;
 
-        $categories = array();
-        $buff = array();
+        $categories = [];
+        $buff = [];
 
         foreach ($rows as $row) {
             $current = &$buff[$row['id_category']];
@@ -160,6 +140,6 @@ class CategoryRepository
             }
         }
 
-        return array('tree' => array('children' => $categories));
+        return ['tree' => ['children' => $categories]];
     }
 }

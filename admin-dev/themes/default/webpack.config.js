@@ -1,109 +1,133 @@
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 const path = require('path');
-const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
-const keepLicense = require('uglify-save-license');
-const OptimizeCSSAssetsPlugin = require("optimize-css-assets-webpack-plugin");
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
+const {CleanWebpackPlugin} = require('clean-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const FontPreloadPlugin = require('webpack-font-preload-plugin');
+const CssoWebpackPlugin = require('csso-webpack-plugin').default;
+const LicensePlugin = require('webpack-license-plugin');
+const RemoveEmptyScriptsPlugin = require('webpack-remove-empty-scripts');
+const bourbon = require('bourbon');
 
 module.exports = (env, argv) => {
   const devMode = argv.mode === 'development';
 
   const config = {
-    entry: [
-      './js/theme.js'
-    ],
+    mode: argv.mode || 'production',
+    entry: {
+      theme: './js/theme.js',
+      rtl: './scss/rtl.scss',
+    },
     output: {
       path: path.resolve(__dirname, 'public'),
-      filename: 'bundle.js'
+      publicPath: '',
+      filename: '[name].bundle.js',
     },
-    //devtool: 'source-map', // uncomment me to build source maps (really slow)
     module: {
-      rules: [{
-        test: path.join(__dirname, 'js'),
-        use: [{
-          loader: 'babel-loader',
-          options: {
-            presets: [
-              ['@babel/preset-env', {modules: false}]
-            ]
-          }
-        }]
-      }, {
-        test: /\.(scss|sass)$/,
-        use: [
-          MiniCssExtractPlugin.loader,
-          {
-            loader: 'css-loader',
-            options: {
-              //sourceMap: true, // uncomment me to generate source maps
-            }
+      rules: [
+        {
+          test: path.join(__dirname, 'js'),
+          use: [
+            {
+              loader: 'babel-loader',
+              options: {
+                presets: [['@babel/preset-env', {modules: false}]],
+              },
+            },
+          ],
+        },
+        {
+          test: /\.(scss|sass|css)$/,
+          use: [
+            {
+              loader: MiniCssExtractPlugin.loader,
+            },
+            {
+              loader: 'css-loader',
+            },
+            {
+              loader: 'postcss-loader',
+            },
+            {
+              loader: 'sass-loader',
+              options: {
+                sourceMap: true,
+                sassOptions: {
+                  includePaths: bourbon.includePaths,
+                },
+              },
+            },
+          ],
+        },
+        {
+          test: /\.(jpg|png|woff2?|eot|otf|ttf|svg|gif)$/,
+          type: 'asset/resource',
+          generator: {
+            filename: '[hash][ext]',
           },
-          {
-            loader: 'postcss-loader',
-            options: {
-              //sourceMap: true, // uncomment me to generate source maps
-            }
+          exclude: /MaterialIcons-Regular\.(woff2?|ttf)$/,
+        },
+        {
+          test: /MaterialIcons-Regular\.(woff2?|ttf)$/,
+          type: 'asset/resource',
+          generator: {
+            filename: '[hash].preload[ext]',
           },
-          {
-            loader: 'sass-loader',
-            options: {
-              //sourceMap: true, // uncomment me to generate source maps
-            }
-          }
-        ]
-      }, {
-        test: /.(gif|png|woff(2)?|eot|ttf|svg)(\?[a-z0-9=\.]+)?$/,
-        loader: 'file-loader?name=[hash].[ext]'
-      }]
+        },
+      ],
     },
-    optimization: {
-
-    },
+    optimization: {},
     plugins: [
+      new RemoveEmptyScriptsPlugin(),
+      new CleanWebpackPlugin({
+        root: path.resolve(__dirname),
+        cleanOnceBeforeBuildPatterns: [
+          '**/*', // required
+          '!theme.rtlfix', // exclusion
+        ],
+      }),
       new MiniCssExtractPlugin({
-        filename: 'theme.css'
-      })
-    ]
+        filename: '[name].css',
+      }),
+      new HtmlWebpackPlugin({
+        filename: 'preload.tpl',
+        templateContent: '{{{preloadLinks}}}',
+        inject: false,
+      }),
+      new FontPreloadPlugin({
+        index: 'preload.tpl',
+        extensions: ['woff2'],
+        filter: /preload/,
+        // eslint-disable-next-line
+        replaceCallback: ({indexSource, linksAsString}) => indexSource.replace('{{{preloadLinks}}}', linksAsString.replace(/href="/g, 'href="{$admin_dir}')),
+      }),
+      new CssoWebpackPlugin({
+        forceMediaMerge: true,
+      }),
+      new LicensePlugin({
+        outputFilename: 'thirdPartyNotice.json',
+        licenseOverrides: {
+          'vazirmatn@32.102.0': 'OFL-1.1',
+        },
+        replenishDefaultLicenseTexts: true,
+      }),
+    ],
   };
 
   if (!devMode) {
-    config.optimization.minimizer = [
-      new UglifyJsPlugin({
-        sourceMap: false,
-        uglifyOptions: {
-          compress: {
-            drop_console: true
-          },
-          output: {
-            comments: keepLicense
-          }
-        },
-      }),
-      new OptimizeCSSAssetsPlugin()
-    ];
+    config.optimization = {
+      minimize: true,
+      minimizer: [
+        new TerserPlugin({
+          parallel: true,
+          extractComments: false,
+        }),
+      ],
+    };
   }
 
   return config;

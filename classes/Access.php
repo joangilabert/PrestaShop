@@ -1,28 +1,10 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShop\PrestaShop\Core\Security\Permission;
 
 /**
  * Class AccessCore.
@@ -38,19 +20,19 @@ class AccessCore extends ObjectModel
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'access',
         'primary' => 'id_profile',
-        'fields' => array(
-            'id_profile' => array('type' => self::TYPE_INT, 'validate' => 'isNullOrUnsignedId', 'copy_post' => false),
-            'id_authorization_role' => array('type' => self::TYPE_INT, 'validate' => 'isNullOrUnsignedId', 'copy_post' => false),
-        ),
-    );
+        'fields' => [
+            'id_profile' => ['type' => self::TYPE_INT, 'validate' => 'isNullOrUnsignedId', 'copy_post' => false],
+            'id_authorization_role' => ['type' => self::TYPE_INT, 'validate' => 'isNullOrUnsignedId', 'copy_post' => false],
+        ],
+    ];
 
     /**
      * Is access granted to this Role?
      *
-     * @param string $role Role name ("Superadministrator", "sales", "translator", etc.)
+     * @param string|array<string> $role Role name ("Superadministrator", "sales", "translator", etc.)
      * @param int $idProfile Profile ID
      *
      * @return bool Whether access is granted
@@ -133,6 +115,7 @@ class AccessCore extends ObjectModel
      * @param string $authSlug Slug
      *
      * @return string Tab ID
+     *
      * @todo: Find out if we should return an int instead. (breaking change)
      */
     public static function findIdTabByAuthSlug($authSlug)
@@ -175,7 +158,7 @@ class AccessCore extends ObjectModel
      *
      * @param int $idParentTab Tab ID
      *
-     * @return string Full module slug
+     * @return array<int, array<string, string>> Full module slug
      */
     public static function findSlugByIdParentTab($idParentTab)
     {
@@ -207,27 +190,27 @@ class AccessCore extends ObjectModel
     /**
      * Sluggify tab.
      *
-     * @param string $tab Tab class name
+     * @param array $tab Tab class name
      * @param string $authorization 'CREATE'|'READ'|'UPDATE'|'DELETE'
      *
      * @return string Full slug for tab
      */
     public static function sluggifyTab($tab, $authorization = '')
     {
-        return sprintf('ROLE_MOD_TAB_%s_%s', strtoupper($tab['class_name']), $authorization);
+        return sprintf('%s%s_%s', Permission::PREFIX_TAB, strtoupper($tab['class_name'] ?? ''), $authorization);
     }
 
     /**
      * Sluggify module.
      *
-     * @param string $module Module name
+     * @param array $module Module name
      * @param string $authorization 'CREATE'|'READ'|'UPDATE'|'DELETE'
      *
      * @return string Full slug for module
      */
     public static function sluggifyModule($module, $authorization = '')
     {
-        return sprintf('ROLE_MOD_MODULE_%s_%s', strtoupper($module['name']), $authorization);
+        return sprintf('%s%s_%s', Permission::PREFIX_MODULE, strtoupper($module['name'] ?? ''), $authorization);
     }
 
     /**
@@ -239,16 +222,16 @@ class AccessCore extends ObjectModel
      */
     public static function getAuthorizationFromLegacy($legacyAuth)
     {
-        $auth = array(
+        $auth = [
             'add' => 'CREATE',
             'view' => 'READ',
             'edit' => 'UPDATE',
             'configure' => 'UPDATE',
             'delete' => 'DELETE',
             'uninstall' => 'DELETE',
-            'duplicate' => array('CREATE', 'UPDATE'),
-            'all' => array('CREATE', 'READ', 'UPDATE', 'DELETE'),
-        );
+            'duplicate' => ['CREATE', 'UPDATE'],
+            'all' => ['CREATE', 'READ', 'UPDATE', 'DELETE'],
+        ];
 
         return isset($auth[$legacyAuth]) ? $auth[$legacyAuth] : false;
     }
@@ -331,32 +314,32 @@ class AccessCore extends ObjectModel
      * @param int $idProfile Profile ID
      * @param int $idTab Tab ID
      * @param string $lgcAuth Legacy authorization
-     * @param int $enabled Whether access should be granted
-     * @param int $addFromParent Child from parents
+     * @param bool $enabled Whether access should be granted
+     * @param bool $addFromParent Child from parents
      *
      * @return string Whether legacy access has been successfully updated ("ok", "error")
      *
      * @throws Exception
      */
-    public function updateLgcAccess($idProfile, $idTab, $lgcAuth, $enabled, $addFromParent = 0)
+    public function updateLgcAccess($idProfile, $idTab, $lgcAuth, $enabled, $addFromParent = true)
     {
         $idProfile = (int) $idProfile;
         $idTab = (int) $idTab;
 
         if ($idTab == -1) {
-            $slug = 'ROLE_MOD_TAB_%_';
+            $slug = Permission::PREFIX_TAB . '%_';
         } else {
             $slug = self::findSlugByIdTab($idTab);
         }
 
-        $whereClauses = array();
+        $whereClauses = [];
 
         foreach ((array) self::getAuthorizationFromLegacy($lgcAuth) as $auth) {
             $slugLike = Db::getInstance()->escape($slug . $auth);
             $whereClauses[] = ' `slug` LIKE "' . $slugLike . '"';
         }
 
-        if ($addFromParent == 1) {
+        if ($addFromParent) {
             foreach (self::findSlugByIdParentTab($idTab) as $child) {
                 $child = self::sluggifyTab($child);
                 foreach ((array) self::getAuthorizationFromLegacy($lgcAuth) as $auth) {
@@ -373,10 +356,10 @@ class AccessCore extends ObjectModel
         ');
 
         if (empty($roles)) {
-            throw new \Exception('Cannot find role slug');
+            throw new Exception('Cannot find role slug');
         }
 
-        $res = array();
+        $res = [];
         foreach ($roles as $role) {
             if ($enabled) {
                 $res[] = $this->addAccess($idProfile, $role['id_authorization_role']);
@@ -394,7 +377,7 @@ class AccessCore extends ObjectModel
      * @param int $idProfile Profile ID
      * @param int $idModule Module ID
      * @param string $lgcAuth Legacy authorization
-     * @param int $enabled Whether module access should be granted
+     * @param bool $enabled Whether module access should be granted
      *
      * @return string Whether module access has been succesfully changed ("ok", "error")
      */
@@ -404,12 +387,12 @@ class AccessCore extends ObjectModel
         $idModule = (int) $idModule;
 
         if ($idModule == -1) {
-            $slug = 'ROLE_MOD_MODULE_%_';
+            $slug = Permission::PREFIX_MODULE . '%_';
         } else {
             $slug = self::findSlugByIdModule($idModule);
         }
 
-        $whereClauses = array();
+        $whereClauses = [];
 
         foreach ((array) self::getAuthorizationFromLegacy($lgcAuth) as $auth) {
             $slugLike = Db::getInstance()->escape($slug . $auth);
@@ -422,7 +405,7 @@ class AccessCore extends ObjectModel
             WHERE ' . implode(' OR ', $whereClauses) . '
         ');
 
-        $res = array();
+        $res = [];
         foreach ($roles as $role) {
             if ($enabled) {
                 $res[] = $this->addModuleAccess($idProfile, $role['id_authorization_role']);

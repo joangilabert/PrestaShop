@@ -1,29 +1,9 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class CustomerFormatterCore implements FormFormatterInterface
 {
@@ -91,10 +71,6 @@ class CustomerFormatterCore implements FormFormatterInterface
     {
         $format = [];
 
-        $format['id_customer'] = (new FormField())
-            ->setName('id_customer')
-            ->setType('hidden');
-
         $genders = Gender::getGenders($this->language->id);
         if ($genders->count() > 0) {
             $genderField = (new FormField())
@@ -115,6 +91,7 @@ class CustomerFormatterCore implements FormFormatterInterface
 
         $format['firstname'] = (new FormField())
             ->setName('firstname')
+            ->setAutocompleteAttribute('given-name')
             ->setLabel(
                 $this->translator->trans(
                     'First name',
@@ -122,10 +99,15 @@ class CustomerFormatterCore implements FormFormatterInterface
                     'Shop.Forms.Labels'
                 )
             )
-            ->setRequired(true);
+            ->setRequired(true)
+            ->addAvailableValue(
+                'comment',
+                $this->translator->trans('Only letters and the dot (.) character, followed by a space, are allowed.', [], 'Shop.Forms.Help')
+            );
 
         $format['lastname'] = (new FormField())
             ->setName('lastname')
+            ->setAutocompleteAttribute('family-name')
             ->setLabel(
                 $this->translator->trans(
                     'Last name',
@@ -133,7 +115,11 @@ class CustomerFormatterCore implements FormFormatterInterface
                     'Shop.Forms.Labels'
                 )
             )
-            ->setRequired(true);
+            ->setRequired(true)
+            ->addAvailableValue(
+                'comment',
+                $this->translator->trans('Only letters and the dot (.) character, followed by a space, are allowed.', [], 'Shop.Forms.Help')
+            );
 
         if (Configuration::get('PS_B2B_ENABLE')) {
             $format['company'] = (new FormField())
@@ -158,6 +144,7 @@ class CustomerFormatterCore implements FormFormatterInterface
         $format['email'] = (new FormField())
             ->setName('email')
             ->setType('email')
+            ->setAutocompleteAttribute('email')
             ->setLabel(
                 $this->translator->trans(
                     'Email',
@@ -178,7 +165,8 @@ class CustomerFormatterCore implements FormFormatterInterface
                         'Shop.Forms.Labels'
                     )
                 )
-                ->setRequired($this->password_is_required);
+                ->setRequired($this->password_is_required)
+                ->setAutocompleteAttribute($this->ask_for_new_password ? 'current-password' : 'new-password');
         }
 
         if ($this->ask_for_new_password) {
@@ -191,7 +179,8 @@ class CustomerFormatterCore implements FormFormatterInterface
                         [],
                         'Shop.Forms.Labels'
                     )
-                );
+                )
+                ->setAutocompleteAttribute('new-password');
         }
 
         if ($this->ask_for_birthdate) {
@@ -208,7 +197,7 @@ class CustomerFormatterCore implements FormFormatterInterface
                 ->addAvailableValue('placeholder', Tools::getDateFormat())
                 ->addAvailableValue(
                     'comment',
-                    $this->translator->trans('(E.g.: %date_format%)', array('%date_format%' => Tools::formatDateStr('31 May 1970')), 'Shop.Forms.Help')
+                    $this->translator->trans('(E.g.: %date_format%)', ['%date_format%' => Tools::formatDateStr('31 May 1970')], 'Shop.Forms.Help')
                 );
         }
 
@@ -227,7 +216,8 @@ class CustomerFormatterCore implements FormFormatterInterface
         }
 
         // ToDo, replace the hook exec with HookFinder when the associated PR will be merged
-        $additionalCustomerFormFields = Hook::exec('additionalCustomerFormFields', array(), null, true);
+        // An array [module_name => module_output] will be returned
+        $additionalCustomerFormFields = Hook::exec('additionalCustomerFormFields', ['fields' => &$format], null, true);
 
         if (is_array($additionalCustomerFormFields)) {
             foreach ($additionalCustomerFormFields as $moduleName => $additionnalFormFields) {

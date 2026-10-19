@@ -1,42 +1,22 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 {extends file="helpers/form/form.tpl"}
 
 {block name="label"}
 	{if $input.name == 'zipcode' && isset($input.label)}
-		<label id="zipcode-label" class="control-label col-lg-3">{$input.label}</label>
+		<label id="zipcode-label" class="control-label col-lg-4">{$input.label}</label>
 	{elseif $input.name == 'states[]'}
-		<label id="states-label" class="control-label col-lg-3">{$input.label}</label>
+		<label id="states-label" class="control-label col-lg-4">{$input.label}</label>
 	{else}
 		{$smarty.block.parent}
 	{/if}
 {/block}
 
 {block name="script"}
-	$(document).ready(function() {
-		$('#country').change(function() {
+	$(function() {
+		$('#country').on('change', function() {
 			populateStates($(this).val(), '');
 		});
 
@@ -52,7 +32,7 @@
 		else
 		{
 			$('#tax_rule_form').hide();
-			$('#page-header-desc-tax_rule-new').click(function() {
+			$('#page-header-desc-tax_rule-new').on('click', function() {
 				initForm();
 				$('#tax_rule_form').slideToggle();
 				return false;
@@ -62,7 +42,7 @@
 
 	function populateStates(id_country, id_state)
 	{
-		if ($("#country option:selected").size() > 1)
+		if ($("#country option:selected").length > 1)
 		{
 			$("#zipcode-label").hide();
 			$("#zipcode").hide();
@@ -73,7 +53,7 @@
 			$.ajax({
 				url: "index.php",
 				cache: false,
-				data: "ajax=1&tab=AdminStates&token={getAdminToken tab='AdminStates'}&action=states&id_country="+id_country+"&id_state="+id_state+"&empty_value={l s='All' d='Admin.Global'}",
+				data: "ajax=1&controller=AdminStates&token={getAdminToken tab='AdminStates'}&action=states&id_country="+id_country+"&id_state="+id_state+"&empty_value={l s='All' d='Admin.Global'}",
 				success: function(html){
 					if (html == "false")
 					{
@@ -102,12 +82,22 @@
 			url: 'index.php',
 			async: true,
 			dataType: 'json',
-			data: 'ajax=1&tab=AdminTaxRulesGroup&token={getAdminToken tab='AdminTaxRulesGroup'}&ajaxStates=1&action=updateTaxRule&id_tax_rule='+id_tax_rule,
+			data: 'ajax=1&controller=AdminTaxRulesGroup&token={getAdminToken tab='AdminTaxRulesGroup'}&ajaxStates=1&action=updateTaxRule&id_tax_rule='+id_tax_rule,
 			success: function(data){
 				$('#tax_rule_form').show();
 				$('#id_tax_rule').val(data.id);
 				$('#country').val(data.id_country);
 				$('#state').val(data.id_state);
+
+				const headerInfosHeight = $('#header_infos').length ? $('#header_infos').outerHeight() : 0;
+				const pageHeadHeight = $('.page-head').length ? $('.page-head').outerHeight() : 0;
+			
+				const $target = $('#tax_rule_form');
+				if ($target.length) {
+					$('html, body').animate({
+						scrollTop: $target.offset().top - headerInfosHeight + pageHeadHeight
+					}, 500);
+				}
 
 				zipcode = 0;
 				if (data.zipcode_from != 0)

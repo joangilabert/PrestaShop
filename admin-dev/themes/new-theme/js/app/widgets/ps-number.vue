@@ -1,73 +1,88 @@
-<!--**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+<!--*
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *-->
 
- <template>
-  <div class="ps-number" :class="{'hover-buttons': hoverButtons}">
+<template>
+  <div
+    class="ps-number"
+    :class="{ 'hover-buttons': hoverButtons }"
+  >
     <input
       type="number"
       class="form-control"
-      :class="{'danger': danger}"
+      :class="{ danger }"
       :value="value"
       placeholder="0"
       @keyup="onKeyup($event)"
-      @focus="focusIn"
-      @blur.native="focusOut($event)"
-    />
-    <div class="ps-number-spinner d-flex" v-if="buttons">
-      <span class="ps-number-up" @click="increment"></span>
-      <span class="ps-number-down" @click="decrement"></span>
+      @keydown="onKeydown($event)"
+      @focus="focusIn($event)"
+      @blur="focusOut($event)"
+    >
+    <div
+      class="ps-number-spinner d-flex"
+      v-if="buttons"
+    >
+      <span
+        class="ps-number-up"
+        @click="increment($event)"
+      />
+      <span
+        class="ps-number-down"
+        @click="decrement($event)"
+      />
     </div>
   </div>
 </template>
 
-<script>
-  export default {
+<script lang="ts">
+  import {defineComponent} from 'vue';
+
+  export default defineComponent({
     props: {
-      value: '',
-      danger: false,
-      buttons: false,
-      hoverButtons: false,
+      value: {
+        type: [Number, String],
+        default: 0,
+      },
+      danger: {
+        type: Boolean,
+        default: false,
+      },
+      buttons: {
+        type: Boolean,
+        default: false,
+      },
+      hoverButtons: {
+        type: Boolean,
+        default: false,
+      },
     },
     methods: {
-      onKeyup($event) {
+      getValue(): number {
+        const value = Number.isNaN(this.value) ? 0 : Number.parseInt(<string> this.value, 10);
+
+        return Number.isNaN(value) ? 0 : value;
+      },
+      onKeyup($event: Event): void {
         this.$emit('keyup', $event);
       },
-      focusIn() {
-        this.$emit('focus');
+      onKeydown($event: Event): void {
+        this.$emit('keydown', $event);
       },
-      focusOut($event) {
+      focusIn($event: Event): void {
+        this.$emit('focus', $event);
+      },
+      focusOut($event: Event): void {
         this.$emit('blur', $event);
       },
-      increment() {
-        const value = parseInt(this.value === '' ? 0 : this.value, 10);
-        this.$emit('change', isNaN(value) ? 0 : value + 1);
+      increment($event: Event) {
+        (<HTMLInputElement>$event.target).value = `${this.getValue() + 1}`;
+        this.$emit('change', $event);
       },
-      decrement() {
-        const value = parseInt(this.value, 10);
-        this.$emit('change', isNaN(value) ? -1 : value - 1);
+      decrement($event: Event): void {
+        (<HTMLInputElement>$event.target).value = `${this.getValue() - 1}`;
+        this.$emit('change', $event);
       },
     },
-  };
+  });
 </script>

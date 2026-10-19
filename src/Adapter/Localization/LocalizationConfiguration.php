@@ -1,35 +1,13 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter\Localization;
 
 use PrestaShop\PrestaShop\Adapter\Configuration;
 use PrestaShop\PrestaShop\Adapter\Currency\CurrencyManager;
-use PrestaShop\PrestaShop\Adapter\Language\LanguageActivator;
-use PrestaShop\PrestaShop\Adapter\Module\AdminModuleDataProvider;
 use PrestaShop\PrestaShop\Core\Configuration\DataConfigurationInterface;
 use PrestaShop\PrestaShop\Core\Language\LanguageActivatorInterface;
 
@@ -45,7 +23,7 @@ class LocalizationConfiguration implements DataConfigurationInterface
     private $configuration;
 
     /**
-     * @var LanguageActivator
+     * @var LanguageActivatorInterface
      */
     private $languageActivator;
 
@@ -55,26 +33,18 @@ class LocalizationConfiguration implements DataConfigurationInterface
     private $currencyManager;
 
     /**
-     * @var AdminModuleDataProvider
-     */
-    private $adminModuleDataProvider;
-
-    /**
      * @param Configuration $configuration
      * @param LanguageActivatorInterface $languageActivator
      * @param CurrencyManager $currencyManager
-     * @param AdminModuleDataProvider $adminModuleDataProvider
      */
     public function __construct(
         Configuration $configuration,
         LanguageActivatorInterface $languageActivator,
-        CurrencyManager $currencyManager,
-        AdminModuleDataProvider $adminModuleDataProvider
+        CurrencyManager $currencyManager
     ) {
         $this->configuration = $configuration;
         $this->languageActivator = $languageActivator;
         $this->currencyManager = $currencyManager;
-        $this->adminModuleDataProvider = $adminModuleDataProvider;
     }
 
     /**
@@ -107,11 +77,6 @@ class LocalizationConfiguration implements DataConfigurationInterface
             if ($currentConfig['default_currency'] != $config['default_currency']) {
                 $this->configuration->set('PS_CURRENCY_DEFAULT', (int) $config['default_currency']);
                 $this->currencyManager->updateDefaultCurrency();
-            }
-
-            // remove module list cache if the default country changed
-            if ($currentConfig['default_country'] != $config['default_country']) {
-                $this->adminModuleDataProvider->clearModuleListCache();
             }
 
             $this->configuration->set('PS_LANG_DEFAULT', (int) $config['default_language']);

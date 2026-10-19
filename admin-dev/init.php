@@ -1,55 +1,21 @@
 <?php
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+/**
+ * This file is currently only used for admin filemanager.
+ * Some things in this file are probably not needed to be initialized anymore.
+ */
+use PrestaShop\PrestaShop\Core\Util\Url\UrlCleaner;
 
 ob_start();
 $timerStart = microtime(true);
 
-//	$_GET['tab'] = $_GET['controller'];
-//	$_POST['tab'] = $_POST['controller'];
-//	$_REQUEST['tab'] = $_REQUEST['controller'];
 try {
     $context = Context::getContext();
-    if (isset($_GET['logout'])) {
-        $context->employee->logout();
-    }
-
-    if (!isset($context->employee) || !$context->employee->isLoggedBack()) {
-        Tools::redirectAdmin('index.php?controller=AdminLogin&redirect='.$_SERVER['REQUEST_URI']);
-    }
-
     $iso = $context->language->iso_code;
-    if (file_exists(_PS_TRANSLATIONS_DIR_.$iso.'/errors.php')) {
-        include _PS_TRANSLATIONS_DIR_.$iso.'/errors.php';
-    }
-    if (file_exists(_PS_TRANSLATIONS_DIR_.$iso.'/fields.php')) {
-        include _PS_TRANSLATIONS_DIR_.$iso.'/fields.php';
-    }
-    if (file_exists(_PS_TRANSLATIONS_DIR_.$iso.'/admin.php')) {
-        include _PS_TRANSLATIONS_DIR_.$iso.'/admin.php';
-    }
 
     /* Server Params */
     $protocol_link = (Configuration::get('PS_SSL_ENABLED')) ? 'https://' : 'http://';
@@ -92,14 +58,10 @@ try {
     // Change shop context ?
     if (Shop::isFeatureActive() && Tools::getValue('setShopContext') !== false) {
         $context->cookie->shopContext = Tools::getValue('setShopContext');
-        $url = parse_url($_SERVER['REQUEST_URI']);
-        $query = (isset($url['query'])) ? $url['query'] : '';
-        parse_str($query, $parseQuery);
-        unset($parseQuery['setShopContext']);
-        Tools::redirectAdmin($url['path'] . '?' . http_build_query($parseQuery, '', '&'));
+        Tools::redirectAdmin(UrlCleaner::cleanUrl($_SERVER['REQUEST_URI'], ['setShopContext']));
     }
 
-    $context->currency = new Currency(Configuration::get('PS_CURRENCY_DEFAULT'));
+    $context->currency = Currency::getDefaultCurrency();
 
     if ($context->employee->isLoggedBack()) {
         $shop_id = '';
@@ -108,15 +70,15 @@ try {
             $split = explode('-', $context->cookie->shopContext);
             if (count($split) == 2) {
                 if ($split[0] == 'g') {
-                    if ($context->employee->hasAuthOnShopGroup($split[1])) {
-                        Shop::setContext(Shop::CONTEXT_GROUP, $split[1]);
+                    if ($context->employee->hasAuthOnShopGroup((int) $split[1])) {
+                        Shop::setContext(Shop::CONTEXT_GROUP, (int) $split[1]);
                     } else {
                         $shop_id = $context->employee->getDefaultShopID();
                         Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
                     }
-                } elseif ($context->employee->hasAuthOnShop($split[1])) {
+                } elseif ($context->employee->hasAuthOnShop((int) $split[1])) {
                     $shop_id = $split[1];
-                    Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
+                    Shop::setContext(Shop::CONTEXT_SHOP, (int) $shop_id);
                 } else {
                     $shop_id = $context->employee->getDefaultShopID();
                     Shop::setContext(Shop::CONTEXT_SHOP, $shop_id);
@@ -126,7 +88,7 @@ try {
 
         // Replace existing shop if necessary
         if (!$shop_id) {
-            $context->shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+            $context->shop = new Shop((int) Configuration::get('PS_SHOP_DEFAULT'));
         } elseif ($context->shop->id != $shop_id) {
             $context->shop = new Shop($shop_id);
         }

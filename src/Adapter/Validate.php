@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Adapter;
@@ -77,6 +57,18 @@ class Validate
     }
 
     /**
+     * Check for a given email validity.
+     *
+     * @param string $email
+     *
+     * @return bool
+     */
+    public function isEmail(string $email): bool
+    {
+        return ValidateLegacy::isEmail($email);
+    }
+
+    /**
      * Check for module name validity.
      *
      * @param string $name Module name to validate
@@ -110,5 +102,41 @@ class Validate
     public function isLangIsoCode($isoCode)
     {
         return ValidateLegacy::isLangIsoCode($isoCode);
+    }
+
+    /**
+     * Check for an integer validity (unsigned).
+     *
+     * @param int $value Integer to validate
+     *
+     * @return bool
+     */
+    public function isUnsignedInt($value)
+    {
+        return ValidateLegacy::isUnsignedInt($value);
+    }
+
+    /**
+     * Check for a rewritten url validity.
+     *
+     * @param string $value
+     *
+     * @return bool
+     */
+    public function isLinkRewrite($value)
+    {
+        return ValidateLegacy::isLinkRewrite($value);
+    }
+
+    /**
+     * Check the given string is a valid object class name
+     *
+     * @param string $objectClassName object class name
+     *
+     * @return bool
+     */
+    public static function isValidObjectClassName(string $objectClassName): bool
+    {
+        return ValidateLegacy::isValidObjectClassName($objectClassName);
     }
 }

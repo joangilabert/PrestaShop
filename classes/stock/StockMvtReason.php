@@ -1,27 +1,11 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
+ */
+
+/**
+ * @deprecated since 9.0 and will be removed in 10.0, this object model is no longer needed
  */
 class StockMvtReasonCore extends ObjectModel
 {
@@ -41,35 +25,34 @@ class StockMvtReasonCore extends ObjectModel
     public $date_upd;
 
     /** @var bool True if the movement reason has been deleted (staying in database as deleted) */
-    public $deleted = 0;
+    public $deleted = false;
 
     /**
-     * @since 1.5.0
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'stock_mvt_reason',
         'primary' => 'id_stock_mvt_reason',
         'multilang' => true,
-        'fields' => array(
-            'sign' => array('type' => self::TYPE_INT),
-            'deleted' => array('type' => self::TYPE_BOOL),
-            'date_add' => array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
-            'date_upd' => array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
-            'name' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 255),
-        ),
-    );
+        'fields' => [
+            'sign' => ['type' => self::TYPE_INT],
+            'deleted' => ['type' => self::TYPE_BOOL],
+            'date_add' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+            'date_upd' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+            'name' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 255],
+        ],
+    ];
 
     /**
      * @see ObjectModel::$webserviceParameters
      */
-    protected $webserviceParameters = array(
+    protected $webserviceParameters = [
         'objectsNodeName' => 'stock_movement_reasons',
         'objectNodeName' => 'stock_movement_reason',
-        'fields' => array(
-            'sign' => array(),
-        ),
-    );
+        'fields' => [
+            'sign' => [],
+        ],
+    ];
 
     /**
      * Gets Stock Mvt Reasons.
@@ -97,8 +80,6 @@ class StockMvtReasonCore extends ObjectModel
     /**
      * Same as StockMvtReason::getStockMvtReasons(), ignoring a specific lists of ids.
      *
-     * @since 1.5.0
-     *
      * @param int $id_lang
      * @param array $ids_ignore
      * @param int $sign optional
@@ -125,8 +106,6 @@ class StockMvtReasonCore extends ObjectModel
 
     /**
      * For a given id_stock_mvt_reason, tells if it exists.
-     *
-     * @since 1.5.0
      *
      * @param int $id_stock_mvt_reason
      *

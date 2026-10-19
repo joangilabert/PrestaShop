@@ -1,32 +1,12 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 </table>
 </div>
 <div class="row">
 	<div class="col-lg-6">
-		{if $bulk_actions && $has_bulk_actions}
+		{if $bulk_actions && $has_bulk_actions && !$hide_bulk_actions_btn}
 		<div class="btn-group bulk-actions dropup">
 			<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" {if $table}id="bulk_action_menu_{$table}"{/if}>
 				{l s='Bulk actions' d='Admin.Global'} <span class="caret"></span>
@@ -158,6 +138,9 @@
 {if isset($name_controller)}
 	{capture name=hookName assign=hookName}display{$name_controller|ucfirst}ListAfter{/capture}
 	{hook h=$hookName}
+{elseif isset($controller_name)}
+    {capture name=hookName assign=hookName}display{$controller_name|ucfirst}ListAfter{/capture}
+    {hook h=$hookName}
 {elseif isset($smarty.get.controller)}
 	{capture name=hookName assign=hookName}display{$smarty.get.controller|ucfirst|htmlentities}ListAfter{/capture}
 	{hook h=$hookName}

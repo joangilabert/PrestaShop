@@ -1,40 +1,45 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Product\Search;
 
-use Exception;
+use PrestaShop\PrestaShop\Core\Exception\CoreException;
+use PrestaShop\PrestaShop\Core\Product\Search\Exception\InvalidSortOrderDirectionException;
 
+/**
+ * This class define in which order the list of products will be sorted.
+ */
 class SortOrder
 {
+    /**
+     * @var string the SortOrder entity
+     */
     private $entity;
+    /**
+     * @var string the SortOrder field
+     */
     private $field;
+    /**
+     * @var string the SortOrder direction
+     */
     private $direction;
+    /**
+     * @var string string The SortOrder label
+     */
     private $label;
 
+    /**
+     * SortOrder constructor.
+     *
+     * @param string $entity the SortOrder entity
+     * @param string $field the SortOrder field
+     * @param string $direction the SortOrder direction
+     *
+     * @throws InvalidSortOrderDirectionException
+     */
     public function __construct($entity, $field, $direction = 'asc')
     {
         $this
@@ -43,16 +48,29 @@ class SortOrder
             ->setDirection($direction);
     }
 
+    /**
+     * Will returns a new Sort Order with random direction.
+     *
+     * @return SortOrder
+     *
+     * @throws InvalidSortOrderDirectionException
+     */
     public static function random()
     {
         return new static('', '', 'random');
     }
 
+    /**
+     * @return bool if true, the Sort Order direction is random
+     */
     public function isRandom()
     {
         return $this->getDirection() === 'random';
     }
 
+    /**
+     * @return array the array representation of a Sort Order
+     */
     public function toArray()
     {
         return [
@@ -64,18 +82,41 @@ class SortOrder
         ];
     }
 
+    /**
+     * @return string the string representation of a Sort Order
+     */
     public function toString()
     {
         return "{$this->entity}.{$this->field}.{$this->direction}";
     }
 
-    public static function newFromString($paramValue)
+    /**
+     * Creates a new Sort Order from string of this kind: {entity}.{field}.{direction}.
+     *
+     * @param string $sortOrderConfiguration the Sort Order configuration string
+     *
+     * @return SortOrder
+     *
+     * @throws InvalidSortOrderDirectionException
+     */
+    public static function newFromString($sortOrderConfiguration)
     {
-        list($entity, $field, $direction) = explode('.', $paramValue);
+        $sortParams = explode('.', $sortOrderConfiguration);
 
-        return new SortOrder($entity, $field, $direction);
+        if (count($sortParams) < 3) {
+            throw new CoreException('Invalid argument');
+        }
+
+        [$entity, $field, $direction] = $sortParams;
+
+        return new static($entity, $field, $direction);
     }
 
+    /**
+     * @param string $label the Sort Order label
+     *
+     * @return $this
+     */
     public function setLabel($label)
     {
         $this->label = $label;
@@ -83,11 +124,19 @@ class SortOrder
         return $this;
     }
 
+    /**
+     * @return string the Sort Order label
+     */
     public function getLabel()
     {
         return $this->label;
     }
 
+    /**
+     * @param string $entity the Sort Order entity
+     *
+     * @return $this
+     */
     public function setEntity($entity)
     {
         $this->entity = $entity;
@@ -95,11 +144,19 @@ class SortOrder
         return $this;
     }
 
+    /**
+     * @return string the Sort Order entity
+     */
     public function getEntity()
     {
         return $this->entity;
     }
 
+    /**
+     * @param string $field the Sort Order field
+     *
+     * @return $this
+     */
     public function setField($field)
     {
         $this->field = $field;
@@ -107,31 +164,44 @@ class SortOrder
         return $this;
     }
 
+    /**
+     * @return string the Sort Order field
+     */
     public function getField()
     {
         return $this->field;
     }
 
-    public function setDirection($dir)
+    /**
+     * @param string $direction
+     *
+     * @return string
+     *
+     * @throws InvalidSortOrderDirectionException
+     */
+    public function setDirection($direction)
     {
-        $direction = strtolower($dir);
-        if (!in_array($direction, ['asc', 'desc', 'random'])) {
-            throw new Exception(sprintf(
-                'Invalid SortOrder direction `%s`. Expecting one of: `ASC`, `DESC`, or `RANDOM`.',
-                $dir
-            ));
+        $formattedDirection = strtolower($direction);
+        if (!in_array($formattedDirection, ['asc', 'desc', 'random'])) {
+            throw new InvalidSortOrderDirectionException($direction);
         }
 
-        $this->direction = $direction;
+        $this->direction = $formattedDirection;
 
         return $this->direction;
     }
 
+    /**
+     * @return string the Sort Order direction
+     */
     public function getDirection()
     {
         return $this->direction;
     }
 
+    /**
+     * @return string Returns the order way using legacy prefix
+     */
     private function getLegacyPrefix()
     {
         if ($this->entity === 'product') {
@@ -143,14 +213,22 @@ class SortOrder
                 $this->setField('name');
 
                 return 'm.';
-            } else {
-                return 'p.';
             }
-        } elseif ($this->entity === 'manufacturer') {
+
+            return 'p.';
+        }
+        if ($this->entity === 'manufacturer') {
             return 'm.';
         }
+
+        return '';
     }
 
+    /**
+     * @param bool $prefix if true, relies on legacy prefix
+     *
+     * @return string
+     */
     public function toLegacyOrderBy($prefix = false)
     {
         if ($prefix) {
@@ -162,6 +240,9 @@ class SortOrder
         }
     }
 
+    /**
+     * @return string the legacy order way
+     */
     public function toLegacyOrderWay()
     {
         return $this->getDirection();

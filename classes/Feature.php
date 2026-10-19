@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 /**
@@ -29,32 +9,32 @@
  */
 class FeatureCore extends ObjectModel
 {
-    /** @var string Name */
+    /** @var string|array<int, string> Name */
     public $name;
 
-    /** @var int $position */
+    /** @var int */
     public $position;
 
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'feature',
         'primary' => 'id_feature',
         'multilang' => true,
-        'fields' => array(
-            'position' => array('type' => self::TYPE_INT, 'validate' => 'isInt'),
+        'fields' => [
+            'position' => ['type' => self::TYPE_INT, 'validate' => 'isInt'],
 
             /* Lang fields */
-            'name' => array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 128),
-        ),
-    );
+            'name' => ['type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isGenericName', 'required' => true, 'size' => 128],
+        ],
+    ];
 
-    protected $webserviceParameters = array(
+    protected $webserviceParameters = [
         'objectsNodeName' => 'product_features',
         'objectNodeName' => 'product_feature',
-        'fields' => array(),
-    );
+        'fields' => [],
+    ];
 
     /**
      * Get a feature data for a given id_feature and id_lang.
@@ -100,7 +80,7 @@ class FeatureCore extends ObjectModel
      *
      * @return bool Deletion result
      */
-    public function deleteSelection($selection)
+    public function deleteSelection(array $selection)
     {
         /* Also delete Attributes */
         foreach ($selection as $value) {
@@ -127,11 +107,11 @@ class FeatureCore extends ObjectModel
     public function add($autoDate = true, $nullValues = false)
     {
         if ($this->position <= 0) {
-            $this->position = Feature::getHigherPosition() + 1;
+            $this->position = Feature::getHighestPosition() + 1;
         }
 
         $return = parent::add($autoDate, true);
-        Hook::exec('actionFeatureSave', array('id_feature' => $this->id));
+        Hook::exec('actionFeatureSave', ['id_feature' => $this->id]);
 
         return $return;
     }
@@ -150,12 +130,12 @@ class FeatureCore extends ObjectModel
     {
         $this->clearCache();
 
-        $result = 1;
+        $result = true;
         $fields = $this->getFieldsLang();
         foreach ($fields as $field) {
             foreach (array_keys($field) as $key) {
                 if (!Validate::isTableOrIdentifier($key)) {
-                    die(Tools::displayError());
+                    throw new PrestaShopException('Invalid column name in feature_lang table.');
                 }
             }
 
@@ -163,17 +143,20 @@ class FeatureCore extends ObjectModel
 					WHERE `' . $this->def['primary'] . '` = ' . (int) $this->id . '
 						AND `id_lang` = ' . (int) $field['id_lang'];
             $mode = Db::getInstance()->getRow($sql);
-            $result &= (!$mode) ? Db::getInstance()->insert($this->def['table'] . '_lang', $field) :
-                Db::getInstance()->update(
-                    $this->def['table'] . '_lang',
-                    $field,
-                    '`' . $this->def['primary'] . '` = ' . (int) $this->id . ' AND `id_lang` = ' . (int) $field['id_lang']
+            $result = $result
+                && (!$mode
+                    ? Db::getInstance()->insert($this->def['table'] . '_lang', $field)
+                    : Db::getInstance()->update(
+                        $this->def['table'] . '_lang',
+                        $field,
+                        '`' . $this->def['primary'] . '` = ' . (int) $this->id . ' AND `id_lang` = ' . (int) $field['id_lang']
+                    )
                 );
         }
         if ($result) {
-            $result &= parent::update($nullValues);
+            $result = parent::update($nullValues);
             if ($result) {
-                Hook::exec('actionFeatureSave', array('id_feature' => $this->id));
+                Hook::exec('actionFeatureSave', ['id_feature' => $this->id]);
             }
         }
 
@@ -214,7 +197,7 @@ class FeatureCore extends ObjectModel
 
         $return = parent::delete();
         if ($return) {
-            Hook::exec('actionFeatureDelete', array('id_feature' => $this->id));
+            Hook::exec('actionFeatureDelete', ['id_feature' => $this->id]);
         }
 
         /* Reinitializing position */
@@ -228,11 +211,11 @@ class FeatureCore extends ObjectModel
      *
      * @param int $idLang Language id
      *
-     *@return int Number of feature
+     * @return int Number of feature
      */
     public static function nbFeatures($idLang)
     {
-        return Db::getInstance()->getValue('
+        return (int) Db::getInstance()->getValue('
 		SELECT COUNT(*) as nb
 		FROM `' . _DB_PREFIX_ . 'feature` ag
 		LEFT JOIN `' . _DB_PREFIX_ . 'feature_lang` agl
@@ -244,7 +227,7 @@ class FeatureCore extends ObjectModel
      * Create a feature from import.
      *
      * @param string $name Feature name
-     * @param bool $position Feature position
+     * @param bool|int $position Feature position
      *
      * @return int Feature ID
      */
@@ -263,13 +246,14 @@ class FeatureCore extends ObjectModel
             if ($position) {
                 $feature->position = (int) $position;
             } else {
-                $feature->position = Feature::getHigherPosition() + 1;
+                $feature->position = Feature::getHighestPosition() + 1;
             }
             $feature->add();
 
             return $feature->id;
         } elseif (isset($rq['id_feature']) && $rq['id_feature']) {
-            if (is_numeric($position) && $feature = new Feature((int) $rq['id_feature'])) {
+            if (is_numeric($position)) {
+                $feature = new Feature((int) $rq['id_feature']);
                 $feature->position = (int) $position;
                 if (Validate::isLoadedObject($feature)) {
                     $feature->update();
@@ -278,14 +262,14 @@ class FeatureCore extends ObjectModel
 
             return (int) $rq['id_feature'];
         }
+
+        return 0;
     }
 
     /**
      * This metohd is allow to know if a feature is used or active.
      *
      * @return bool
-     *
-     * @since 1.5.0.1
      */
     public static function isFeatureActive()
     {
@@ -296,7 +280,8 @@ class FeatureCore extends ObjectModel
      * Move a feature.
      *
      * @param bool $way Up (1)  or Down (0)
-     * @param int $position
+     * @param int|null $position
+     * @param int|null $idFeature
      *
      * @return bool Update result
      */
@@ -352,18 +337,35 @@ class FeatureCore extends ObjectModel
     }
 
     /**
-     * getHigherPosition.
-     *
-     * Get the higher feature position
+     * Get the highest Feature position.
      *
      * @return int $position
+     *
+     * @deprecated Since 9.2, use Feature::getHighestPosition() instead.
      */
     public static function getHigherPosition()
+    {
+        @trigger_error(
+            sprintf(
+                '%s is deprecated since version 9.2. Use %s instead.',
+                __METHOD__,
+                self::class . '::getHighestPosition()'
+            ),
+            E_USER_DEPRECATED
+        );
+
+        return self::getHighestPosition();
+    }
+
+    /**
+     * Get the highest Feature position.
+     */
+    public static function getHighestPosition(): int
     {
         $sql = 'SELECT MAX(`position`)
 				FROM `' . _DB_PREFIX_ . 'feature`';
         $position = Db::getInstance()->getValue($sql);
 
-        return (is_numeric($position)) ? $position : -1;
+        return (is_numeric($position)) ? (int) $position : -1;
     }
 }

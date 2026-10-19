@@ -1,8 +1,11 @@
+/**
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
+ */
 import $ from 'jquery';
-/* expose jQuery for modules */
-window.$ = $;
-window.jQuery = $;
-
+import './migrate-mute';
+import 'jquery-migrate';
+import './selectors';
 import './cart';
 import './checkout';
 import './facets';
@@ -10,15 +13,19 @@ import './listing';
 import './product';
 import './address';
 
-import prestashop from 'prestashop';
-import EventEmitter from 'events';
 import {psShowHide} from './common';
+import initEmailFields from './email-idn';
 
-// "inherit" EventEmitter
-for (var i in EventEmitter.prototype) {
-    prestashop[i] = EventEmitter.prototype[i];
-}
+// Must be set after static imports (which are hoisted) but before any dynamic import()
+// is triggered at runtime, so webpack resolves chunk URLs correctly.
+// Do not move this line above the import declarations.
+// eslint-disable-next-line camelcase, no-undef
+__webpack_public_path__ = window.prestashop.core_js_public_path;
 
-$(document).ready(() => {
+window.$ = $;
+window.jQuery = $;
+
+$(() => {
   psShowHide();
+  initEmailFields('input[type="email"]');
 });

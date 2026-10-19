@@ -1,32 +1,14 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 set_time_limit(0);
 
-define('_PS_INSTALL_MINIMUM_PHP_VERSION_ID_', 50600);
-define('_PS_INSTALL_MINIMUM_PHP_VERSION_', '5.6');
+define('_PS_INSTALL_MINIMUM_PHP_VERSION_ID_', 80100);
+define('_PS_INSTALL_MINIMUM_PHP_VERSION_', '8.1');
+define('_PS_INSTALL_MAXIMUM_PHP_VERSION_ID_', 80599);
+define('_PS_INSTALL_MAXIMUM_PHP_VERSION_', '8.5');
 define('_PS_VERSION_', '%ps-version-placeholder%');
 
 define('ZIP_NAME', 'prestashop.zip');
@@ -38,6 +20,9 @@ header('Cache-Control: no-cache, no-store, must-revalidate');
 
 if (!defined('PHP_VERSION_ID') || PHP_VERSION_ID < _PS_INSTALL_MINIMUM_PHP_VERSION_ID_) {
     die('You need at least PHP ' . _PS_INSTALL_MINIMUM_PHP_VERSION_ . ' to install PrestaShop. Your current PHP version is ' . PHP_VERSION);
+}
+if (PHP_VERSION_ID > _PS_INSTALL_MAXIMUM_PHP_VERSION_ID_) {
+    die('You need at most PHP '._PS_INSTALL_MAXIMUM_PHP_VERSION_.' to install PrestaShop. Your current PHP version is '.PHP_VERSION);
 }
 
 // --------------------------------------------------------------------------------
@@ -183,8 +168,6 @@ if (isset($_POST['extract'])) {
 
     @chmod('install/index.php', 0644);
     @chmod('admin/index.php', 0644);
-    @chmod('admin/ajax.php', 0644);
-    @chmod('admin/ajax-tab.php', 0644);
     @chmod('index.php', 0644);
 
     $zip->close();
@@ -206,7 +189,7 @@ if (isset($_GET['element'])) {
     switch ($_GET['element']) {
         case 'font':
             header('Content-Type: application/font-sfnt');
-            echo getFileContent('OpenSans-Regular.ttf', true);
+            echo getFileContent('IBMPlexSans-Regular.ttf', true);
 
             break;
         case 'css':
@@ -277,7 +260,7 @@ if (isset($_GET['element'])) {
           Do you want to install the latest version instead? (recommended)
         </div>
         <div id="form-panel">
-          <div id="form">
+          <div id="form" class="buttons">
             <a id="skip-button" class="button button-no" href="#">No thanks</a>
             <a id="latest-button" class="button button-yes" href="#">Yes please!</a>
           </div>

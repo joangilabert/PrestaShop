@@ -1,28 +1,18 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShop\PrestaShop\Adapter\ContainerFinder;
+use PrestaShop\PrestaShop\Adapter\Discount\Application\DiscountApplicationService;
+use PrestaShop\PrestaShop\Core\Domain\Discount\DiscountSettings;
+use PrestaShop\PrestaShop\Core\Domain\Discount\ValueObject\DiscountType;
+use PrestaShop\PrestaShop\Core\Domain\Product\ProductCustomizabilitySettings;
+use PrestaShop\PrestaShop\Core\Domain\Product\Stock\ValueObject\OutOfStockType;
+use PrestaShop\PrestaShop\Core\FeatureFlag\FeatureFlagSettings;
+use PrestaShop\PrestaShop\Core\FeatureFlag\FeatureFlagStateCheckerInterface;
+use PrestaShop\PrestaShop\Core\Util\DateTime\DateTime as DateTimeUtil;
 
 /**
  * Class CartRuleCore.
@@ -31,12 +21,15 @@ class CartRuleCore extends ObjectModel
 {
     /* Filters used when retrieving the cart rules applied to a cart of when calculating the value of a reduction */
 
-    const FILTER_ACTION_ALL = 1;
-    const FILTER_ACTION_SHIPPING = 2;
-    const FILTER_ACTION_REDUCTION = 3;
-    const FILTER_ACTION_GIFT = 4;
-    const FILTER_ACTION_ALL_NOCAP = 5;
-    const BO_ORDER_CODE_PREFIX = 'BO_ORDER_';
+    public const FILTER_ACTION_ALL = 1;
+    public const FILTER_ACTION_SHIPPING = 2;
+    public const FILTER_ACTION_REDUCTION = 3;
+    public const FILTER_ACTION_GIFT = 4;
+    public const FILTER_ACTION_ALL_NOCAP = 5;
+    public const BO_ORDER_CODE_PREFIX = 'BO_ORDER_';
+
+    public const AT_LEAST_ONE_PRODUCT_RULE = 'at_least_one_product_rule';
+    public const ALL_PRODUCT_RULES = 'all_product_rules';
 
     /**
      * This variable controls that a free gift is offered only once, even when multi-shippping is activated
@@ -44,102 +37,156 @@ class CartRuleCore extends ObjectModel
      *
      * @var array
      */
-    protected static $only_one_gift = array();
+    protected static $only_one_gift = [];
 
     public $id;
     public $name;
     public $id_customer;
+    /**
+     * @var string|null
+     */
     public $date_from;
-    public $date_to;
+    /**
+     * @var string|null
+     */
+    public $date_to = null;
     public $description;
     public $quantity = 1;
+    public ?int $total_quantity = null;
     public $quantity_per_user = 1;
     public $priority = 1;
-    public $partial_use = 1;
+    /** @var bool */
+    public $partial_use = true;
     public $code;
     public $minimum_amount;
+    /** @var bool */
     public $minimum_amount_tax;
     public $minimum_amount_currency;
+    /** @var bool */
     public $minimum_amount_shipping;
+    public $minimum_product_quantity;
+    /** @var bool */
     public $country_restriction;
+    /** @var bool */
     public $carrier_restriction;
+    /** @var bool */
     public $group_restriction;
+    /** @var bool */
     public $cart_rule_restriction;
+    /** @var bool */
     public $product_restriction;
+    /** @var bool */
     public $shop_restriction;
+    /** @var bool */
     public $free_shipping;
     public $reduction_percent;
     public $reduction_amount;
-
     /**
      * @var bool is this voucher value tax included (false = tax excluded value)
      */
     public $reduction_tax;
+    /** @var int */
     public $reduction_currency;
     public $reduction_product;
+    /** @var bool */
     public $reduction_exclude_special;
     public $gift_product;
     public $gift_product_attribute;
+    /** @var bool */
     public $highlight;
-    public $active = 1;
+    /** @var bool */
+    public $active = true;
     public $date_add;
     public $date_upd;
+    public $id_cart_rule_type;
 
-    protected static $cartAmountCache = array();
+    protected static ?FeatureFlagStateCheckerInterface $featureFlagManager = null;
+
+    protected static $cartAmountCache = [];
 
     /**
      * @see ObjectModel::$definition
      */
-    public static $definition = array(
+    public static $definition = [
         'table' => 'cart_rule',
         'primary' => 'id_cart_rule',
         'multilang' => true,
-        'fields' => array(
-            'id_customer' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'date_from' => array('type' => self::TYPE_DATE, 'validate' => 'isDate', 'required' => true),
-            'date_to' => array('type' => self::TYPE_DATE, 'validate' => 'isDate', 'required' => true),
-            'description' => array('type' => self::TYPE_STRING, 'validate' => 'isCleanHtml', 'size' => 65534),
-            'quantity' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'),
-            'quantity_per_user' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'),
-            'priority' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'),
-            'partial_use' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'code' => array('type' => self::TYPE_STRING, 'validate' => 'isCleanHtml', 'size' => 254),
-            'minimum_amount' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'minimum_amount_tax' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'minimum_amount_currency' => array('type' => self::TYPE_INT, 'validate' => 'isInt'),
-            'minimum_amount_shipping' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'country_restriction' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'carrier_restriction' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'group_restriction' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'cart_rule_restriction' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'product_restriction' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'shop_restriction' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'free_shipping' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'reduction_percent' => array('type' => self::TYPE_FLOAT, 'validate' => 'isPercentage'),
-            'reduction_amount' => array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
-            'reduction_tax' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'reduction_currency' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'reduction_product' => array('type' => self::TYPE_INT, 'validate' => 'isInt'),
-            'reduction_exclude_special' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'gift_product' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'gift_product_attribute' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
-            'highlight' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'active' => array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-            'date_add' => array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
-            'date_upd' => array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
+        'fields' => [
+            'id_customer' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'date_from' => ['type' => self::TYPE_DATE, 'validate' => 'isDate', 'required' => true],
+            'date_to' => ['type' => self::TYPE_DATE, 'validate' => 'isDateOrNull', 'required' => false, 'allow_null' => true],
+            'description' => ['type' => self::TYPE_STRING, 'validate' => 'isCleanHtml', 'size' => DiscountSettings::MAX_DESCRIPTION_LENGTH],
+            'quantity' => ['type' => self::TYPE_INT, 'allow_null' => true, 'validate' => 'isUnsignedInt'],
+            'total_quantity' => ['type' => self::TYPE_INT, 'allow_null' => true, 'validate' => 'isUnsignedInt'],
+            'quantity_per_user' => ['type' => self::TYPE_INT, 'allow_null' => true, 'validate' => 'isUnsignedInt'],
+            'priority' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedInt'],
+            'partial_use' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'code' => ['type' => self::TYPE_STRING, 'validate' => 'isCleanHtml', 'size' => 254],
+            'minimum_amount' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'minimum_amount_tax' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'minimum_amount_currency' => ['type' => self::TYPE_INT, 'validate' => 'isInt'],
+            'minimum_amount_shipping' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'minimum_product_quantity' => ['type' => self::TYPE_INT, 'validate' => 'isInt'],
+            'country_restriction' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'carrier_restriction' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'group_restriction' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'cart_rule_restriction' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'product_restriction' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'shop_restriction' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'free_shipping' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'reduction_percent' => ['type' => self::TYPE_FLOAT, 'validate' => 'isPercentage'],
+            'reduction_amount' => ['type' => self::TYPE_FLOAT, 'validate' => 'isFloat'],
+            'reduction_tax' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'reduction_currency' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'reduction_product' => ['type' => self::TYPE_INT, 'validate' => 'isInt'],
+            'reduction_exclude_special' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'gift_product' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'gift_product_attribute' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
+            'highlight' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'active' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'date_add' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+            'date_upd' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+            'id_cart_rule_type' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
             /* Lang fields */
-            'name' => array(
-                'type' => self::TYPE_STRING,
+            'name' => [
+                'type' => self::TYPE_HTML,
                 'lang' => true,
-                'validate' => 'isCleanHtml',
-                'required' => true, 'size' => 254,
-            ),
-        ),
-    );
+                'required' => false,
+                'size' => DiscountSettings::MAX_NAME_LENGTH,
+                'validate' => 'defaultLanguageRequiredWhenActive',
+            ],
+        ],
+    ];
+
+    /**
+     * Get the discount type string from id_cart_rule_type
+     *
+     * @return string|null
+     */
+    public function getType(): ?string
+    {
+        static $typeCache = [];
+
+        if (!$this->id_cart_rule_type) {
+            return null;
+        }
+
+        if (!isset($typeCache[$this->id_cart_rule_type])) {
+            $result = Db::getInstance()->getValue('
+                SELECT discount_type
+                FROM ' . _DB_PREFIX_ . 'cart_rule_type
+                WHERE id_cart_rule_type = ' . (int) $this->id_cart_rule_type
+            );
+            $typeCache[$this->id_cart_rule_type] = $result ?: null;
+        }
+
+        return $typeCache[$this->id_cart_rule_type];
+    }
 
     public static function resetStaticCache()
     {
-        static::$cartAmountCache = array();
+        static::$cartAmountCache = [];
+        static::$featureFlagManager = null;
     }
 
     /**
@@ -156,7 +203,7 @@ class CartRuleCore extends ObjectModel
     public function add($autodate = true, $null_values = false)
     {
         if (!$this->reduction_currency) {
-            $this->reduction_currency = (int) Configuration::get('PS_CURRENCY_DEFAULT');
+            $this->reduction_currency = Currency::getDefaultCurrencyId();
         }
 
         if (!parent::add($autodate, $null_values)) {
@@ -183,7 +230,7 @@ class CartRuleCore extends ObjectModel
         Cache::clean('getContextualValue_' . $this->id . '_*');
 
         if (!$this->reduction_currency) {
-            $this->reduction_currency = (int) Configuration::get('PS_CURRENCY_DEFAULT');
+            $this->reduction_currency = Currency::getDefaultCurrencyId();
         }
 
         if (!parent::update($null_values)) {
@@ -227,8 +274,9 @@ class CartRuleCore extends ObjectModel
 			WHERE `' . _DB_PREFIX_ . 'cart_rule_product_rule`.`id_product_rule_group` = `' . _DB_PREFIX_ . 'cart_rule_product_rule_group`.`id_product_rule_group`)');
         $r &= Db::getInstance()->delete('cart_rule_product_rule_value', 'NOT EXISTS (SELECT 1 FROM `' . _DB_PREFIX_ . 'cart_rule_product_rule`
 			WHERE `' . _DB_PREFIX_ . 'cart_rule_product_rule_value`.`id_product_rule` = `' . _DB_PREFIX_ . 'cart_rule_product_rule`.`id_product_rule`)');
+        $r &= Db::getInstance()->delete('cart_rule_compatible_types', '`id_cart_rule` = ' . (int) $this->id);
 
-        return $r;
+        return (bool) $r;
     }
 
     /**
@@ -321,25 +369,24 @@ class CartRuleCore extends ObjectModel
      */
     public static function haveCartRuleToday($idCustomer)
     {
-        static $haveCartRuleToday = array();
+        $idCustomer = (int) $idCustomer;
+
+        static $haveCartRuleToday = [];
 
         if (!isset($haveCartRuleToday[$idCustomer])) {
-            $sql = '(SELECT 1 FROM `' . _DB_PREFIX_ . 'cart_rule` ' .
-                'WHERE date_to >= "' . date('Y-m-d 00:00:00') .
-                '" AND date_to <= "' . date('Y-m-d 23:59:59') .
-                '" AND `id_customer` IN (0,' . (int) $idCustomer . ') LIMIT 1)';
+            $start_date = date('Y-m-d 00:00:00');
+            $end_date = date('Y-m-d 23:59:59');
+            $sql = 'SELECT 1 FROM `' . _DB_PREFIX_ . 'cart_rule` ' .
+                'WHERE ((date_to >= "' . $start_date .
+                '" AND date_to <= "' . $end_date .
+                '") OR (date_from >= "' . $start_date .
+                '" AND date_from <= "' . $end_date .
+                '") OR (date_from < "' . $start_date .
+                '" AND (date_to > "' . $end_date .
+                '" OR date_to IS NULL)' .
+                ')) AND `id_customer` IN (0,' . (int) $idCustomer . ')';
 
-            $sql .= 'UNION ALL (SELECT 1 FROM `' . _DB_PREFIX_ . 'cart_rule` ' .
-                'WHERE date_from >= "' . date('Y-m-d 00:00:00') .
-                '" AND date_from <= "' . date('Y-m-d 23:59:59') .
-                '" AND `id_customer` IN (0,' . (int) $idCustomer . ') LIMIT 1)';
-
-            $sql .= 'UNION ALL (SELECT 1 FROM `' . _DB_PREFIX_ . 'cart_rule` ' .
-                'WHERE date_from < "' . date('Y-m-d 00:00:00') .
-                '" AND date_to > "' . date('Y-m-d 23:59:59') .
-                '" AND `id_customer` IN (0,' . (int) $idCustomer . ') LIMIT 1) LIMIT 1';
-
-            $haveCartRuleToday[$idCustomer] = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
+            $haveCartRuleToday[$idCustomer] = Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($sql);
         }
 
         return !empty($haveCartRuleToday[$idCustomer]);
@@ -351,9 +398,9 @@ class CartRuleCore extends ObjectModel
      * @param int $id_lang Language ID
      * @param int $id_customer Customer ID
      * @param bool $active Active vouchers only
-     * @param bool $includeGeneric Include generic AND highlighted vouchers, regardless of highlight_only setting
-     * @param bool $inStock Vouchers in stock only
-     * @param Cart|null $cart Cart
+     * @param bool $includeGeneric Include generic vouchers that don't have specific customer
+     * @param bool $inStock Vouchers that have "total quantity" remaining
+     * @param CartCore|null $cart Cart
      * @param bool $free_shipping_only Free shipping only
      * @param bool $highlight_only Highlighted vouchers only
      *
@@ -367,55 +414,70 @@ class CartRuleCore extends ObjectModel
         $active = false,
         $includeGeneric = true,
         $inStock = false,
-        Cart $cart = null,
+        ?CartCore $cart = null,
         $free_shipping_only = false,
         $highlight_only = false
     ) {
-        if (!CartRule::isFeatureActive()
-            || !CartRule::haveCartRuleToday($id_customer)
-        ) {
-            return array();
+        if (!CartRule::isFeatureActive() || !CartRule::haveCartRuleToday($id_customer)) {
+            return [];
         }
 
-        $sql_part1 = '* FROM `' . _DB_PREFIX_ . 'cart_rule` cr
-				LEFT JOIN `' . _DB_PREFIX_ . 'cart_rule_lang` crl ON (cr.`id_cart_rule` = crl.`id_cart_rule` AND crl.`id_lang` = ' . (int) $id_lang . ')';
+        // Basic part of the query, we are selecting all cart rules
+        $sql = '
+            SELECT SQL_NO_CACHE * FROM `' . _DB_PREFIX_ . 'cart_rule` cr
+            LEFT JOIN `' . _DB_PREFIX_ . 'cart_rule_lang` crl
+            ON (cr.`id_cart_rule` = crl.`id_cart_rule` AND crl.`id_lang` = ' . (int) $id_lang . ')';
 
-        $sql_part2 = ' AND NOW() BETWEEN cr.date_from AND cr.date_to
-				' . ($active ? 'AND cr.`active` = 1' : '') . '
-				' . ($inStock ? 'AND cr.`quantity` > 0' : '');
+        // We will definitely include vouchers for this specific customer
+        $sql .= ' WHERE (cr.`id_customer` = ' . (int) $id_customer;
 
+        // And if required, all the generic ones, that don't have any specific customer set
+        if ($includeGeneric && (int) $id_customer !== 0) {
+            $sql .= ' OR cr.`id_customer` = 0';
+        }
+        $sql .= ')';
+
+        // Then, conditions for date, voucher active property and total amount of vouchers in stock
+        $sql .= ' AND ((cr.date_from <= NOW() AND cr.date_to IS NULL) OR (NOW() BETWEEN cr.date_from AND cr.date_to))
+            ' . ($active ? 'AND cr.`active` = 1' : '') . '
+            ' . ($inStock ? 'AND (cr.`quantity` > 0 OR cr.`quantity` is null)' : '');
+
+        // If we want to select only vouchers that have free shipping as the action
         if ($free_shipping_only) {
-            $sql_part2 .= ' AND free_shipping = 1 AND carrier_restriction = 1';
+            $sql .= ' AND free_shipping = 1 AND carrier_restriction = 1';
         }
 
+        // If we want to select only vouchers with "Highlight" option activated
         if ($highlight_only) {
-            $sql_part2 .= ' AND highlight = 1 AND code NOT LIKE "' . pSQL(CartRule::BO_ORDER_CODE_PREFIX) . '%"';
-        }
-
-        $sql = '(SELECT SQL_NO_CACHE ' . $sql_part1 . ' WHERE cr.`id_customer` = ' . (int) $id_customer . ' ' . $sql_part2 . ')';
-        $sql .= ' UNION (SELECT ' . $sql_part1 . ' WHERE cr.`group_restriction` = 1 ' . $sql_part2 . ')';
-        if ($includeGeneric && (int) $id_customer != 0) {
-            $sql .= ' UNION (SELECT ' . $sql_part1 . ' WHERE cr.`id_customer` = 0 ' . $sql_part2 . ')';
+            $sql .= ' AND highlight = 1 AND code NOT LIKE "' . pSQL(CartRule::BO_ORDER_CODE_PREFIX) . '%"';
         }
 
         $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql, true, false);
 
         if (empty($result)) {
-            return array();
+            return [];
         }
 
-        // Remove cart rule that does not match the customer groups
-        $customerGroups = Customer::getGroupsStatic($id_customer);
+        /*
+         * Remove cart rule that does not match the customer groups.
+         * Even if empty $id_customer was provided, we will still get
+         * a visitor group.
+         * When the groups feature is inactive the restriction is ignored dynamically
+         * (handled in checkValidity), so we keep all rules here.
+         */
+        if (Group::isFeatureActive()) {
+            $customerGroups = Customer::getGroupsStatic($id_customer);
 
-        foreach ($result as $key => $cart_rule) {
-            if ($cart_rule['group_restriction']) {
-                $cartRuleGroups = Db::getInstance()->executeS('SELECT id_group FROM ' . _DB_PREFIX_ . 'cart_rule_group WHERE id_cart_rule = ' . (int) $cart_rule['id_cart_rule']);
-                foreach ($cartRuleGroups as $cartRuleGroup) {
-                    if (in_array($cartRuleGroup['id_group'], $customerGroups)) {
-                        continue 2;
+            foreach ($result as $key => $cart_rule) {
+                if ($cart_rule['group_restriction']) {
+                    $cartRuleGroups = Db::getInstance()->executeS('SELECT id_group FROM ' . _DB_PREFIX_ . 'cart_rule_group WHERE id_cart_rule = ' . (int) $cart_rule['id_cart_rule']);
+                    foreach ($cartRuleGroups as $cartRuleGroup) {
+                        if (in_array($cartRuleGroup['id_group'], $customerGroups)) {
+                            continue 2;
+                        }
                     }
+                    unset($result[$key]);
                 }
-                unset($result[$key]);
             }
         }
 
@@ -448,7 +510,7 @@ class CartRuleCore extends ObjectModel
             foreach ($result as $key => $cart_rule) {
                 if ($cart_rule['product_restriction']) {
                     $cr = new CartRule((int) $cart_rule['id_cart_rule']);
-                    $r = $cr->checkProductRestrictionsFromCart(Context::getContext()->cart, false, false);
+                    $r = $cr->checkProductRestrictionsFromCart($cart, false, false);
                     if ($r !== false) {
                         continue;
                     }
@@ -456,41 +518,81 @@ class CartRuleCore extends ObjectModel
                 }
             }
         }
-        $result_bak = $result;
-        $result = array();
-        $country_restriction = false;
-        foreach ($result_bak as $key => $cart_rule) {
+
+        /*
+         * Now, we check the country restrictions on this cart rule.
+         * The rule is will be displayed, if the customer has at least one
+         * address with country in the allowed list.
+         *
+         * If the customer has no addresses, we won't display anything.
+         */
+        foreach ($result as $key => $cart_rule) {
             if ($cart_rule['country_restriction']) {
-                $country_restriction = true;
-                $countries = Db::getInstance()->executeS(
-                    '
-                    SELECT `id_country`
-                    FROM `' . _DB_PREFIX_ . 'address`
-                    WHERE `id_customer` = ' . (int) $id_customer . '
-                    AND `deleted` = 0'
+                /*
+                 * If the rule has country restriction and there is no customer ID
+                 * provided, it doesn't make sense to check anything else.
+                 *
+                 * This customer can't have any addresses, thus no cart rule will be valid.
+                 */
+                if (empty($id_customer)) {
+                    unset($result[$key]);
+                    continue;
+                }
+
+                /*
+                 * Now, when we are sure that we have some sensible customer ID to validate upon,
+                 * we can check if he has any valid addresses that intersect with the allowed countries
+                 * in the cart rule. So he will be able to use it.
+                 */
+                $validAddressExists = Db::getInstance()->getValue('
+                    SELECT crc.id_cart_rule
+                    FROM ' . _DB_PREFIX_ . 'cart_rule_country crc
+                    INNER JOIN ' . _DB_PREFIX_ . 'address a
+                    ON a.id_customer = ' . (int) $id_customer . ' AND
+                    a.deleted = 0 AND
+                    a.id_country = crc.id_country
+                    WHERE crc.id_cart_rule = ' . (int) $cart_rule['id_cart_rule']
                 );
 
-                if (is_array($countries) && count($countries)) {
-                    foreach ($countries as $country) {
-                        $id_cart_rule = (bool) Db::getInstance()->getValue('
-                            SELECT crc.id_cart_rule
-                            FROM ' . _DB_PREFIX_ . 'cart_rule_country crc
-                            WHERE crc.id_cart_rule = ' . (int) $cart_rule['id_cart_rule'] . '
-                            AND crc.id_country = ' . (int) $country['id_country']);
-                        if ($id_cart_rule) {
-                            $result[] = $result_bak[$key];
-
-                            break;
-                        }
-                    }
+                if (empty($validAddressExists)) {
+                    unset($result[$key]);
                 }
-            } else {
-                $result[] = $result_bak[$key];
             }
         }
 
-        if (!$country_restriction) {
-            $result = $result_bak;
+        return $result;
+    }
+
+    /**
+     * Get all (inactive too) CartRules for a given customer
+     *
+     * @param int $customerId
+     *
+     * @return array
+     */
+    public static function getAllCustomerCartRules(
+        int $customerId
+    ): array {
+        $query = new DbQuery();
+        $query->select('cr.*, crl.name');
+        $query->from('cart_rule', 'cr');
+        $query->where('cr.id_customer = ' . $customerId);
+        $query->leftJoin('cart_rule_lang', 'crl', 'cr.id_cart_rule = crl.id_cart_rule AND crl.id_lang = ' . (int) Configuration::get('PS_LANG_DEFAULT'));
+        $query->orderBy('cr.active DESC, cr.id_customer DESC');
+
+        $result = Db::getInstance()->executeS($query);
+
+        if (!$result) {
+            return [];
+        }
+
+        foreach ($result as &$cart_rule) {
+            if ($cart_rule['quantity_per_user']) {
+                $quantity_used = Order::getDiscountsCustomer($customerId, (int) $cart_rule['id_cart_rule']);
+                $cart_rule['quantity_for_user'] = $cart_rule['quantity_per_user'] - $quantity_used;
+            } else {
+                $cart_rule['quantity_for_user'] = 0;
+            }
         }
 
         return $result;
@@ -499,17 +601,17 @@ class CartRuleCore extends ObjectModel
     public static function getCustomerHighlightedDiscounts(
         $languageId,
         $customerId,
-        Cart $cart
+        CartCore $cart
     ) {
         return static::getCustomerCartRules(
-           $languageId,
-           $customerId,
-           $active = true,
-           $includeGeneric = true,
-           $inStock = true,
-           $cart,
-           $freeShippingOnly = false,
-           $highlightOnly = true
+            $languageId,
+            $customerId,
+            $active = true,
+            $includeGeneric = true,
+            $inStock = true,
+            $cart,
+            $freeShippingOnly = false,
+            $highlightOnly = true
         );
     }
 
@@ -527,7 +629,7 @@ class CartRuleCore extends ObjectModel
 		SELECT id_cart_rule
 		FROM `' . _DB_PREFIX_ . 'order_cart_rule` ocr
 		LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON ocr.`id_order` = o.`id_order`
-		WHERE ocr.`id_cart_rule` = ' . (int) $this->id . '
+		WHERE ocr.`deleted` = 0 AND ocr.`id_cart_rule` = ' . (int) $this->id . '
 		AND o.`id_customer` = ' . (int) $id_customer);
     }
 
@@ -547,7 +649,7 @@ class CartRuleCore extends ObjectModel
         return (bool) Db::getInstance()->getValue('
 		SELECT `id_cart_rule`
 		FROM `' . _DB_PREFIX_ . 'cart_rule`
-		WHERE `code` = \'' . pSQL($code) . '\'');
+		WHERE `code` = \'' . pSQL($code) . '\'', false);
     }
 
     /**
@@ -559,6 +661,12 @@ class CartRuleCore extends ObjectModel
      */
     public static function deleteByIdCustomer($id_customer)
     {
+        // Remove cart rules only if we got some sensible ID of a customer.
+        // If we would pass zero further below, it would delete all non-customer-restricted cart rules.
+        if (empty($id_customer)) {
+            return false;
+        }
+
         $return = true;
         $cart_rules = new PrestaShopCollection('CartRule');
         $cart_rules->where('id_customer', '=', $id_customer);
@@ -575,14 +683,14 @@ class CartRuleCore extends ObjectModel
     public function getProductRuleGroups()
     {
         if (!Validate::isLoadedObject($this) || $this->product_restriction == 0) {
-            return array();
+            return [];
         }
 
-        $productRuleGroups = array();
+        $productRuleGroups = [];
         $result = Db::getInstance()->executeS('SELECT * FROM ' . _DB_PREFIX_ . 'cart_rule_product_rule_group WHERE id_cart_rule = ' . (int) $this->id);
         foreach ($result as $row) {
             if (!isset($productRuleGroups[$row['id_product_rule_group']])) {
-                $productRuleGroups[$row['id_product_rule_group']] = array('id_product_rule_group' => $row['id_product_rule_group'], 'quantity' => $row['quantity']);
+                $productRuleGroups[$row['id_product_rule_group']] = ['id_product_rule_group' => $row['id_product_rule_group'], 'quantity' => $row['quantity'], 'type' => $row['type']];
             }
             $productRuleGroups[$row['id_product_rule_group']]['product_rules'] = $this->getProductRules($row['id_product_rule_group']);
         }
@@ -591,17 +699,17 @@ class CartRuleCore extends ObjectModel
     }
 
     /**
-     * @param $id_product_rule_group
+     * @param int $id_product_rule_group
      *
      * @return array ('type' => ? , 'values' => ?)
      */
     public function getProductRules($id_product_rule_group)
     {
         if (!Validate::isLoadedObject($this) || $this->product_restriction == 0) {
-            return array();
+            return [];
         }
 
-        $productRules = array();
+        $productRules = [];
         $results = Db::getInstance()->executeS('
 		SELECT *
 		FROM ' . _DB_PREFIX_ . 'cart_rule_product_rule pr
@@ -609,7 +717,7 @@ class CartRuleCore extends ObjectModel
 		WHERE pr.id_product_rule_group = ' . (int) $id_product_rule_group);
         foreach ($results as $row) {
             if (!isset($productRules[$row['id_product_rule']])) {
-                $productRules[$row['id_product_rule']] = array('type' => $row['type'], 'values' => array());
+                $productRules[$row['id_product_rule']] = ['type' => $row['type'], 'values' => []];
             }
             $productRules[$row['id_product_rule']]['values'][] = $row['id_item'];
         }
@@ -620,90 +728,166 @@ class CartRuleCore extends ObjectModel
     /**
      * Check if this CartRule can be applied.
      *
-     * @param Context $context Context instance
-     * @param bool $alreadyInCart Check if the voucher is already on the cart
-     * @param bool $display_error Display error
+     * @param Context $context Context instance to use
+     * @param bool $alreadyInCart Special validation flag to use, that has different conditions for vouchers already in a cart
+     * @param bool $display_error If true, method returns nothing if valid or an error message. If false, always returns a boolean
+     * @param bool $check_carrier Disable this flag if you want to validate the cart rule for a different carrier than assigned to the cart
+     * @param bool $useOrderPrices When true use the Order saved prices instead of the most recent ones from catalog
      *
      * @return bool|mixed|string
      */
-    public function checkValidity(Context $context, $alreadyInCart = false, $display_error = true, $check_carrier = true)
+    public function checkValidity(Context $context, $alreadyInCart = false, $display_error = true, $check_carrier = true, $useOrderPrices = false)
     {
         if (!CartRule::isFeatureActive()) {
             return false;
         }
+        $cart = $context->cart;
 
-        if (!$this->active) {
-            return (!$display_error) ? false : $this->trans('This voucher is disabled', array(), 'Shop.Notifications.Error');
+        /*
+         * Custom cart rule validation from modules. Allows to create infinite possibilities of rules.
+         *
+         * If null is provided, nothing happens and built-in validation is ran. Useful if you want your own conditions,
+         * but also want to retain functionality of the core.
+         *
+         * If true is provided, the validation ends here and the rule is VALID, ignoring the rest of core validation.
+         *
+         * If false is provided, the validation ends here and the rule is not VALID, ignoring the rest of core validation.
+         * In this case, it's recommended to properly alter the isValidatedByModulesError error message so the user knows why.
+         */
+        $isValidatedByModules = null;
+        $isValidatedByModulesError = $this->trans('This voucher is not valid.', [], 'Shop.Notifications.Error');
+        Hook::exec(
+            'actionValidateCartRule',
+            [
+                'cart_rule' => $this,
+                'cart' => $cart,
+                'alreadyInCart' => $alreadyInCart,
+                'display_error' => $display_error,
+                'check_carrier' => $check_carrier,
+                'useOrderPrices' => $useOrderPrices,
+                'isValidatedByModules' => &$isValidatedByModules,
+                'isValidatedByModulesError' => &$isValidatedByModulesError,
+            ]
+        );
+
+        // @phpstan-ignore-next-line
+        if ($isValidatedByModules === false) {
+            return (!$display_error) ? false : $isValidatedByModulesError;
         }
-        if (!$this->quantity) {
-            return (!$display_error) ? false : $this->trans('This voucher has already been used', array(), 'Shop.Notifications.Error');
-        }
-        if (strtotime($this->date_from) > time()) {
-            return (!$display_error) ? false : $this->trans('This voucher is not valid yet', array(), 'Shop.Notifications.Error');
-        }
-        if (strtotime($this->date_to) < time()) {
-            return (!$display_error) ? false : $this->trans('This voucher has expired', array(), 'Shop.Notifications.Error');
+        // @phpstan-ignore-next-line
+        if ($isValidatedByModules === true) {
+            return (!$display_error) ? true : null;
         }
 
-        if ($context->cart->id_customer) {
-            $quantityUsed = Db::getInstance()->getValue('
-			SELECT count(*)
-			FROM ' . _DB_PREFIX_ . 'orders o
-			LEFT JOIN ' . _DB_PREFIX_ . 'order_cart_rule od ON o.id_order = od.id_order
-			WHERE o.id_customer = ' . $context->cart->id_customer . '
-			AND od.id_cart_rule = ' . (int) $this->id . '
-			AND ' . (int) Configuration::get('PS_OS_ERROR') . ' != o.current_state
-			');
-            if ($quantityUsed + 1 > $this->quantity_per_user) {
-                return (!$display_error) ? false : $this->trans('You cannot use this voucher anymore (usage limit reached)', array(), 'Shop.Notifications.Error');
+        /*
+         * All these checks are relevant only for non-ordered carts. When an order has been already
+         * created from the cart, we do not check this. $useOrderPrices is a bit confusing as a name,
+         * but it indicates that we are validating a cart that has already been ordered.
+         */
+        if (!$useOrderPrices) {
+            // We verify that the cart rule is active
+            if (!$this->active) {
+                return (!$display_error) ? false : $this->trans('This voucher is disabled', [], 'Shop.Notifications.Error');
+            }
+
+            // We verify the total available quantity
+            if ($this->quantity !== null && !$this->quantity) {
+                return (!$display_error) ? false : $this->trans('This voucher has already been used', [], 'Shop.Notifications.Error');
+            }
+
+            // We verify the date range
+            if (strtotime($this->date_from) > time()) {
+                return (!$display_error) ? false : $this->trans('This voucher is not valid yet', [], 'Shop.Notifications.Error');
+            }
+            if (!DateTimeUtil::isNull($this->date_to ?? null) && strtotime($this->date_to) < time()) {
+                return (!$display_error) ? false : $this->trans('This voucher has expired', [], 'Shop.Notifications.Error');
+            }
+
+            // We verify the quantity per user, if customer is already assigned to the cart
+            if ($cart->id_customer) {
+                // First, we check if the customer has already used this cart rule in past orders
+                $quantityUsed = Db::getInstance()->getValue('
+                SELECT count(*)
+                FROM `' . _DB_PREFIX_ . 'orders` o
+                LEFT JOIN `' . _DB_PREFIX_ . 'order_cart_rule` ocr ON o.`id_order` = ocr.`id_order`
+                WHERE o.`id_customer` = ' . $cart->id_customer . '
+                AND ocr.`deleted` = 0
+                AND ocr.`id_cart_rule` = ' . (int) $this->id . '
+                AND ' . (int) Configuration::get('PS_OS_ERROR') . ' != o.`current_state`
+                ');
+
+                if ($alreadyInCart) {
+                    // Sometimes a cart rule is already in a cart, but the cart is not yet attached to an order (when logging
+                    // in for example), these cart rules are not taken into account by the query above:
+                    // so we count cart rules that are already linked to the current cart but not attached to an order yet.
+
+                    $quantityUsed += (int) Db::getInstance()->getValue('
+                        SELECT count(*)
+                        FROM `' . _DB_PREFIX_ . 'cart_cart_rule` ccr
+                        INNER JOIN `' . _DB_PREFIX_ . 'cart` c ON c.id_cart = ccr.id_cart
+                        LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON o.id_cart = c.id_cart
+                        WHERE c.id_customer = ' . $cart->id_customer . ' AND c.id_cart = ' . (int) $cart->id . ' AND ccr.id_cart_rule = ' . (int) $this->id . ' AND o.id_order IS NULL
+                    ');
+                } else {
+                    // When checking the cart rules present in that cart the request result is accurate
+                    // When we check if using the cart rule one more time is valid then we increment this value
+                    ++$quantityUsed;
+                }
+
+                if ($this->quantity_per_user !== null && $quantityUsed > $this->quantity_per_user) {
+                    return (!$display_error) ? false : $this->trans('You cannot use this voucher anymore (usage limit reached)', [], 'Shop.Notifications.Error');
+                }
             }
         }
 
         // Get an intersection of the customer groups and the cart rule groups (if the customer is not logged in, the default group is Visitors)
         if ($this->group_restriction) {
+            if (!Group::isFeatureActive()) {
+                return (!$display_error) ? false : $this->trans('You cannot use this voucher', [], 'Shop.Notifications.Error');
+            }
             $id_cart_rule = (int) Db::getInstance()->getValue('
 			SELECT crg.id_cart_rule
 			FROM ' . _DB_PREFIX_ . 'cart_rule_group crg
 			WHERE crg.id_cart_rule = ' . (int) $this->id . '
-			AND crg.id_group ' . ($context->cart->id_customer ? 'IN (SELECT cg.id_group FROM ' . _DB_PREFIX_ . 'customer_group cg WHERE cg.id_customer = ' . (int) $context->cart->id_customer . ')' : '= ' . (int) Configuration::get('PS_UNIDENTIFIED_GROUP')));
+			AND crg.id_group ' . ($cart->id_customer ? 'IN (SELECT cg.id_group FROM ' . _DB_PREFIX_ . 'customer_group cg WHERE cg.id_customer = ' . (int) $cart->id_customer . ')' : '= ' . (int) Configuration::get('PS_UNIDENTIFIED_GROUP')));
             if (!$id_cart_rule) {
-                return (!$display_error) ? false : $this->trans('You cannot use this voucher', array(), 'Shop.Notifications.Error');
+                return (!$display_error) ? false : $this->trans('You cannot use this voucher', [], 'Shop.Notifications.Error');
             }
         }
 
         // Check if the customer delivery address is usable with the cart rule
         if ($this->country_restriction) {
-            if (!$context->cart->id_address_delivery) {
-                return (!$display_error) ? false : $this->trans('You must choose a delivery address before applying this voucher to your order', array(), 'Shop.Notifications.Error');
+            if (!$cart->id_address_delivery) {
+                return (!$display_error) ? false : $this->trans('You must choose a delivery address before applying this voucher to your order', [], 'Shop.Notifications.Error');
             }
             $id_cart_rule = (int) Db::getInstance()->getValue('
 			SELECT crc.id_cart_rule
 			FROM ' . _DB_PREFIX_ . 'cart_rule_country crc
 			WHERE crc.id_cart_rule = ' . (int) $this->id . '
-			AND crc.id_country = (SELECT a.id_country FROM ' . _DB_PREFIX_ . 'address a WHERE a.id_address = ' . (int) $context->cart->id_address_delivery . ' LIMIT 1)');
+			AND crc.id_country = (SELECT a.id_country FROM ' . _DB_PREFIX_ . 'address a WHERE a.id_address = ' . (int) $cart->id_address_delivery . ' LIMIT 1)');
             if (!$id_cart_rule) {
-                return (!$display_error) ? false : $this->trans('You cannot use this voucher in your country of delivery', array(), 'Shop.Notifications.Error');
+                return (!$display_error) ? false : $this->trans('You cannot use this voucher in your country of delivery', [], 'Shop.Notifications.Error');
             }
         }
 
         // Check if the carrier chosen by the customer is usable with the cart rule
         if ($this->carrier_restriction && $check_carrier) {
-            if (!$context->cart->id_carrier) {
-                return (!$display_error) ? false : $this->trans('You must choose a carrier before applying this voucher to your order', array(), 'Shop.Notifications.Error');
+            if (!$cart->id_carrier) {
+                return (!$display_error) ? false : $this->trans('You must choose a carrier before applying this voucher to your order', [], 'Shop.Notifications.Error');
             }
             $id_cart_rule = (int) Db::getInstance()->getValue('
 			SELECT crc.id_cart_rule
 			FROM ' . _DB_PREFIX_ . 'cart_rule_carrier crc
 			INNER JOIN ' . _DB_PREFIX_ . 'carrier c ON (c.id_reference = crc.id_carrier AND c.deleted = 0)
 			WHERE crc.id_cart_rule = ' . (int) $this->id . '
-			AND c.id_carrier = ' . (int) $context->cart->id_carrier);
+			AND c.id_carrier = ' . (int) $cart->id_carrier);
             if (!$id_cart_rule) {
-                return (!$display_error) ? false : $this->trans('You cannot use this voucher with this carrier', array(), 'Shop.Notifications.Error');
+                return (!$display_error) ? false : $this->trans('You cannot use this voucher with this carrier', [], 'Shop.Notifications.Error');
             }
         }
 
         if ($this->reduction_exclude_special) {
-            $products = $context->cart->getProducts();
+            $products = $cart->getProducts();
             $is_ok = false;
             foreach ($products as $product) {
                 if (!$product['reduction_applies']) {
@@ -713,7 +897,7 @@ class CartRuleCore extends ObjectModel
                 }
             }
             if (!$is_ok) {
-                return (!$display_error) ? false : $this->trans('You cannot use this voucher on products on sale', array(), 'Shop.Notifications.Error');
+                return (!$display_error) ? false : $this->trans('You cannot use this voucher on products on sale', [], 'Shop.Notifications.Error');
             }
         }
 
@@ -725,7 +909,7 @@ class CartRuleCore extends ObjectModel
 			WHERE crs.id_cart_rule = ' . (int) $this->id . '
 			AND crs.id_shop = ' . (int) $context->shop->id);
             if (!$id_cart_rule) {
-                return (!$display_error) ? false : $this->trans('You cannot use this voucher', array(), 'Shop.Notifications.Error');
+                return (!$display_error) ? false : $this->trans('You cannot use this voucher', [], 'Shop.Notifications.Error');
             }
         }
 
@@ -739,15 +923,60 @@ class CartRuleCore extends ObjectModel
             }
         }
 
-        // Check if the cart rule is only usable by a specific customer, and if the current customer is the right one
-        if ($this->id_customer && $context->cart->id_customer != $this->id_customer) {
-            if (!Context::getContext()->customer->isLogged()) {
-                return (!$display_error) ? false : ($this->trans('You cannot use this voucher', array(), 'Shop.Notifications.Error') . ' - ' . $this->trans('Please log in first', array(), 'Shop.Notifications.Error'));
+        // Check if the free gift product is still available.
+        // Skip for finalized orders (useOrderPrices = true) to avoid removing already-placed cart rules
+        // if the gift product later becomes unavailable.
+        if (self::isDiscountFeatureFlagEnabled() && (int) $this->gift_product && !$useOrderPrices) {
+            $giftProduct = new Product((int) $this->gift_product);
+
+            if (!Validate::isLoadedObject($giftProduct)) {
+                return (!$display_error) ? false : $this->trans('The gift product does not exist.', [], 'Shop.Notifications.Error');
             }
 
-            return (!$display_error) ? false : $this->trans('You cannot use this voucher', array(), 'Shop.Notifications.Error');
+            if (!(int) $giftProduct->available_for_order) {
+                return (!$display_error) ? false : $this->trans('The gift product is not available for order.', [], 'Shop.Notifications.Error');
+            }
+
+            if ((int) $giftProduct->minimal_quantity > 1) {
+                return (!$display_error) ? false : $this->trans('The gift product does not meet the minimum quantity.', [], 'Shop.Notifications.Error');
+            }
+
+            if ((int) $giftProduct->customizable === ProductCustomizabilitySettings::REQUIRES_CUSTOMIZATION) {
+                return (!$display_error) ? false : $this->trans('You cannot have a customizable gift.', [], 'Shop.Notifications.Error');
+            }
+
+            $giftStock = Product::getQuantity(
+                (int) $this->gift_product,
+                (int) $this->gift_product_attribute ?: null
+            );
+            $outOfStockBehavior = (int) StockAvailable::outOfStock((int) $this->gift_product);
+            if ($outOfStockBehavior === OutOfStockType::OUT_OF_STOCK_DEFAULT) {
+                $outOfStockBehavior = (int) Configuration::get('PS_ORDER_OUT_OF_STOCK');
+            }
+            if ($giftStock <= 0 && $outOfStockBehavior === OutOfStockType::OUT_OF_STOCK_NOT_AVAILABLE) {
+                return (!$display_error) ? false : $this->trans('The gift product is out of stock.', [], 'Shop.Notifications.Error');
+            }
         }
 
+        // Check if the minimal product quantity is met (if defined)
+        if ($this->minimum_product_quantity) {
+            if ($cart->nbProducts() < $this->minimum_product_quantity) {
+                return (!$display_error) ? false : $this->trans('You cannot use this voucher with these products', [], 'Shop.Notifications.Error');
+            }
+        }
+
+        // Check if the cart rule is only usable by a specific customer, and if the current customer is the right one
+        if ($this->id_customer && $cart->id_customer != $this->id_customer) {
+            if (!Context::getContext()->customer->isLogged()) {
+                return (!$display_error) ? false : ($this->trans('You cannot use this voucher', [], 'Shop.Notifications.Error') . ' - ' . $this->trans('Please log in first', [], 'Shop.Notifications.Error'));
+            }
+
+            return (!$display_error) ? false : $this->trans('You cannot use this voucher', [], 'Shop.Notifications.Error');
+        }
+
+        /*
+         * Now, we need to check if the cart rule meets the minimum requirements to use it.
+         */
         if ($this->minimum_amount && $check_carrier) {
             // Minimum amount is converted to the contextual currency
             $minimum_amount = $this->minimum_amount;
@@ -755,25 +984,28 @@ class CartRuleCore extends ObjectModel
                 $minimum_amount = Tools::convertPriceFull($minimum_amount, new Currency($this->minimum_amount_currency), Context::getContext()->currency);
             }
 
-            $cartTotal = $context->cart->getOrderTotal($this->minimum_amount_tax, Cart::ONLY_PRODUCTS);
+            // Let's get the full cart total first, add shipping price if the rule was configured like this.
+            $cartTotal = $cart->getOrderTotal(
+                $this->minimum_amount_tax,
+                Cart::ONLY_PRODUCTS_WITHOUT_GIFTS,
+                null,
+                null,
+                false,
+                $useOrderPrices
+            );
             if ($this->minimum_amount_shipping) {
-                $cartTotal += $context->cart->getOrderTotal($this->minimum_amount_tax, Cart::ONLY_SHIPPING);
-            }
-            $products = $context->cart->getProducts();
-            $cart_rules = $context->cart->getCartRules(CartRule::FILTER_ACTION_ALL, false);
-
-            foreach ($cart_rules as &$cart_rule) {
-                if ($cart_rule['gift_product']) {
-                    foreach ($products as $key => &$product) {
-                        if (empty($product['gift']) && $product['id_product'] == $cart_rule['gift_product'] && $product['id_product_attribute'] == $cart_rule['gift_product_attribute']) {
-                            $cartTotal = Tools::ps_round($cartTotal - $product[$this->minimum_amount_tax ? 'price_wt' : 'price'], (int) $context->currency->decimals * _PS_PRICE_COMPUTE_PRECISION_);
-                        }
-                    }
-                }
+                $cartTotal += $cart->getOrderTotal(
+                    $this->minimum_amount_tax,
+                    Cart::ONLY_SHIPPING,
+                    null,
+                    null,
+                    false,
+                    $useOrderPrices
+                );
             }
 
             if ($cartTotal < $minimum_amount) {
-                return (!$display_error) ? false : $this->trans('You have not reached the minimum amount required to use this voucher', array(), 'Shop.Notifications.Error');
+                return (!$display_error) ? false : $this->trans('The minimum amount to benefit from this promo code is %s.', [Tools::getContextLocale($context)->formatPrice($minimum_amount, $context->currency->iso_code)], 'Shop.Notifications.Error');
             }
         }
 
@@ -783,17 +1015,23 @@ class CartRuleCore extends ObjectModel
           - if there are products in the cart (gifts excluded)
           Important note: this MUST be the last check, because if the tested cart rule has priority over a non combinable one in the cart, we will switch them
          */
-        $nb_products = Cart::getNbProducts($context->cart->id);
-        $otherCartRules = array();
+        $nb_products = Cart::getNbProducts($cart->id);
+        $otherCartRules = [];
         if ($check_carrier) {
-            $otherCartRules = $context->cart->getCartRules(CartRule::FILTER_ACTION_ALL, false);
+            $otherCartRules = $cart->getCartRules(CartRule::FILTER_ACTION_ALL, false);
         }
+        $nbOfCartRules = 0;
         if (count($otherCartRules)) {
             foreach ($otherCartRules as $otherCartRule) {
-                if ($otherCartRule['id_cart_rule'] == $this->id && !$alreadyInCart) {
-                    return (!$display_error) ? false : $this->trans('This voucher is already in your cart', array(), 'Shop.Notifications.Error');
+                if ($otherCartRule['id_cart_rule'] != $this->id) {
+                    ++$nbOfCartRules;
                 }
-                $giftProductQuantity = $context->cart->getProductQuantity($otherCartRule['gift_product'], $otherCartRule['gift_product_attribute']);
+                if ($otherCartRule['id_cart_rule'] == $this->id && !$alreadyInCart) {
+                    return (!$display_error) ? false : $this->trans('This voucher is already in your cart', [], 'Shop.Notifications.Error');
+                }
+
+                // We try to check how many gifts are already in the cart, with this product ID, combination ID and no customization.
+                $giftProductQuantity = $cart->getProductQuantity($otherCartRule['gift_product'], $otherCartRule['gift_product_attribute'], 0);
 
                 if ($otherCartRule['gift_product'] && !empty($giftProductQuantity['quantity'])) {
                     --$nb_products;
@@ -806,13 +1044,13 @@ class CartRuleCore extends ObjectModel
 					WHERE (id_cart_rule_1 = ' . (int) $this->id . ' AND id_cart_rule_2 = ' . (int) $otherCartRule['id_cart_rule'] . ')
 					OR (id_cart_rule_2 = ' . (int) $this->id . ' AND id_cart_rule_1 = ' . (int) $otherCartRule['id_cart_rule'] . ')');
                     if (!$combinable) {
-                        $cart_rule = new CartRule((int) $otherCartRule['id_cart_rule'], $context->cart->id_lang);
+                        $cart_rule = new CartRule((int) $otherCartRule['id_cart_rule'], $cart->id_lang);
                         // The cart rules are not combinable and the cart rule currently in the cart has priority over the one tested
                         if ($cart_rule->priority <= $this->priority) {
-                            return (!$display_error) ? false : $this->trans('This voucher is not combinable with an other voucher already in your cart: %s', array($cart_rule->name), 'Shop.Notifications.Error');
+                            return (!$display_error) ? false : $this->trans('This voucher is not combinable with an other voucher already in your cart: %s', [htmlspecialchars($cart_rule->name)], 'Shop.Notifications.Error');
                         } else {
                             // But if the cart rule that is tested has priority over the one in the cart, we remove the one in the cart and keep this new one
-                            $context->cart->removeCartRule($cart_rule->id);
+                            $cart->removeCartRule($cart_rule->id);
                         }
                     }
                 }
@@ -820,7 +1058,54 @@ class CartRuleCore extends ObjectModel
         }
 
         if (!$nb_products) {
-            return (!$display_error) ? false : $this->trans('Cart is empty', array(), 'Shop.Notifications.Error');
+            return (!$display_error) ? false : $this->trans('Cart is empty', [], 'Shop.Notifications.Error');
+        }
+
+        // Check if order cart rule was removed from back office
+        $removed_order_cartRule_id = (int) Db::getInstance()->getValue('
+			SELECT ocr.`id_order_cart_rule`
+			FROM `' . _DB_PREFIX_ . 'order_cart_rule` ocr
+			LEFT JOIN `' . _DB_PREFIX_ . 'orders` o ON ocr.`id_order` = o.`id_order`
+			WHERE ocr.`id_cart_rule` = ' . (int) $this->id . '
+			AND ocr.`deleted` = 1
+			AND o.`id_cart` = ' . $cart->id);
+        if ($removed_order_cartRule_id) {
+            return (!$display_error) ? false : $this->trans('You cannot use this voucher because it has manually been removed.', [], 'Shop.Notifications.Error');
+        }
+
+        // This part introduces the new business rules for the discount rework they are only taking effect when the discount feature flag is enabled
+        if (self::isDiscountFeatureFlagEnabled()) {
+            // Use DiscountApplicationService to determine which discounts to apply and their priority order
+            $existingCartRuleIds = array_filter(
+                array_column($otherCartRules, 'id_cart_rule'),
+                function ($id) {
+                    return $id != $this->id;
+                }
+            );
+
+            try {
+                $containerFinder = new ContainerFinder(Context::getContext());
+                $container = $containerFinder->getContainer();
+                $applicationService = $container->get(DiscountApplicationService::class);
+                $result = $applicationService->determineDiscountsToApply($this->id, $existingCartRuleIds);
+
+                if (!$result->canApply()) {
+                    $errorMessage = $result->getRejectionReason()
+                        ?? 'This voucher is not combinable with other vouchers in your cart';
+
+                    return (!$display_error) ? false : $this->trans($errorMessage, [], 'Shop.Notifications.Error');
+                }
+
+                // Remove conflicting discounts that were replaced by higher priority ones
+                foreach ($result->getDiscountsToRemove() as $ruleIdToRemove) {
+                    $cart->removeCartRule($ruleIdToRemove);
+                }
+
+                // Note: The actual application order is determined by the result
+                // The cart will apply discounts in the priority order specified by $result->getDiscountsToApply()
+            } catch (Exception $e) {
+                // Fallback: if service is not available or discount has no type, skip compatibility check
+            }
         }
 
         if (!$display_error) {
@@ -831,27 +1116,7 @@ class CartRuleCore extends ObjectModel
     /**
      * Checks if the products chosen by the customer are usable with the cart rule.
      *
-     * @deprecated since 1.7.4.0
-     * @see self::checkProductRestrictionsFromCart
-     *
-     * @param \Context $context
-     * @param bool $returnProducts
-     * @param bool $displayError
-     * @param bool $alreadyInCart
-     *
-     * @return array|bool|string
-     *
-     * @throws PrestaShopDatabaseException
-     */
-    public function checkProductRestrictions(Context $context, $returnProducts = false, $displayError = true, $alreadyInCart = false)
-    {
-        return $this->checkProductRestrictionsFromCart($context->cart, $returnProducts, $displayError, $alreadyInCart);
-    }
-
-    /**
-     * Checks if the products chosen by the customer are usable with the cart rule.
-     *
-     * @param \Cart $cart
+     * @param CartCore $cart
      * @param bool $returnProducts [default=false]
      *                             If true, this method will return an array of eligible products.
      *                             Otherwise, it returns TRUE on success and string|false on errors (depending on the value of $displayError)
@@ -864,120 +1129,171 @@ class CartRuleCore extends ObjectModel
      *
      * @throws PrestaShopDatabaseException
      */
-    public function checkProductRestrictionsFromCart(Cart $cart, $returnProducts = false, $displayError = true, $alreadyInCart = false)
+    public function checkProductRestrictionsFromCart(CartCore $cart, $returnProducts = false, $displayError = true, $alreadyInCart = false)
     {
-        $selected_products = array();
+        // Prepare a list of products to return, if the caller wishes so and provided returnProducts = true
+        $selected_products = [];
 
-        // Check if the products chosen by the customer are usable with the cart rule
+        // Do all of this only if the cart rule actually has some restrictions
         if ($this->product_restriction) {
+            // Load products in cart and return if it's empty, there is no point in checking anything else
+            $products = $cart->getProducts();
+            if (empty($products)) {
+                return (!$displayError) ? false : $this->trans('You cannot use this voucher in an empty cart', [], 'Shop.Notifications.Error');
+            }
+
+            // Now we load all RULE GROUP.
             $product_rule_groups = $this->getProductRuleGroups();
             foreach ($product_rule_groups as $id_product_rule_group => $product_rule_group) {
-                $eligible_products_list = array();
-                if (isset($cart) && is_object($cart) && is_array($products = $cart->getProducts())) {
-                    foreach ($products as $product) {
-                        $eligible_products_list[] = (int) $product['id_product'] . '-' . (int) $product['id_product_attribute'];
-                    }
+                $product_rule_group_type = $product_rule_group['type'] ?? self::AT_LEAST_ONE_PRODUCT_RULE;
+                /*
+                 * Rule group is a set of rules that the cart must meet for this cart rule to be applied.
+                 * These groups have an AND relationship. If you create two groups for given cart rule,
+                 * the cart must meet the conditions of both of them to be applied.
+                 *
+                 * Also, at least $product_rule_group['quantity'] must meet these rules.
+                 */
+                $eligible_products_list = [];
+                foreach ($products as $product) {
+                    $eligible_products_list[] = (int) $product['id_product'] . '-' . (int) $product['id_product_attribute'];
                 }
-                if (!count($eligible_products_list)) {
-                    return (!$displayError) ? false : $this->trans('You cannot use this voucher in an empty cart', array(), 'Shop.Notifications.Error');
-                }
+
+                // Now, we load the RULES inside the RULE GROUP
                 $product_rules = $this->getProductRules($id_product_rule_group);
                 $countRulesProduct = count($product_rules);
-                $condition = 0;
+                $failedProductRules = 0;
                 foreach ($product_rules as $product_rule) {
+                    /*
+                     * For the cart RULE GROUP to be validated, we have two behaviours depending on $product_rule_group_type:
+                     *  - AT_LEAST_ONE_PRODUCT_RULE: at least on of the RULES inside the RULE GROUP must meet the conditions
+                     *  - ALL_PRODUCT_RULES: all the RULES inside the RULE GROUP must meet the conditions
+                     */
                     switch ($product_rule['type']) {
                         case 'attributes':
-                            $cart_attributes = Db::getInstance()->executeS('
-							SELECT cp.quantity, cp.`id_product`, pac.`id_attribute`, cp.`id_product_attribute`
-							FROM `' . _DB_PREFIX_ . 'cart_product` cp
-							LEFT JOIN `' . _DB_PREFIX_ . 'product_attribute_combination` pac ON cp.id_product_attribute = pac.id_product_attribute
-							WHERE cp.`id_cart` = ' . (int) $cart->id . '
-							AND cp.`id_product` IN (' . implode(',', array_map('intval', $eligible_products_list)) . ')
-							AND cp.id_product_attribute > 0');
-                            $count_matching_products = 0;
-                            $matching_products_list = array();
-                            foreach ($cart_attributes as $cart_attribute) {
-                                if (in_array($cart_attribute['id_attribute'], $product_rule['values'])) {
-                                    $count_matching_products += $cart_attribute['quantity'];
-                                    if (
-                                        $alreadyInCart
-                                        && $this->gift_product == $cart_attribute['id_product']
-                                        && $this->gift_product_attribute == $cart_attribute['id_product_attribute']) {
-                                        --$count_matching_products;
+                            // Skip if no eligible products to avoid SQL syntax error
+                            if (empty($eligible_products_list)) {
+                                $count_matching_products = 0;
+                                $matching_products_list = [];
+                            } else {
+                                // Build the matching list of "{productId}-{combinationId}" compatible with the IN mysql operator, this will result in  a string looking like:
+                                //   "23-45", "23-46", "42-0"
+                                $combinationInValue = implode(',', array_map(fn ($combinationIdentifier) => '"' . $combinationIdentifier . '"', $eligible_products_list));
+                                $cart_attributes = Db::getInstance()->executeS('
+								SELECT cp.quantity, cp.`id_product`, pac.`id_attribute`, cp.`id_product_attribute`
+								FROM `' . _DB_PREFIX_ . 'cart_product` cp
+								LEFT JOIN `' . _DB_PREFIX_ . 'product_attribute_combination` pac ON cp.id_product_attribute = pac.id_product_attribute
+								WHERE cp.`id_cart` = ' . (int) $cart->id . '
+								AND CONCAT(cp.`id_product`, "-", cp.`id_product_attribute`) IN (' . $combinationInValue . ')');
+                                $count_matching_products = 0;
+                                $matching_products_list = [];
+                                foreach ($cart_attributes as $cart_attribute) {
+                                    if (in_array($cart_attribute['id_attribute'], $product_rule['values'])) {
+                                        $count_matching_products += $cart_attribute['quantity'];
+                                        if (
+                                            $alreadyInCart
+                                            && $this->gift_product == $cart_attribute['id_product']
+                                            && $this->gift_product_attribute == $cart_attribute['id_product_attribute']) {
+                                            --$count_matching_products;
+                                        }
+                                        $matching_products_list[] = $cart_attribute['id_product'] . '-' . $cart_attribute['id_product_attribute'];
                                     }
-                                    $matching_products_list[] = $cart_attribute['id_product'] . '-' . $cart_attribute['id_product_attribute'];
                                 }
                             }
                             if ($count_matching_products < $product_rule_group['quantity']) {
-                                if ($countRulesProduct === 1) {
-                                    return (!$displayError) ? false : $this->trans('You cannot use this voucher with these products', array(), 'Shop.Notifications.Error');
-                                } else {
-                                    ++$condition;
-
-                                    break;
-                                }
+                                ++$failedProductRules;
+                                break;
                             }
                             $eligible_products_list = $this->filterProducts($eligible_products_list, $matching_products_list, $product_rule['type']);
 
                             break;
                         case 'products':
-                            $cart_products = Db::getInstance()->executeS('
-							SELECT cp.quantity, cp.`id_product`
-							FROM `' . _DB_PREFIX_ . 'cart_product` cp
-							WHERE cp.`id_cart` = ' . (int) $cart->id . '
-							AND cp.`id_product` IN (' . implode(',', array_map('intval', $eligible_products_list)) . ')');
-                            $count_matching_products = 0;
-                            $matching_products_list = array();
-                            foreach ($cart_products as $cart_product) {
-                                if (in_array($cart_product['id_product'], $product_rule['values'])) {
-                                    $count_matching_products += $cart_product['quantity'];
-                                    if ($alreadyInCart && $this->gift_product == $cart_product['id_product']) {
-                                        --$count_matching_products;
+                            // Skip if no eligible products to avoid SQL syntax error
+                            if (empty($eligible_products_list)) {
+                                $count_matching_products = 0;
+                                $matching_products_list = [];
+                            } else {
+                                $cart_products = Db::getInstance()->executeS('
+								SELECT cp.quantity, cp.`id_product`
+								FROM `' . _DB_PREFIX_ . 'cart_product` cp
+								WHERE cp.`id_cart` = ' . (int) $cart->id . '
+								AND cp.`id_product` IN (' . implode(',', array_map('intval', $eligible_products_list)) . ')');
+                                $count_matching_products = 0;
+                                $matching_products_list = [];
+                                foreach ($cart_products as $cart_product) {
+                                    if (in_array($cart_product['id_product'], $product_rule['values'])) {
+                                        $count_matching_products += $cart_product['quantity'];
+                                        if ($alreadyInCart && $this->gift_product == $cart_product['id_product']) {
+                                            --$count_matching_products;
+                                        }
+                                        $matching_products_list[] = $cart_product['id_product'] . '-0';
                                     }
-                                    $matching_products_list[] = $cart_product['id_product'] . '-0';
                                 }
                             }
                             if ($count_matching_products < $product_rule_group['quantity']) {
-                                if ($countRulesProduct === 1) {
-                                    return (!$displayError) ? false : $this->trans('You cannot use this voucher with these products', array(), 'Shop.Notifications.Error');
-                                } else {
-                                    ++$condition;
-
-                                    break;
-                                }
+                                ++$failedProductRules;
+                                break;
                             }
                             $eligible_products_list = $this->filterProducts($eligible_products_list, $matching_products_list, $product_rule['type']);
 
                             break;
-                        case 'categories':
-                            $cart_categories = Db::getInstance()->executeS('
-							SELECT cp.quantity, cp.`id_product`, cp.`id_product_attribute`, catp.`id_category`
+                        case 'combinations':
+                            // Build the matching list of "{productId}-{combinationId}" compatible with the IN mysql operator, this will result in  a string looking like:
+                            //   "23-45", "23-46", "42-0"
+                            $combinationInValue = implode(',', array_map(fn ($combinationIdentifier) => '"' . $combinationIdentifier . '"', $eligible_products_list));
+                            $cart_combinations = Db::getInstance()->executeS('
+							SELECT cp.quantity, cp.`id_product`, cp.`id_product_attribute`
 							FROM `' . _DB_PREFIX_ . 'cart_product` cp
-							LEFT JOIN `' . _DB_PREFIX_ . 'category_product` catp ON cp.id_product = catp.id_product
 							WHERE cp.`id_cart` = ' . (int) $cart->id . '
-							AND cp.`id_product` IN (' . implode(',', array_map('intval', $eligible_products_list)) . ')
-							AND cp.`id_product` <> ' . (int) $this->gift_product);
-                            $count_matching_products = 0;
-                            $matching_products_list = array();
-                            foreach ($cart_categories as $cart_category) {
-                                if (in_array($cart_category['id_category'], $product_rule['values'])
-                                    /*
-                                     * We also check that the product is not already in the matching product list,
-                                     * because there are doubles in the query results (when the product is in multiple categories)
-                                     */
-                                    && !in_array($cart_category['id_product'] . '-' . $cart_category['id_product_attribute'], $matching_products_list)) {
-                                    $count_matching_products += $cart_category['quantity'];
-                                    $matching_products_list[] = $cart_category['id_product'] . '-' . $cart_category['id_product_attribute'];
+							AND CONCAT(cp.`id_product`, "-", cp.`id_product_attribute`) IN (' . $combinationInValue . ')');
+                            $count_matching_combinations = 0;
+                            $matching_combinations_list = [];
+                            foreach ($cart_combinations as $cart_combination) {
+                                if (in_array($cart_combination['id_product_attribute'], $product_rule['values'])) {
+                                    $count_matching_combinations += $cart_combination['quantity'];
+                                    // Todo: Handle correct check when combination gift is handled
+                                    if ($alreadyInCart && $this->gift_product == $cart_combination['id_product']) {
+                                        --$count_matching_combinations;
+                                    }
+                                    $matching_combinations_list[] = $cart_combination['id_product'] . '-' . $cart_combination['id_product_attribute'];
+                                }
+                            }
+                            if ($count_matching_combinations < $product_rule_group['quantity']) {
+                                ++$failedProductRules;
+                                break;
+                            }
+                            $eligible_products_list = $this->filterProducts($eligible_products_list, $matching_combinations_list, $product_rule['type']);
+
+                            break;
+                        case 'categories':
+                            // Skip if no eligible products to avoid SQL syntax error
+                            if (empty($eligible_products_list)) {
+                                $count_matching_products = 0;
+                                $matching_products_list = [];
+                            } else {
+                                $cart_categories = Db::getInstance()->executeS('
+								SELECT cp.quantity, cp.`id_product`, cp.`id_product_attribute`, catp.`id_category`
+								FROM `' . _DB_PREFIX_ . 'cart_product` cp
+								LEFT JOIN `' . _DB_PREFIX_ . 'category_product` catp ON cp.id_product = catp.id_product
+								WHERE cp.`id_cart` = ' . (int) $cart->id . '
+								AND cp.`id_product` IN (' . implode(',', array_map('intval', $eligible_products_list)) . ')
+								AND cp.`id_product` <> ' . (int) $this->gift_product);
+                                $count_matching_products = 0;
+                                $matching_products_list = [];
+                                foreach ($cart_categories as $cart_category) {
+                                    if (in_array($cart_category['id_category'], $product_rule['values'])
+                                        /*
+                                         * We also check that the product is not already in the matching product list,
+                                         * because there are doubles in the query results (when the product is in multiple categories)
+                                         */
+                                        && !in_array($cart_category['id_product'] . '-' . $cart_category['id_product_attribute'], $matching_products_list)) {
+                                        $count_matching_products += $cart_category['quantity'];
+                                        $matching_products_list[] = $cart_category['id_product'] . '-' . $cart_category['id_product_attribute'];
+                                    }
                                 }
                             }
                             if ($count_matching_products < $product_rule_group['quantity']) {
-                                if ($countRulesProduct === 1) {
-                                    return (!$displayError) ? false : $this->trans('You cannot use this voucher with these products', array(), 'Shop.Notifications.Error');
-                                } else {
-                                    ++$condition;
-
-                                    break;
-                                }
+                                ++$failedProductRules;
+                                break;
                             }
                             // Attribute id is not important for this filter in the global list, so the ids are replaced by 0
                             foreach ($matching_products_list as &$matching_product) {
@@ -987,52 +1303,90 @@ class CartRuleCore extends ObjectModel
 
                             break;
                         case 'manufacturers':
-                            $cart_manufacturers = Db::getInstance()->executeS('
-							SELECT cp.quantity, cp.`id_product`, p.`id_manufacturer`
-							FROM `' . _DB_PREFIX_ . 'cart_product` cp
-							LEFT JOIN `' . _DB_PREFIX_ . 'product` p ON cp.id_product = p.id_product
-							WHERE cp.`id_cart` = ' . (int) $cart->id . '
-							AND cp.`id_product` IN (' . implode(',', array_map('intval', $eligible_products_list)) . ')');
-                            $count_matching_products = 0;
-                            $matching_products_list = array();
-                            foreach ($cart_manufacturers as $cart_manufacturer) {
-                                if (in_array($cart_manufacturer['id_manufacturer'], $product_rule['values'])) {
-                                    $count_matching_products += $cart_manufacturer['quantity'];
-                                    $matching_products_list[] = $cart_manufacturer['id_product'] . '-0';
+                            // Skip if no eligible products to avoid SQL syntax error
+                            if (empty($eligible_products_list)) {
+                                $count_matching_products = 0;
+                                $matching_products_list = [];
+                            } else {
+                                $cart_manufacturers = Db::getInstance()->executeS('
+								SELECT cp.quantity, cp.`id_product`, p.`id_manufacturer`
+								FROM `' . _DB_PREFIX_ . 'cart_product` cp
+								LEFT JOIN `' . _DB_PREFIX_ . 'product` p ON cp.id_product = p.id_product
+								WHERE cp.`id_cart` = ' . (int) $cart->id . '
+								AND cp.`id_product` IN (' . implode(',', array_map('intval', $eligible_products_list)) . ')');
+                                $count_matching_products = 0;
+                                $matching_products_list = [];
+                                foreach ($cart_manufacturers as $cart_manufacturer) {
+                                    if (in_array($cart_manufacturer['id_manufacturer'], $product_rule['values'])) {
+                                        $count_matching_products += $cart_manufacturer['quantity'];
+                                        $matching_products_list[] = $cart_manufacturer['id_product'] . '-0';
+                                    }
                                 }
                             }
                             if ($count_matching_products < $product_rule_group['quantity']) {
-                                if ($countRulesProduct === 1) {
-                                    return (!$displayError) ? false : $this->trans('You cannot use this voucher with these products', array(), 'Shop.Notifications.Error');
-                                } else {
-                                    ++$condition;
-
-                                    break;
-                                }
+                                ++$failedProductRules;
+                                break;
                             }
                             $eligible_products_list = $this->filterProducts($eligible_products_list, $matching_products_list, $product_rule['type']);
 
                             break;
                         case 'suppliers':
-                            $cart_suppliers = Db::getInstance()->executeS('
-							SELECT cp.quantity, cp.`id_product`, p.`id_supplier`
-							FROM `' . _DB_PREFIX_ . 'cart_product` cp
-							LEFT JOIN `' . _DB_PREFIX_ . 'product` p ON cp.id_product = p.id_product
-							WHERE cp.`id_cart` = ' . (int) $cart->id . '
-							AND cp.`id_product` IN (' . implode(',', array_map('intval', $eligible_products_list)) . ')');
-                            $count_matching_products = 0;
-                            $matching_products_list = array();
-                            foreach ($cart_suppliers as $cart_supplier) {
-                                if (in_array($cart_supplier['id_supplier'], $product_rule['values'])) {
-                                    $count_matching_products += $cart_supplier['quantity'];
-                                    $matching_products_list[] = $cart_supplier['id_product'] . '-0';
+                            // Skip if no eligible products to avoid SQL syntax error
+                            if (empty($eligible_products_list)) {
+                                $count_matching_products = 0;
+                                $matching_products_list = [];
+                            } else {
+                                $cart_suppliers = Db::getInstance()->executeS('
+								SELECT cp.quantity, cp.`id_product`, p.`id_supplier`
+								FROM `' . _DB_PREFIX_ . 'cart_product` cp
+								LEFT JOIN `' . _DB_PREFIX_ . 'product` p ON cp.id_product = p.id_product
+								WHERE cp.`id_cart` = ' . (int) $cart->id . '
+								AND cp.`id_product` IN (' . implode(',', array_map('intval', $eligible_products_list)) . ')');
+                                $count_matching_products = 0;
+                                $matching_products_list = [];
+                                foreach ($cart_suppliers as $cart_supplier) {
+                                    if (in_array($cart_supplier['id_supplier'], $product_rule['values'])) {
+                                        $count_matching_products += $cart_supplier['quantity'];
+                                        $matching_products_list[] = $cart_supplier['id_product'] . '-0';
+                                    }
+                                }
+                            }
+                            if ($count_matching_products < $product_rule_group['quantity']) {
+                                ++$failedProductRules;
+                                break;
+                            }
+                            $eligible_products_list = $this->filterProducts($eligible_products_list, $matching_products_list, $product_rule['type']);
+
+                            break;
+                        case 'features':
+                            // Skip if no eligible products to avoid SQL syntax error
+                            if (empty($eligible_products_list)) {
+                                $count_matching_products = 0;
+                                $matching_products_list = [];
+                            } else {
+                                // Build the matching list of "{productId}-{productFeatureValueId}" compatible with the IN mysql operator for features matching, this will result in  a string looking like:
+                                //   "23-45", "23-46", "42-0"
+                                $featureInValue = implode(',', array_map(fn ($featureIdentifier) => '"' . $featureIdentifier . '"', $eligible_products_list));
+                                $cart_features = Db::getInstance()->executeS('
+								SELECT cp.quantity, cp.`id_product`, f.`id_feature`, f.`id_feature_value`, cp.`id_product_attribute`
+								FROM `' . _DB_PREFIX_ . 'cart_product` cp
+								LEFT JOIN `' . _DB_PREFIX_ . 'feature_product` f ON cp.id_product = f.id_product
+								WHERE cp.`id_cart` = ' . (int) $cart->id . '
+								AND CONCAT(cp.`id_product`, "-", cp.`id_product_attribute`) IN (' . $featureInValue . ')');
+                                $count_matching_products = 0;
+                                $matching_products_list = [];
+                                foreach ($cart_features as $cart_feature) {
+                                    if (in_array($cart_feature['id_feature'], $product_rule['values']) || in_array($cart_feature['id_feature_value'], $product_rule['values'])) {
+                                        $count_matching_products += $cart_feature['quantity'];
+                                        $matching_products_list[] = $cart_feature['id_product'] . '-' . $cart_feature['id_product_attribute'];
+                                    }
                                 }
                             }
                             if ($count_matching_products < $product_rule_group['quantity']) {
                                 if ($countRulesProduct === 1) {
-                                    return (!$displayError) ? false : $this->trans('You cannot use this voucher with these products', array(), 'Shop.Notifications.Error');
+                                    return (!$displayError) ? false : $this->trans('You cannot use this voucher with these products', [], 'Shop.Notifications.Error');
                                 } else {
-                                    ++$condition;
+                                    ++$failedProductRules;
 
                                     break;
                                 }
@@ -1040,16 +1394,23 @@ class CartRuleCore extends ObjectModel
                             $eligible_products_list = $this->filterProducts($eligible_products_list, $matching_products_list, $product_rule['type']);
 
                             break;
+                        default:
+                            return (!$displayError) ? false : $this->trans('Unknown type of product restriction', [], 'Shop.Notifications.Error');
                     }
-                    if (!count($eligible_products_list)) {
-                        if ($countRulesProduct === 1) {
-                            return (!$displayError) ? false : $this->trans('You cannot use this voucher with these products', array(), 'Shop.Notifications.Error');
-                        }
+
+                    // If the product rule type was ALL_PRODUCT_RULES and at least one rule failed, then it means the condition was not fulfilled,
+                    // no need to check for remaining product rules
+                    if ($product_rule_group_type === self::ALL_PRODUCT_RULES && $failedProductRules) {
+                        return (!$displayError) ? false : $this->trans('You cannot use this voucher with these products', [], 'Shop.Notifications.Error');
                     }
                 }
-                if ($countRulesProduct !== 1 && $condition == $countRulesProduct) {
-                    return (!$displayError) ? false : $this->trans('You cannot use this voucher with these products', array(), 'Shop.Notifications.Error');
+
+                // If all product rules have failed it means that none of them worked, so the condition is not fulfilled (it's true for ALL_PRODUCT_RULES and AT_LEAST_ONE_PRODUCT_RULE)
+                if ($failedProductRules == $countRulesProduct) {
+                    return (!$displayError) ? false : $this->trans('You cannot use this voucher with these products', [], 'Shop.Notifications.Error');
                 }
+
+                // Merge all eligible products for each product rule group
                 $selected_products = array_merge($selected_products, $eligible_products_list);
             }
         }
@@ -1058,6 +1419,25 @@ class CartRuleCore extends ObjectModel
         }
 
         return (!$displayError) ? true : false;
+    }
+
+    protected function getProductsMatchingSelection(array $packageProducts, CartCore $cart): array
+    {
+        $matchingProducts = [];
+        if ($this->reduction_product == -2) {
+            $selectedProducts = $this->checkProductRestrictionsFromCart($cart, true);
+            if (is_array($selectedProducts)) {
+                foreach ($packageProducts as $product) {
+                    if ((in_array($product['id_product'] . '-' . $product['id_product_attribute'], $selectedProducts)
+                            || in_array($product['id_product'] . '-0', $selectedProducts))
+                        && (($this->reduction_exclude_special && !$product['reduction_applies']) || !$this->reduction_exclude_special)) {
+                        $matchingProducts[] = $product;
+                    }
+                }
+            }
+        }
+
+        return $matchingProducts;
     }
 
     /**
@@ -1069,10 +1449,39 @@ class CartRuleCore extends ObjectModel
      *
      * @return float|int|string
      */
-    public function getContextualValue($use_tax, Context $context = null, $filter = null, $package = null, $use_cache = true)
+    public function getContextualValue($use_tax, ?Context $context = null, $filter = null, $package = null, $use_cache = true)
     {
         if (!CartRule::isFeatureActive()) {
             return 0;
+        }
+
+        /*
+         * Custom cart rule value from modules. Allows to create infinite possibilities of rules.
+         *
+         * If a module is applying a custom value using actionApplyCartRule, it should also apply
+         * the same value here.
+         */
+        $contextualValueFromModules = null;
+        Hook::exec(
+            'actionGetCartRuleContextualValue',
+            [
+                'cart_rule' => $this,
+                'use_tax' => $use_tax,
+                'context' => $context,
+                'filter' => $filter,
+                'package' => $package,
+                'use_cache' => $use_cache,
+                'contextualValueFromModules' => &$contextualValueFromModules,
+            ]
+        );
+        // @phpstan-ignore-next-line
+        if ($contextualValueFromModules !== null) {
+            return $contextualValueFromModules;
+        }
+
+        // set base price that will be used for percent reductions
+        if (!empty($context->virtualTotalTaxIncluded) && !empty($context->virtualTotalTaxExcluded)) {
+            $basePriceForPercentReduction = $use_tax ? $context->virtualTotalTaxIncluded : $context->virtualTotalTaxExcluded;
         }
 
         if (!$context) {
@@ -1083,26 +1492,27 @@ class CartRuleCore extends ObjectModel
         }
 
         $all_products = $context->cart->getProducts();
-        $package_products = (is_null($package) ? $all_products : $package['products']);
+        $package_products = (null === $package ? $all_products : $package['products']);
 
         $all_cart_rules_ids = $context->cart->getOrderedCartRulesIds();
 
-        if (!array_key_exists($context->cart->id, static::$cartAmountCache)) {
-            if (Tax::excludeTaxeOption()) {
-                static::$cartAmountCache[$context->cart->id]['te'] = $context->cart->getOrderTotal(false, Cart::ONLY_PRODUCTS);
-                static::$cartAmountCache[$context->cart->id]['ti'] = static::$cartAmountCache[$context->cart->id]['te'];
+        $cartId = (int) $context->cart->id;
+        if (!array_key_exists($cartId, static::$cartAmountCache)) {
+            if (!Configuration::get('PS_TAX')) {
+                static::$cartAmountCache[$cartId]['te'] = $context->cart->getOrderTotal(false, Cart::ONLY_PRODUCTS);
+                static::$cartAmountCache[$cartId]['ti'] = static::$cartAmountCache[$cartId]['te'];
             } else {
-                static::$cartAmountCache[$context->cart->id]['ti'] = $context->cart->getOrderTotal(true, Cart::ONLY_PRODUCTS);
-                static::$cartAmountCache[$context->cart->id]['te'] = $context->cart->getOrderTotal(false, Cart::ONLY_PRODUCTS);
+                static::$cartAmountCache[$cartId]['ti'] = $context->cart->getOrderTotal(true, Cart::ONLY_PRODUCTS);
+                static::$cartAmountCache[$cartId]['te'] = $context->cart->getOrderTotal(false, Cart::ONLY_PRODUCTS);
             }
         }
 
-        $cart_amount_te = static::$cartAmountCache[$context->cart->id]['te'];
-        $cart_amount_ti = static::$cartAmountCache[$context->cart->id]['ti'];
+        $cart_amount_te = static::$cartAmountCache[$cartId]['te'];
+        $cart_amount_ti = static::$cartAmountCache[$cartId]['ti'];
 
         $reduction_value = 0;
 
-        $cache_id = 'getContextualValue_' . (int) $this->id . '_' . (int) $use_tax . '_' . (int) $context->cart->id . '_' . (int) $filter;
+        $cache_id = 'getContextualValue_' . (int) $this->id . '_' . (int) $use_tax . '_' . $cartId . '_' . (int) $filter;
         foreach ($package_products as $product) {
             $cache_id .= '_' . (int) $product['id_product'] . '_' . (int) $product['id_product_attribute'] . (isset($product['in_stock']) ? '_' . (int) $product['in_stock'] : '');
         }
@@ -1112,9 +1522,10 @@ class CartRuleCore extends ObjectModel
         }
 
         // Free shipping on selected carriers
-        if ($this->free_shipping && in_array($filter, array(CartRule::FILTER_ACTION_ALL, CartRule::FILTER_ACTION_ALL_NOCAP, CartRule::FILTER_ACTION_SHIPPING))) {
+        $reduction_carrier = 0;
+        if ($this->free_shipping && in_array($filter, [CartRule::FILTER_ACTION_ALL, CartRule::FILTER_ACTION_ALL_NOCAP, CartRule::FILTER_ACTION_SHIPPING])) {
             if (!$this->carrier_restriction) {
-                $reduction_value += $context->cart->getOrderTotal($use_tax, Cart::ONLY_SHIPPING, is_null($package) ? null : $package['products'], is_null($package) ? null : $package['id_carrier']);
+                $reduction_carrier += $context->cart->getOrderTotal($use_tax, Cart::ONLY_SHIPPING, null === $package ? null : $package['products'], null === $package ? null : $package['id_carrier']);
             } else {
                 $data = Db::getInstance()->executeS('
 					SELECT crc.id_cart_rule, c.id_carrier
@@ -1125,44 +1536,64 @@ class CartRuleCore extends ObjectModel
 
                 if ($data) {
                     foreach ($data as $cart_rule) {
-                        $reduction_value += $context->cart->getCarrierCost((int) $cart_rule['id_carrier'], $use_tax, $context->country);
+                        $reduction_carrier += $context->cart->getCarrierCost((int) $cart_rule['id_carrier'], $use_tax, $context->country);
                     }
                 }
             }
+            $reduction_value += $reduction_carrier;
         }
 
-        if (in_array($filter, array(CartRule::FILTER_ACTION_ALL, CartRule::FILTER_ACTION_ALL_NOCAP, CartRule::FILTER_ACTION_REDUCTION))) {
+        if (in_array($filter, [CartRule::FILTER_ACTION_ALL, CartRule::FILTER_ACTION_ALL_NOCAP, CartRule::FILTER_ACTION_REDUCTION])) {
             $order_package_products_total = 0;
+            if (self::isDiscountFeatureFlagEnabled()) {
+                if ($this->getType() === DiscountType::ORDER_LEVEL && $this->reduction_percent > 0.00 && $this->reduction_product == 0) {
+                    $order_products_total = $context->cart->getOrderTotal($use_tax, Cart::ONLY_PRODUCTS, $package_products);
+                    $order_shipping_total = $context->cart->getOrderTotal($use_tax, Cart::ONLY_SHIPPING, $package_products);
+                    $order_total = $order_products_total + $order_shipping_total;
+                    $reduction_value += $order_total * $this->reduction_percent / 100;
+
+                    return $reduction_value;
+                }
+            }
+
             if ((float) $this->reduction_amount > 0
-                || $this->reduction_percent && $this->reduction_product == 0) {
+                || (float) $this->reduction_percent && $this->reduction_product == 0) {
                 $order_package_products_total = $context->cart->getOrderTotal($use_tax, Cart::ONLY_PRODUCTS, $package_products);
             }
             // Discount (%) on the whole order
-            if ($this->reduction_percent && $this->reduction_product == 0) {
+            if ((float) $this->reduction_percent && $this->reduction_product == 0) {
                 // Do not give a reduction on free products!
                 $order_total = $order_package_products_total;
+                $basePriceContainsDiscount = isset($basePriceForPercentReduction) && $order_total === $basePriceForPercentReduction;
                 foreach ($context->cart->getCartRules(CartRule::FILTER_ACTION_GIFT, false) as $cart_rule) {
-                    $order_total -= Tools::ps_round($cart_rule['obj']->getContextualValue($use_tax, $context, CartRule::FILTER_ACTION_GIFT, $package), _PS_PRICE_COMPUTE_PRECISION_);
+                    $freeProductsPrice = Tools::ps_round($cart_rule['obj']->getContextualValue($use_tax, $context, CartRule::FILTER_ACTION_GIFT, $package), Context::getContext()->getComputingPrecision());
+                    if ($basePriceContainsDiscount && isset($basePriceForPercentReduction)) {
+                        // Gifts haven't been excluded yet, we need to do it
+                        $basePriceForPercentReduction -= $freeProductsPrice;
+                    }
+                    $order_total -= $freeProductsPrice;
                 }
 
                 // Remove products that are on special
                 if ($this->reduction_exclude_special) {
                     foreach ($package_products as $product) {
                         if ($product['reduction_applies']) {
-                            if ($use_tax) {
-                                $order_total -= Tools::ps_round($product['total_wt'], _PS_PRICE_COMPUTE_PRECISION_);
-                            } else {
-                                $order_total -= Tools::ps_round($product['total'], _PS_PRICE_COMPUTE_PRECISION_);
+                            $roundTotal = $use_tax ? $product['total_wt'] : $product['total'];
+                            $excludedReduction = Tools::ps_round($roundTotal, Context::getContext()->getComputingPrecision());
+                            $order_total -= $excludedReduction;
+                            if ($basePriceContainsDiscount && isset($basePriceForPercentReduction)) {
+                                $basePriceForPercentReduction -= $excludedReduction;
                             }
                         }
                     }
                 }
-
-                $reduction_value += $order_total * $this->reduction_percent / 100;
+                // set base price on which percentage reduction will be applied
+                $basePriceForPercentReduction = $basePriceForPercentReduction ?? $order_total;
+                $reduction_value += $basePriceForPercentReduction * $this->reduction_percent / 100;
             }
 
             // Discount (%) on a specific product
-            if ($this->reduction_percent && $this->reduction_product > 0) {
+            if ((float) $this->reduction_percent && $this->reduction_product > 0) {
                 foreach ($package_products as $product) {
                     if ($product['id_product'] == $this->reduction_product && (($this->reduction_exclude_special && !$product['reduction_applies']) || !$this->reduction_exclude_special)) {
                         $reduction_value += ($use_tax ? $product['total_wt'] : $product['total']) * $this->reduction_percent / 100;
@@ -1171,54 +1602,29 @@ class CartRuleCore extends ObjectModel
             }
 
             // Discount (%) on the cheapest product
-            if ($this->reduction_percent && $this->reduction_product == -1) {
-                $minPrice = false;
-                $cheapest_product = null;
-                foreach ($all_products as $product) {
-                    $price = $product['price'];
-                    if ($use_tax) {
-                        // since later on we won't be able to know the product the cart rule was applied to,
-                        // use average cart VAT for price_wt
-                        $price *= (1 + $context->cart->getAverageProductsTaxRate());
+            if ((float) $this->reduction_percent && $this->reduction_product == -1) {
+                // First search for cheapest product
+                $cheapestProduct = $this->getCheapestProduct($all_products, $package_products, $use_tax);
+                if ($cheapestProduct) {
+                    $cheapestProductPrice = $use_tax ? $cheapestProduct['price_with_reduction'] : $cheapestProduct['price_with_reduction_without_tax'];
+                    // For product level discount, the percent discount is applied on all targeted products
+                    if (self::isDiscountFeatureFlagEnabled() && $this->getType() === DiscountType::PRODUCT_LEVEL) {
+                        $reduction_value += $cheapestProduct['cart_quantity'] * $cheapestProductPrice * $this->reduction_percent / 100;
+                    } else {
+                        $reduction_value += $cheapestProductPrice * $this->reduction_percent / 100;
                     }
-
-                    if ($price > 0 && ($minPrice === false || $minPrice > $price) && (($this->reduction_exclude_special && !$product['reduction_applies']) || !$this->reduction_exclude_special)) {
-                        $minPrice = $price;
-                        $cheapest_product = $product['id_product'] . '-' . $product['id_product_attribute'];
-                    }
-                }
-
-                // Check if the cheapest product is in the package
-                $in_package = false;
-                foreach ($package_products as $product) {
-                    if ($product['id_product'] . '-' . $product['id_product_attribute'] == $cheapest_product || $product['id_product'] . '-0' == $cheapest_product) {
-                        $in_package = true;
-                    }
-                }
-                if ($in_package) {
-                    $reduction_value += $minPrice * $this->reduction_percent / 100;
                 }
             }
 
             // Discount (%) on the selection of products
-            if ($this->reduction_percent && $this->reduction_product == -2) {
+            if ((float) $this->reduction_percent && $this->reduction_product == -2) {
                 $selected_products_reduction = 0;
-                $selected_products = $this->checkProductRestrictionsFromCart($context->cart, true);
-                if (is_array($selected_products)) {
-                    foreach ($package_products as $product) {
-                        if (in_array($product['id_product'] . '-' . $product['id_product_attribute'], $selected_products)
-                            || in_array($product['id_product'] . '-0', $selected_products)
-                            && (($this->reduction_exclude_special && !$product['reduction_applies']) || !$this->reduction_exclude_special)) {
-                            $price = $product['price'];
-                            if ($use_tax) {
-                                $infos = Product::getTaxesInformations($product, $context);
-                                $tax_rate = $infos['rate'] / 100;
-                                $price *= (1 + $tax_rate);
-                            }
 
-                            $selected_products_reduction += $price * $product['cart_quantity'];
-                        }
-                    }
+                // Let's get products this cart rule applies to.
+                $selectedProducts = $this->getProductsMatchingSelection($package_products, $context->cart);
+                foreach ($selectedProducts as $product) {
+                    $productPrice = $use_tax ? $product['price_with_reduction'] : $product['price_with_reduction_without_tax'];
+                    $selected_products_reduction += $productPrice * $product['cart_quantity'];
                 }
                 $reduction_value += $selected_products_reduction * $this->reduction_percent / 100;
             }
@@ -1226,14 +1632,26 @@ class CartRuleCore extends ObjectModel
             // Discount (¤)
             if ((float) $this->reduction_amount > 0) {
                 $prorata = 1;
-                if (!is_null($package) && count($all_products)) {
+                if (null !== $package && count($all_products)) {
                     $total_products = $use_tax ? $cart_amount_ti : $cart_amount_te;
                     if ($total_products) {
                         $prorata = $order_package_products_total / $total_products;
                     }
                 }
 
-                $reduction_amount = $this->reduction_amount;
+                $reduction_amount = (float) $this->reduction_amount;
+                // If the cart rule is restricted to one product it can't exceed this product price
+                if ($this->reduction_product > 0) {
+                    foreach ($all_products as $product) {
+                        if ($product['id_product'] == $this->reduction_product) {
+                            $productPrice = $this->reduction_tax ? $product['price_wt'] : $product['price'];
+                            $max_reduction_amount = (int) $product['cart_quantity'] * (float) $productPrice;
+                            $reduction_amount = min($reduction_amount, $max_reduction_amount);
+                            break;
+                        }
+                    }
+                }
+
                 // If we need to convert the voucher value to the cart currency
                 if (isset($context->currency) && $this->reduction_currency != $context->currency->id) {
                     $voucherCurrency = new Currency($this->reduction_currency);
@@ -1247,11 +1665,40 @@ class CartRuleCore extends ObjectModel
 
                     // Then we convert the voucher value in the default currency into the cart currency
                     $reduction_amount *= $context->currency->conversion_rate;
-                    $reduction_amount = Tools::ps_round($reduction_amount, _PS_PRICE_COMPUTE_PRECISION_);
+                    $reduction_amount = Tools::ps_round($reduction_amount, Context::getContext()->getComputingPrecision());
                 }
 
-                // If it has the same tax application that you need, then it's the right value, whatever the product!
-                if ($this->reduction_tax == $use_tax) {
+                // Special rule for product_level discount that are able to handle cheapest product and product segments
+                if (self::isDiscountFeatureFlagEnabled() && $this->getType() === DiscountType::PRODUCT_LEVEL && ($this->reduction_product == -1 || $this->reduction_product == -2)) {
+                    // Find matching products
+                    if ($this->reduction_product == -1) {
+                        $cheapestProduct = $this->getCheapestProduct($all_products, $package_products, $use_tax);
+                        $selectedProducts = $cheapestProduct ? [$cheapestProduct] : [];
+                    } else {
+                        $selectedProducts = $this->getProductsMatchingSelection($package_products, $context->cart);
+                    }
+
+                    // Now apply the reduction for each product based on its quantity
+                    foreach ($selectedProducts as $product) {
+                        // We reset on each loop and use the initial reduction, in case it is modified for taxes
+                        $productReduction = $reduction_amount;
+
+                        // Adapt the amount depending on cart rule reduction_tax AND the asked use_tax (only when they are not the same)
+                        if ($this->reduction_tax !== $use_tax) {
+                            $productTaxRate = ($product['rate'] ?? 0) / 100;
+                            if ($this->reduction_tax && !$use_tax) {
+                                $productReduction = $productReduction / (1 + $productTaxRate);
+                            } elseif (!$this->reduction_tax && $use_tax) {
+                                $productReduction = $productReduction * (1 + $productTaxRate);
+                            }
+                        }
+
+                        $productPrice = $use_tax ? $product['price_with_reduction'] : $product['price_with_reduction_without_tax'];
+                        $productReduction = min($productReduction, $productPrice);
+                        $reduction_value += $productReduction * $product['cart_quantity'];
+                    }
+                } // If it has the same tax application that you need, then it's the right value, whatever the product!
+                elseif ($this->reduction_tax == $use_tax) {
                     // The reduction cannot exceed the products total, except when we do not want it to be limited (for the partial use calculation)
                     if ($filter != CartRule::FILTER_ACTION_ALL_NOCAP) {
                         $cart_amount = $use_tax ? $cart_amount_ti : $cart_amount_te;
@@ -1260,7 +1707,7 @@ class CartRuleCore extends ObjectModel
                     $reduction_value += $prorata * $reduction_amount;
                 } else {
                     if ($this->reduction_product > 0) {
-                        foreach ($context->cart->getProducts() as $product) {
+                        foreach ($all_products as $product) {
                             if ($product['id_product'] == $this->reduction_product) {
                                 $product_price_ti = $product['price_wt'];
                                 $product_price_te = $product['price'];
@@ -1287,7 +1734,17 @@ class CartRuleCore extends ObjectModel
 
                         // The reduction cannot exceed the products total, except when we do not want it to be limited (for the partial use calculation)
                         if ($filter != CartRule::FILTER_ACTION_ALL_NOCAP) {
-                            $reduction_amount = min($reduction_amount, $this->reduction_tax ? $cart_amount_ti : $cart_amount_te);
+                            if (self::isDiscountFeatureFlagEnabled() && $this->getType() === DiscountType::ORDER_LEVEL) {
+                                $max_reduction_amount = $this->reduction_tax
+                                    ? $cart_amount_ti + $context->cart->getOrderTotal(true, Cart::ONLY_SHIPPING, $package_products)
+                                    : $cart_amount_te + $context->cart->getOrderTotal(false, Cart::ONLY_SHIPPING, $package_products);
+                                $reduction_amount = min(
+                                    $reduction_amount,
+                                    $max_reduction_amount,
+                                );
+                            } else {
+                                $reduction_amount = min($reduction_amount, $this->reduction_tax ? $cart_amount_ti : $cart_amount_te);
+                            }
                         }
 
                         if ($this->reduction_tax && !$use_tax) {
@@ -1297,7 +1754,7 @@ class CartRuleCore extends ObjectModel
                         }
                     }
                     /*
-                     * Reduction on the cheapest or on the selection is not really meaningful and has been disabled in the backend
+                     * Reduction on the cheapest or on the selection is not really meaningful and has been disabled in the backend, it only applies with percent
                      * Please keep this code, so it won't be considered as a bug
                      * elseif ($this->reduction_product == -1)
                      * elseif ($this->reduction_product == -2)
@@ -1333,14 +1790,20 @@ class CartRuleCore extends ObjectModel
                         $current_cart_amount = max($current_cart_amount - (float) $previous_reduction_amount, 0);
                     }
 
+                    if (self::isDiscountFeatureFlagEnabled() && $this->getType() === DiscountType::ORDER_LEVEL) {
+                        $current_cart_amount += $this->reduction_tax
+                            ? $context->cart->getOrderTotal(true, Cart::ONLY_SHIPPING, $package_products)
+                            : $context->cart->getOrderTotal(false, Cart::ONLY_SHIPPING, $package_products);
+                    }
+
                     $reduction_value = min($reduction_value, $current_cart_amount);
                 }
             }
         }
 
         // Free gift
-        if ((int) $this->gift_product && in_array($filter, array(CartRule::FILTER_ACTION_ALL, CartRule::FILTER_ACTION_ALL_NOCAP, CartRule::FILTER_ACTION_GIFT))) {
-            $id_address = (is_null($package) ? 0 : $package['id_address']);
+        if ((int) $this->gift_product && in_array($filter, [CartRule::FILTER_ACTION_ALL, CartRule::FILTER_ACTION_ALL_NOCAP, CartRule::FILTER_ACTION_GIFT])) {
+            $id_address = (null === $package ? 0 : $package['id_address']);
             foreach ($package_products as $product) {
                 if ($product['id_product'] == $this->gift_product && ($product['id_product_attribute'] == $this->gift_product_attribute || !(int) $this->gift_product_attribute)) {
                     // The free gift coupon must be applied to one product only (needed for multi-shipping which manage multiple product lists)
@@ -1349,7 +1812,7 @@ class CartRuleCore extends ObjectModel
                         || CartRule::$only_one_gift[$this->id . '-' . $this->gift_product] == 0
                         || $id_address == 0
                         || !$use_cache) {
-                        $reduction_value += ($use_tax ? $product['price_wt'] : $product['price']);
+                        $reduction_value += Tools::ps_round($use_tax ? $product['price_wt'] : $product['price'], Context::getContext()->getComputingPrecision());
                         if ($use_cache && (!isset(CartRule::$only_one_gift[$this->id . '-' . $this->gift_product]) || CartRule::$only_one_gift[$this->id . '-' . $this->gift_product] == 0)) {
                             CartRule::$only_one_gift[$this->id . '-' . $this->gift_product] = $id_address;
                         }
@@ -1362,7 +1825,49 @@ class CartRuleCore extends ObjectModel
 
         Cache::store($cache_id, $reduction_value);
 
+        // update virtual total values, for percentage reductions that might be applied later
+        // but remove the carrier as free shipping is not a real reduction
+        if ($use_tax && !empty($context->virtualTotalTaxIncluded)) {
+            $context->virtualTotalTaxIncluded -= $reduction_value;
+            if ($this->free_shipping) {
+                $context->virtualTotalTaxIncluded += $reduction_carrier;
+            }
+        } elseif (!$use_tax && !empty($context->virtualTotalTaxExcluded)) {
+            $context->virtualTotalTaxExcluded -= $reduction_value;
+            if ($this->free_shipping) {
+                $context->virtualTotalTaxExcluded += $reduction_carrier;
+            }
+        }
+
         return $reduction_value;
+    }
+
+    protected function getCheapestProduct(array $allProducts, array $packageProducts, bool $useTax): ?array
+    {
+        $minPrice = false;
+        $cheapestProduct = null;
+        foreach ($allProducts as $product) {
+            $price = $useTax ? $product['price_with_reduction'] : $product['price_with_reduction_without_tax'];
+            if ($price > 0 && ($minPrice === false || $minPrice > $price) && (($this->reduction_exclude_special && !$product['reduction_applies']) || !$this->reduction_exclude_special)) {
+                $minPrice = $price;
+                $cheapestProduct = $product;
+            }
+        }
+
+        if (!$cheapestProduct) {
+            return null;
+        }
+
+        // Check if the cheapest product is in the package
+        $cheapestProductId = $cheapestProduct['id_product'] . '-' . (string) ($cheapestProduct['id_product_attribute'] ?? 0);
+        $inPackage = false;
+        foreach ($packageProducts as $product) {
+            if ($product['id_product'] . '-' . $product['id_product_attribute'] == $cheapestProductId || $product['id_product'] . '-0' == $cheapestProductId) {
+                $inPackage = true;
+            }
+        }
+
+        return $inPackage ? $cheapestProduct : null;
     }
 
     /**
@@ -1371,7 +1876,7 @@ class CartRuleCore extends ObjectModel
      */
     public static function cleanCache()
     {
-        self::$only_one_gift = array();
+        self::$only_one_gift = [];
     }
 
     /**
@@ -1385,7 +1890,7 @@ class CartRuleCore extends ObjectModel
      */
     protected function getCartRuleCombinations($offset = null, $limit = null, $search = '')
     {
-        $array = array();
+        $array = [];
         if ($offset !== null && $limit !== null) {
             $sql_limit = ' LIMIT ' . (int) $offset . ', ' . (int) ($limit + 1);
         } else {
@@ -1453,9 +1958,9 @@ class CartRuleCore extends ObjectModel
         $limit = null,
         $search_cart_rule_name = ''
     ) {
-        $array = array('selected' => array(), 'unselected' => array());
+        $array = ['selected' => [], 'unselected' => []];
 
-        if (!in_array($type, array('country', 'carrier', 'group', 'cart_rule', 'shop'))) {
+        if (!in_array($type, ['country', 'carrier', 'group', 'cart_rule', 'shop'])) {
             return false;
         }
 
@@ -1480,11 +1985,12 @@ class CartRuleCore extends ObjectModel
 			' . ($i18n ? 'LEFT JOIN `' . _DB_PREFIX_ . $type . '_lang` tl ON (t.id_' . $type . ' = tl.id_' . $type . ' AND tl.id_lang = ' . (int) Context::getContext()->language->id . ')' : '') . '
 			WHERE 1
 			' . ($active_only ? 'AND t.active = 1' : '') . '
-			' . (in_array($type, array('carrier', 'shop')) ? ' AND t.deleted = 0' : '') . '
+			' . (in_array($type, ['carrier', 'shop']) ? ' AND t.deleted = 0' : '') . '
 			' . ($type == 'cart_rule' ? 'AND t.id_cart_rule != ' . (int) $this->id : '') .
+            ($type == 'cart_rule' && $i18n && $search_cart_rule_name ? ' AND tl.name LIKE "%' . pSQL($search_cart_rule_name) . '%"' : '') .
                 $shop_list .
-                (in_array($type, array('carrier', 'shop')) ? ' ORDER BY t.name ASC ' : '') .
-                (in_array($type, array('country', 'group', 'cart_rule')) && $i18n ? ' ORDER BY tl.name ASC ' : '') .
+                (in_array($type, ['carrier', 'shop']) ? ' ORDER BY t.name ASC ' : '') .
+                (in_array($type, ['country', 'group', 'cart_rule']) && $i18n ? ' ORDER BY tl.name ASC ' : '') .
                 $sql_limit);
         } else {
             if ($type == 'cart_rule') {
@@ -1498,9 +2004,9 @@ class CartRuleCore extends ObjectModel
 				LEFT JOIN (SELECT id_' . $type . ' FROM `' . _DB_PREFIX_ . 'cart_rule_' . $type . '` WHERE id_cart_rule = ' . (int) $this->id . ') crt ON t.id_' . ($type == 'carrier' ? 'reference' : $type) . ' = crt.id_' . $type . '
 				WHERE 1 ' . ($active_only ? ' AND t.active = 1' : '') .
                     $shop_list
-                    . (in_array($type, array('carrier', 'shop')) ? ' AND t.deleted = 0' : '') .
-                    (in_array($type, array('carrier', 'shop')) ? ' ORDER BY t.name ASC ' : '') .
-                    (in_array($type, array('country', 'group')) && $i18n ? ' ORDER BY tl.name ASC ' : '') .
+                    . (in_array($type, ['carrier', 'shop']) ? ' AND t.deleted = 0' : '') .
+                    (in_array($type, ['carrier', 'shop']) ? ' ORDER BY t.name ASC ' : '') .
+                    (in_array($type, ['country', 'group']) && $i18n ? ' ORDER BY tl.name ASC ' : '') .
                     $sql_limit,
                     false
                 );
@@ -1517,8 +2023,9 @@ class CartRuleCore extends ObjectModel
      * Automatically add this CartRule to the Cart.
      *
      * @param Context|null $context Context instance
+     * @param bool $useOrderPrices
      */
-    public static function autoAddToCart(Context $context = null)
+    public static function autoAddToCart(?Context $context = null, bool $useOrderPrices = false)
     {
         if ($context === null) {
             $context = Context::getContext();
@@ -1537,8 +2044,8 @@ class CartRuleCore extends ObjectModel
 		LEFT JOIN ' . _DB_PREFIX_ . 'cart_rule_country crco ON cr.id_cart_rule = crco.id_cart_rule
 		WHERE cr.active = 1
 		AND cr.code = ""
-		AND cr.quantity > 0
-		AND NOW() BETWEEN cr.date_from AND cr.date_to
+		AND (cr.quantity > 0 OR cr.quantity is null)
+		AND ((cr.date_from <= NOW() AND cr.date_to IS NULL) OR (NOW() BETWEEN cr.date_from AND cr.date_to))
 		AND (
 			cr.id_customer = 0
 			' . (Validate::isLoadedObject($context->customer) ? 'OR cr.id_customer = ' . (int) $context->cart->id_customer : '') . '
@@ -1553,7 +2060,7 @@ class CartRuleCore extends ObjectModel
 		)
 		AND (
 			cr.`group_restriction` = 0
-			' . (Validate::isLoadedObject($context->customer) ? 'OR EXISTS (
+			' . (Group::isFeatureActive() && Validate::isLoadedObject($context->customer) ? 'OR EXISTS (
 				SELECT 1
 				FROM `' . _DB_PREFIX_ . 'customer_group` cg
 				INNER JOIN `' . _DB_PREFIX_ . 'cart_rule_group` crg ON cg.id_group = crg.id_group
@@ -1579,8 +2086,8 @@ class CartRuleCore extends ObjectModel
             if ($cart_rules) {
                 foreach ($cart_rules as $cart_rule) {
                     /** @var CartRule $cart_rule */
-                    if ($cart_rule->checkValidity($context, false, false)) {
-                        $context->cart->addCartRule($cart_rule->id);
+                    if ($cart_rule->checkValidity($context, false, false, true, $useOrderPrices)) {
+                        $context->cart->addCartRule($cart_rule->id, $useOrderPrices);
                     }
                 }
             }
@@ -1591,22 +2098,23 @@ class CartRuleCore extends ObjectModel
      * Automatically remove this CartRule from the Cart.
      *
      * @param Context|null $context Context instance
+     * @param bool $useOrderPrice
      *
      * @return array Error messages
      */
-    public static function autoRemoveFromCart(Context $context = null)
+    public static function autoRemoveFromCart(?Context $context = null, bool $useOrderPrice = false)
     {
         if (!$context) {
             $context = Context::getContext();
         }
         if (!CartRule::isFeatureActive() || !Validate::isLoadedObject($context->cart)) {
-            return array();
+            return [];
         }
 
-        static $errors = array();
-        foreach ($context->cart->getCartRules() as $cart_rule) {
-            if ($error = $cart_rule['obj']->checkValidity($context, true)) {
-                $context->cart->removeCartRule($cart_rule['obj']->id);
+        static $errors = [];
+        foreach ($context->cart->getCartRules(CartRule::FILTER_ACTION_ALL, true, $useOrderPrice) as $cart_rule) {
+            if ($error = $cart_rule['obj']->checkValidity($context, true, true, true, $useOrderPrice)) {
+                $context->cart->removeCartRule($cart_rule['obj']->id, $useOrderPrice);
                 $context->cart->update();
                 $errors[] = $error;
             }
@@ -1641,14 +2149,14 @@ class CartRuleCore extends ObjectModel
      *                     - attributes
      *                     - manufacturers
      *                     - suppliers
-     * @param array $list Entities
+     * @param array|int $list Entities
      *
      * @return bool Indicates whether the cleanup was successful
      */
     public static function cleanProductRuleIntegrity($type, $list)
     {
         // Type must be available in the 'type' enum of the table cart_rule_product_rule
-        if (!in_array($type, array('products', 'categories', 'attributes', 'manufacturers', 'suppliers'))) {
+        if (!in_array($type, ['products', 'categories', 'attributes', 'manufacturers', 'suppliers'])) {
             return false;
         }
 
@@ -1720,14 +2228,14 @@ class CartRuleCore extends ObjectModel
      */
     protected function filterProducts($products, $eligibleProducts, $ruleType)
     {
-        //If the two same array, no verification todo.
+        // If the two same array, no verification todo.
         if ($products === $eligibleProducts) {
             return $products;
         }
-        $return = array();
+        $return = [];
         // Attribute id is not important for this filter in the global list
         // so the ids are replaced by 0
-        if (in_array($ruleType, array('products', 'categories', 'manufacturers', 'suppliers'))) {
+        if (in_array($ruleType, ['products', 'categories', 'manufacturers', 'suppliers'])) {
             $productsList = explode(':', preg_replace("#\-[0-9]+#", '-0', implode(':', $products)));
         } else {
             $productsList = $products;
@@ -1740,5 +2248,25 @@ class CartRuleCore extends ObjectModel
         }
 
         return $return;
+    }
+
+    protected static function isDiscountFeatureFlagEnabled(): bool
+    {
+        return self::getFeatureFlagManager() !== null && self::getFeatureFlagManager()->isEnabled(FeatureFlagSettings::FEATURE_FLAG_DISCOUNT);
+    }
+
+    protected static function getFeatureFlagManager(): ?FeatureFlagStateCheckerInterface
+    {
+        if (!self::$featureFlagManager) {
+            try {
+                $containerFinder = new ContainerFinder(Context::getContext());
+                $container = $containerFinder->getContainer();
+                self::$featureFlagManager = $container->get(FeatureFlagStateCheckerInterface::class);
+            } catch (Throwable) {
+                // Do nothing, just here for resilience
+            }
+        }
+
+        return self::$featureFlagManager;
     }
 }

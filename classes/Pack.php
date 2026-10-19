@@ -1,73 +1,57 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShop\PrestaShop\Core\Domain\Product\Pack\ValueObject\PackStockType;
+use PrestaShop\PrestaShop\Core\Domain\Product\ValueObject\ProductType;
+
 class PackCore extends Product
 {
     /**
      * Only decrement pack quantity.
      *
-     * @var string
+     * @var int
      */
-    const STOCK_TYPE_PACK_ONLY = 0;
+    public const STOCK_TYPE_PACK_ONLY = PackStockType::STOCK_TYPE_PACK_ONLY;
 
     /**
      * Only decrement pack products quantities.
      *
-     * @var string
+     * @var int
      */
-    const STOCK_TYPE_PRODUCTS_ONLY = 1;
+    public const STOCK_TYPE_PRODUCTS_ONLY = PackStockType::STOCK_TYPE_PRODUCTS_ONLY;
 
     /**
      * Decrement pack quantity and pack products quantities.
      *
-     * @var string
+     * @var int
      */
-    const STOCK_TYPE_PACK_BOTH = 2;
+    public const STOCK_TYPE_PACK_BOTH = PackStockType::STOCK_TYPE_BOTH;
 
     /**
      * Use pack quantity default setting.
      *
-     * @var string
+     * @var int
      */
-    const STOCK_TYPE_DEFAULT = 3;
+    public const STOCK_TYPE_DEFAULT = PackStockType::STOCK_TYPE_DEFAULT;
 
-    protected static $cachePackItems = array();
-    protected static $cacheIsPack = array();
-    protected static $cacheIsPacked = array();
+    protected static $cachePackItems = [];
+    protected static $cacheIsPack = [];
+    protected static $cacheIsPacked = [];
 
     public static function resetStaticCache()
     {
-        self::$cachePackItems = array();
-        self::$cacheIsPack = array();
-        self::$cacheIsPacked = array();
+        self::$cachePackItems = [];
+        self::$cacheIsPack = [];
+        self::$cacheIsPacked = [];
     }
 
     /**
      * Is product a pack?
      *
-     * @param $id_product
+     * @param int $id_product
      *
      * @return bool
      */
@@ -82,8 +66,11 @@ class PackCore extends Product
         }
 
         if (!array_key_exists($id_product, self::$cacheIsPack)) {
+            // This is not very efficient, isn't an entry in pack table a proof that it's a pack?
+            // Moreover, we already have cache_is_pack column, product_type is just a duplicate.
             $result = Db::getInstance()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'pack` WHERE id_product_pack = ' . (int) $id_product);
-            self::$cacheIsPack[$id_product] = ($result > 0);
+            $productType = Db::getInstance()->getValue('SELECT product_type FROM `' . _DB_PREFIX_ . 'product` WHERE id_product = ' . (int) $id_product);
+            self::$cacheIsPack[$id_product] = ($result > 0) || $productType === ProductType::TYPE_PACK;
         }
 
         return self::$cacheIsPack[$id_product];
@@ -94,8 +81,8 @@ class PackCore extends Product
      * If $id_product_attribute specified, then will restrict search on the given combination,
      * else this method will match a product if at least one of all its combination is in a pack.
      *
-     * @param $id_product
-     * @param $id_product_attribute Optional combination of the product
+     * @param int $id_product
+     * @param int|bool $id_product_attribute Optional combination of the product
      *
      * @return bool
      */
@@ -130,8 +117,30 @@ class PackCore extends Product
         $price_display_method = !self::$_taxCalculationMethod;
         $items = Pack::getItems($id_product, Configuration::get('PS_LANG_DEFAULT'));
         foreach ($items as $item) {
-            /* @var Product $item */
-            $sum += $item->getPrice($price_display_method, ($item->id_pack_product_attribute ? $item->id_pack_product_attribute : null)) * $item->pack_quantity;
+            $pricePerItem = $item->getPrice($price_display_method, $item->id_pack_product_attribute ? $item->id_pack_product_attribute : null);
+
+            // Different calculation depending on rounding type
+            switch (Configuration::get('PS_ROUND_TYPE')) {
+                case Order::ROUND_TOTAL:
+                    $sum += $pricePerItem * $item->pack_quantity;
+
+                    break;
+                case Order::ROUND_LINE:
+                    $sum += Tools::ps_round(
+                        $pricePerItem * $item->pack_quantity,
+                        Context::getContext()->getComputingPrecision()
+                    );
+
+                    break;
+                case Order::ROUND_ITEM:
+                default:
+                    $sum += Tools::ps_round(
+                        $pricePerItem,
+                        Context::getContext()->getComputingPrecision()
+                    ) * $item->pack_quantity;
+
+                    break;
+            }
         }
 
         return $sum;
@@ -151,21 +160,21 @@ class PackCore extends Product
     public static function getItems($id_product, $id_lang)
     {
         if (!Pack::isFeatureActive()) {
-            return array();
+            return [];
         }
 
         if (array_key_exists($id_product, self::$cachePackItems)) {
             return self::$cachePackItems[$id_product];
         }
         $result = Db::getInstance()->executeS('SELECT id_product_item, id_product_attribute_item, quantity FROM `' . _DB_PREFIX_ . 'pack` where id_product_pack = ' . (int) $id_product);
-        $array_result = array();
+        $array_result = [];
         foreach ($result as $row) {
             $p = new Product($row['id_product_item'], false, $id_lang);
             $p->loadStockData();
             $p->pack_quantity = $row['quantity'];
             $p->id_pack_product_attribute = (isset($row['id_product_attribute_item']) && $row['id_product_attribute_item'] ? $row['id_product_attribute_item'] : 0);
             if (isset($row['id_product_attribute_item']) && $row['id_product_attribute_item']) {
-                $sql = 'SELECT agl.`name` AS group_name, al.`name` AS attribute_name
+                $sql = 'SELECT agl.`public_name` AS group_name, al.`name` AS attribute_name, pa.`reference` AS attribute_reference
 					FROM `' . _DB_PREFIX_ . 'product_attribute` pa
 					' . Shop::addSqlAssociation('product_attribute', 'pa') . '
 					LEFT JOIN `' . _DB_PREFIX_ . 'product_attribute_combination` pac ON pac.`id_product_attribute` = pa.`id_product_attribute`
@@ -175,11 +184,12 @@ class PackCore extends Product
 					LEFT JOIN `' . _DB_PREFIX_ . 'attribute_group_lang` agl ON (ag.`id_attribute_group` = agl.`id_attribute_group` AND agl.`id_lang` = ' . (int) Context::getContext()->language->id . ')
 					WHERE pa.`id_product_attribute` = ' . $row['id_product_attribute_item'] . '
 					GROUP BY pa.`id_product_attribute`, ag.`id_attribute_group`
-					ORDER BY pa.`id_product_attribute`';
+					ORDER BY ag.`position`, a.`position`';
 
                 $combinations = Db::getInstance()->executeS($sql);
                 foreach ($combinations as $k => $combination) {
                     $p->name .= ' ' . $combination['group_name'] . '-' . $combination['attribute_name'];
+                    $p->reference = $combination['attribute_reference'];
                 }
             }
             $array_result[] = $p;
@@ -205,7 +215,7 @@ class PackCore extends Product
      *
      * @throws PrestaShopException
      */
-    public static function isInStock($idProduct, $wantedQuantity = 1, Cart $cart = null)
+    public static function isInStock($idProduct, $wantedQuantity = 1, ?Cart $cart = null)
     {
         if (!Pack::isFeatureActive()) {
             return true;
@@ -213,7 +223,7 @@ class PackCore extends Product
         $idProduct = (int) $idProduct;
         $wantedQuantity = (int) $wantedQuantity;
         $product = new Product($idProduct, false);
-        $packQuantity = self::getQuantity($idProduct, null, null, $cart);
+        $packQuantity = self::getQuantity($idProduct, null, null, $cart, false);
 
         if ($product->isAvailableWhenOutOfStock($product->out_of_stock)) {
             return true;
@@ -227,11 +237,14 @@ class PackCore extends Product
     /**
      * Returns the available quantity of a given pack.
      *
-     * @param int $id_product Product id
-     * @param int $id_product_attribute Product attribute id (optional)
-     * @param bool|null $cacheIsPack
-     * @param Cart $cart
-     * @param int $idCustomization Product customization id (optional)
+     * By default, it returns the TRUE quantity in stock. If you want to, you can pass a $cart parameter
+     * and the quantity in stock will be reduced by the quantity there is in the cart.
+     *
+     * @param int $idProduct Product id
+     * @param int|null $idProductAttribute Product attribute id (optional)
+     * @param bool|null $cacheIsPack (unused, you can pass null)
+     * @param CartCore|null $cart Pass if you want to reduce the quantity by amount in cart
+     * @param int|bool|null $idCustomization Product customization id (optional)
      *
      * @return int
      *
@@ -241,12 +254,11 @@ class PackCore extends Product
         $idProduct,
         $idProductAttribute = null,
         $cacheIsPack = null,
-        Cart $cart = null,
+        ?CartCore $cart = null,
         $idCustomization = null
     ) {
         $idProduct = (int) $idProduct;
         $idProductAttribute = (int) $idProductAttribute;
-        $cacheIsPack = (bool) $cacheIsPack;
 
         if (!self::isPack($idProduct)) {
             throw new PrestaShopException("Product with id $idProduct is not a pack");
@@ -255,45 +267,55 @@ class PackCore extends Product
         // Initialize
         $product = new Product($idProduct, false);
         $packQuantity = 0;
-        $packQuantityInStock = StockAvailable::getQuantityAvailableByProduct(
-            $idProduct,
-            $idProductAttribute
-        );
+
+        // We get the pack stock calculation type it has set up
         $packStockType = $product->pack_stock_type;
-        $allPackStockType = array(
+        $allPackStockType = [
             self::STOCK_TYPE_PACK_ONLY,
             self::STOCK_TYPE_PRODUCTS_ONLY,
             self::STOCK_TYPE_PACK_BOTH,
             self::STOCK_TYPE_DEFAULT,
-        );
+        ];
 
         if (!in_array($packStockType, $allPackStockType)) {
             throw new PrestaShopException('Unknown pack stock type');
         }
 
-        // If no pack stock or shop default, set it
-        if (empty($packStockType)
-            || $packStockType == self::STOCK_TYPE_DEFAULT
-        ) {
+        /*
+         * Now, we have resolved how we will calculate the stock of this pack. It can be one of the following.
+         *
+         * STOCK_TYPE_PACK_ONLY	- pack 1pcs + product A 10pcs + product B 20pcs = 1pcs
+         * STOCK_TYPE_PRODUCTS_ONLY - pack 1pcs + product A 10pcs + product B 20pcs = 10 pcs
+         * STOCK_TYPE_PACK_BOTH - pack 1pcs + product A 10pcs + product B 20pcs = 1 pcs
+         */
+
+        // If no pack stock or shop default, set it from configuration
+        // Avoid using empty(), because it would treat STOCK_TYPE_PACK_ONLY (0) as STOCK_TYPE_DEFAULT
+        if ((int) $packStockType == self::STOCK_TYPE_DEFAULT) {
             $packStockType = Configuration::get('PS_PACK_STOCK_TYPE');
         }
 
-        // Initialize with pack quantity if not only products
-        if (in_array($packStockType, array(self::STOCK_TYPE_PACK_ONLY, self::STOCK_TYPE_PACK_BOTH))) {
-            $packQuantity = $packQuantityInStock;
+        // If the quantity of the pack depends only on the pack or both packs and products,
+        // we need to load the quantity of the pack from stock_available table.
+        if (in_array($packStockType, [self::STOCK_TYPE_PACK_ONLY, self::STOCK_TYPE_PACK_BOTH])) {
+            $packQuantity = StockAvailable::getQuantityAvailableByProduct(
+                $idProduct,
+                $idProductAttribute
+            );
         }
 
-        // Set pack quantity to the minimum quantity of pack, or
-        // product pack
-        if (in_array($packStockType, array(self::STOCK_TYPE_PACK_BOTH, self::STOCK_TYPE_PRODUCTS_ONLY))) {
+        // If the quantity of the pack depends on the products inside, or both pack and products,
+        // we need to set the pack quantity to the lowest quantity of products inside.
+        if (in_array($packStockType, [self::STOCK_TYPE_PACK_BOTH, self::STOCK_TYPE_PRODUCTS_ONLY])) {
             $items = array_values(Pack::getItems($idProduct, Configuration::get('PS_LANG_DEFAULT')));
 
             foreach ($items as $index => $item) {
-                $itemQuantity = Product::getQuantity($item->id, null, null, $cart, $idCustomization);
-                $nbPackAvailableForItem = floor($itemQuantity / $item->pack_quantity);
+                $itemQuantity = Product::getQuantity($item->id, $item->id_pack_product_attribute ?: null, null, $cart, $idCustomization);
+                $nbPackAvailableForItem = (int) floor($itemQuantity / $item->pack_quantity);
 
                 // Initialize packQuantity with the first product quantity
                 // if pack decrement stock type is products only
+                // @todo This is probably not needed because $packQuantity is always initialized to zero.
                 if ($index === 0
                     && $packStockType == self::STOCK_TYPE_PRODUCTS_ONLY
                 ) {
@@ -302,6 +324,7 @@ class PackCore extends Product
                     continue;
                 }
 
+                // If the quantity of the individual item is lower than what we currently calculated, it's our new quantity.
                 if ($nbPackAvailableForItem < $packQuantity) {
                     $packQuantity = $nbPackAvailableForItem;
                 }
@@ -320,7 +343,7 @@ class PackCore extends Product
     public static function getItemTable($id_product, $id_lang, $full = false)
     {
         if (!Pack::isFeatureActive()) {
-            return array();
+            return [];
         }
 
         $context = Context::getContext();
@@ -344,11 +367,12 @@ class PackCore extends Product
 
         $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
 
+        /** @var array{id_product: int, id_product_attribute_item: int|null, name: string} $line */
         foreach ($result as &$line) {
             if (Combination::isFeatureActive() && isset($line['id_product_attribute_item']) && $line['id_product_attribute_item']) {
                 $line['cache_default_attribute'] = $line['id_product_attribute'] = $line['id_product_attribute_item'];
 
-                $sql = 'SELECT agl.`name` AS group_name, al.`name` AS attribute_name,  pai.`id_image` AS id_product_attribute_image
+                $sql = 'SELECT pa.`reference` AS attribute_reference, agl.`public_name` AS group_name, al.`name` AS attribute_name,  pai.`id_image` AS id_product_attribute_image
 				FROM `' . _DB_PREFIX_ . 'product_attribute` pa
 				' . Shop::addSqlAssociation('product_attribute', 'pa') . '
 				LEFT JOIN `' . _DB_PREFIX_ . 'product_attribute_combination` pac ON pac.`id_product_attribute` = ' . $line['id_product_attribute_item'] . '
@@ -359,13 +383,16 @@ class PackCore extends Product
 				LEFT JOIN `' . _DB_PREFIX_ . 'product_attribute_image` pai ON (' . $line['id_product_attribute_item'] . ' = pai.`id_product_attribute`)
 				WHERE pa.`id_product` = ' . (int) $line['id_product'] . ' AND pa.`id_product_attribute` = ' . $line['id_product_attribute_item'] . '
 				GROUP BY pa.`id_product_attribute`, ag.`id_attribute_group`
-				ORDER BY pa.`id_product_attribute`';
+				ORDER BY ag.`position`, a.`position`';
 
                 $attr_name = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
 
                 if (isset($attr_name[0]['id_product_attribute_image']) && $attr_name[0]['id_product_attribute_image']) {
                     $line['id_image'] = $attr_name[0]['id_product_attribute_image'];
                 }
+
+                $line['reference'] = $attr_name[0]['attribute_reference'] ?? '';
+
                 $line['name'] .= "\n";
                 foreach ($attr_name as $value) {
                     $line['name'] .= ' ' . $value['group_name'] . '-' . $value['attribute_name'];
@@ -374,25 +401,19 @@ class PackCore extends Product
             $line = Product::getTaxesInformations($line);
         }
 
-        if (!$full) {
-            return $result;
-        }
-
-        $array_result = array();
-        foreach ($result as $prow) {
-            if (!Pack::isPack($prow['id_product'])) {
-                $prow['id_product_attribute'] = (int) $prow['id_product_attribute_item'];
-                $array_result[] = Product::getProductProperties($id_lang, $prow);
+        foreach ($result as $k => $v) {
+            if (!Pack::isPack($v['id_product'])) {
+                $result[$k]['id_product_attribute'] = (int) $v['id_product_attribute_item'];
             }
         }
 
-        return $array_result;
+        return $result;
     }
 
     public static function getPacksTable($id_product, $id_lang, $full = false, $limit = null)
     {
         if (!Pack::isFeatureActive()) {
-            return array();
+            return [];
         }
 
         $packs = Db::getInstance()->getValue('
@@ -401,7 +422,7 @@ class PackCore extends Product
 		WHERE a.`id_product_item` = ' . (int) $id_product);
 
         if (!(int) $packs) {
-            return array();
+            return [];
         }
 
         $context = Context::getContext();
@@ -428,21 +449,26 @@ class PackCore extends Product
             return $result;
         }
 
-        $array_result = array();
+        $array_result = [];
         foreach ($result as $row) {
             if (!Pack::isPacked($row['id_product'])) {
-                $array_result[] = Product::getProductProperties($id_lang, $row);
+                $array_result[] = $row;
             }
         }
 
         return $array_result;
     }
 
-    public static function deleteItems($id_product)
+    public static function deleteItems($id_product, $refreshCache = true)
     {
-        return Db::getInstance()->update('product', array('cache_is_pack' => 0), 'id_product = ' . (int) $id_product) &&
-            Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'pack` WHERE `id_product_pack` = ' . (int) $id_product) &&
-            Configuration::updateGlobalValue('PS_PACK_FEATURE_ACTIVE', Pack::isCurrentlyUsed());
+        $result = true;
+        if ($refreshCache) {
+            $result = Db::getInstance()->update('product', ['cache_is_pack' => 0], 'id_product = ' . (int) $id_product);
+        }
+
+        return $result
+            && Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'pack` WHERE `id_product_pack` = ' . (int) $id_product)
+            && Configuration::updateGlobalValue('PS_PACK_FEATURE_ACTIVE', Pack::isCurrentlyUsed());
     }
 
     /**
@@ -461,13 +487,13 @@ class PackCore extends Product
     {
         $id_attribute_item = (int) $id_attribute_item ? (int) $id_attribute_item : Product::getDefaultAttribute((int) $id_item);
 
-        return Db::getInstance()->update('product', array('cache_is_pack' => 1), 'id_product = ' . (int) $id_product) &&
-            Db::getInstance()->insert('pack', array(
+        return Db::getInstance()->update('product', ['cache_is_pack' => 1, 'product_type' => ProductType::TYPE_PACK], 'id_product = ' . (int) $id_product)
+            && Db::getInstance()->insert('pack', [
                 'id_product_pack' => (int) $id_product,
                 'id_product_item' => (int) $id_item,
                 'id_product_attribute_item' => (int) $id_attribute_item,
                 'quantity' => (int) $qty,
-            ))
+            ])
             && Configuration::updateGlobalValue('PS_PACK_FEATURE_ACTIVE', '1');
     }
 
@@ -483,8 +509,6 @@ class PackCore extends Product
     /**
      * This method is allow to know if a feature is used or active.
      *
-     * @since 1.5.0.1
-     *
      * @return bool
      */
     public static function isFeatureActive()
@@ -495,10 +519,8 @@ class PackCore extends Product
     /**
      * This method is allow to know if a Pack entity is currently used.
      *
-     * @since 1.5.0
-     *
-     * @param $table
-     * @param $has_active_column
+     * @param string|null $table Name of table linked to entity
+     * @param bool $has_active_column True if the table has an active column
      *
      * @return bool
      */
@@ -517,21 +539,16 @@ class PackCore extends Product
      * @param int $id_product id_pack
      *
      * @return bool
+     *
+     * @deprecated Since 9.0 and will be removed in 10.0
      */
     public static function usesAdvancedStockManagement($id_product)
     {
-        if (!Pack::isPack($id_product)) {
-            return false;
-        }
+        @trigger_error(sprintf(
+            '%s is deprecated since 9.0 and will be removed in 10.0.',
+            __METHOD__
+        ), E_USER_DEPRECATED);
 
-        $products = Pack::getItems($id_product, Configuration::get('PS_LANG_DEFAULT'));
-        foreach ($products as $product) {
-            // if one product uses the advanced stock management
-            if ($product->advanced_stock_management == 1) {
-                return true;
-            }
-        }
-        // not used
         return false;
     }
 
@@ -541,37 +558,32 @@ class PackCore extends Product
      * @param int $id_product id_pack
      *
      * @return bool
+     *
+     * @deprecated Since 9.0 and will be removed in 10.0
      */
     public static function allUsesAdvancedStockManagement($id_product)
     {
-        if (!Pack::isPack($id_product)) {
-            return false;
-        }
+        @trigger_error(sprintf(
+            '%s is deprecated since 9.0 and will be removed in 10.0.',
+            __METHOD__
+        ), E_USER_DEPRECATED);
 
-        $products = Pack::getItems($id_product, Configuration::get('PS_LANG_DEFAULT'));
-        foreach ($products as $product) {
-            // if one product uses the advanced stock management
-            if ($product->advanced_stock_management == 0) {
-                return false;
-            }
-        }
-        // not used
-        return true;
+        return false;
     }
 
     /**
-     * Returns Packs that conatins the given product in the right declinaison.
+     * Returns Packs that contains the given product in the right combination.
      *
      * @param int $id_item Product item id that could be contained in a|many pack(s)
-     * @param int $id_attribute_item The declinaison of the product
+     * @param int $id_attribute_item The combination of the product
      * @param int $id_lang
      *
-     * @return array[Product] Packs that contains the given product
+     * @return Pack[] Packs that contains the given product
      */
     public static function getPacksContainingItem($id_item, $id_attribute_item, $id_lang)
     {
         if (!Pack::isFeatureActive() || !$id_item) {
-            return array();
+            return [];
         }
 
         $query = 'SELECT `id_product_pack`, `quantity` FROM `' . _DB_PREFIX_ . 'pack`
@@ -580,9 +592,9 @@ class PackCore extends Product
             $query .= ' AND `id_product_attribute_item` = ' . ((int) $id_attribute_item);
         }
         $result = Db::getInstance()->executeS($query);
-        $array_result = array();
+        $array_result = [];
         foreach ($result as $row) {
-            $p = new Product($row['id_product_pack'], true, $id_lang);
+            $p = new Pack($row['id_product_pack'], true, $id_lang);
             $p->loadStockData();
             $p->pack_item_quantity = $row['quantity']; // Specific need from StockAvailable::updateQuantity()
             $array_result[] = $p;

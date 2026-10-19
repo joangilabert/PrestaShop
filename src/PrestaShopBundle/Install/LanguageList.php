@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Install;
@@ -31,7 +11,7 @@ use Symfony\Component\Finder\Finder;
 
 class LanguageList
 {
-    const DEFAULT_ISO = 'en';
+    public const DEFAULT_ISO = 'en';
 
     /**
      * @var array List of available languages
@@ -70,9 +50,9 @@ class LanguageList
             throw new PrestashopInstallerException('English language is missing');
         }
 
-        $this->languages = array(
+        $this->languages = [
             self::DEFAULT_ISO => new Language(self::DEFAULT_ISO),
-        );
+        ];
 
         // Load other languages
         foreach ((new Finder())->files()->name('language.xml')->in(_PS_INSTALL_LANGS_PATH_) as $langFile) {
@@ -81,11 +61,8 @@ class LanguageList
         uasort($this->languages, function ($a, $b) {
             $aname = $a->getName();
             $bname = $b->getName();
-            if ($aname == $bname) {
-                return 0;
-            }
 
-            return ($aname < $bname) ? -1 : 1;
+            return $aname <=> $bname;
         });
     }
 
@@ -119,7 +96,7 @@ class LanguageList
      */
     public function getLanguage($iso = null)
     {
-        if (!$iso) {
+        if (empty($iso) || !isset($this->languages[$iso])) {
             $iso = $this->language;
         }
 
@@ -150,21 +127,33 @@ class LanguageList
     {
         static $countries = null;
 
-        if (is_null($countries)) {
-            $countries = array();
-            $countries_lang = $this->getLanguage()->getCountries();
-            $countries_default = $this->getLanguage(self::DEFAULT_ISO)->getCountries();
-            $xml = @simplexml_load_file(_PS_INSTALL_DATA_PATH_ . 'xml/country.xml');
-            if ($xml) {
-                foreach ($xml->entities->country as $country) {
-                    $iso = strtolower((string) $country['iso_code']);
-                    $countries[$iso] = isset($countries_lang[$iso]) ? $countries_lang[$iso] : $countries_default[$iso];
-                }
-            }
-            asort($countries);
+        if (null === $countries) {
+            $countries = $this->getCountriesByLanguage();
         }
 
         return $countries;
+    }
+
+    /**
+     * @param string|null $iso
+     *
+     * @return array
+     */
+    public function getCountriesByLanguage(?string $iso = null): array
+    {
+        $countryList = [];
+        $langCountries = $this->getLanguage($iso)->getCountries();
+        $defaultCountries = $this->getLanguage(self::DEFAULT_ISO)->getCountries();
+        $xml = @simplexml_load_file(_PS_INSTALL_DATA_PATH_ . 'xml/country.xml');
+        if ($xml) {
+            foreach ($xml->entities->country as $country) {
+                $iso = strtolower((string) $country['iso_code']);
+                $countryList[$iso] = isset($langCountries[$iso]) ? $langCountries[$iso] : $defaultCountries[$iso];
+            }
+        }
+        asort($countryList);
+
+        return $countryList;
     }
 
     /**
@@ -175,10 +164,7 @@ class LanguageList
     public function detectLanguage()
     {
         // This code is from a php.net comment : http://www.php.net/manual/fr/reserved.variables.server.php#94237
-        $split_languages = explode(',', $_SERVER['HTTP_ACCEPT_LANGUAGE']);
-        if (!is_array($split_languages)) {
-            return false;
-        }
+        $split_languages = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? explode(',', $_SERVER['HTTP_ACCEPT_LANGUAGE']) : [];
 
         foreach ($split_languages as $lang) {
             $pattern = '/^(?P<primarytag>[a-zA-Z]{2,8})' .

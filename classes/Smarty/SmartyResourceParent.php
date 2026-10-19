@@ -1,36 +1,19 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 /**
  * Override module templates easily.
- *
- * @since 1.7.0.0
  */
 class SmartyResourceParentCore extends Smarty_Resource_Custom
 {
+    /**
+     * @var array<string>
+     */
+    public $paths;
+
     public function __construct(array $paths)
     {
         $this->paths = $paths;
@@ -47,16 +30,21 @@ class SmartyResourceParentCore extends Smarty_Resource_Custom
     {
         foreach ($this->paths as $path) {
             if (Tools::file_exists_cache($file = $path . $name)) {
+                $contents = file_get_contents($file);
+
                 if (_PS_MODE_DEV_) {
-                    $source = implode('', array(
+                    $source = implode('', [
                         '<!-- begin ' . $file . ' -->',
-                        file_get_contents($file),
+                        $contents,
                         '<!-- end ' . $file . ' -->',
-                    ));
-                } else {
-                    $source = file_get_contents($file);
+                    ]);
+                } elseif ($contents) {
+                    $source = $contents;
                 }
-                $mtime = filemtime($file);
+                $time = filemtime($file);
+                if ($time) {
+                    $mtime = $time;
+                }
 
                 return;
             }

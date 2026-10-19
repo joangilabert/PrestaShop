@@ -1,33 +1,14 @@
 <?php
 /**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 global $smarty;
 
 $template_dirs = array(_PS_THEME_DIR_.'templates');
 $plugin_dirs = array(_PS_THEME_DIR_.'plugins');
-if (_PS_PARENT_THEME_DIR_) {
+// @phpstan-ignore notIdentical.alwaysTrue
+if (_PS_PARENT_THEME_DIR_ !== '') {
     $template_dirs[] = _PS_PARENT_THEME_DIR_.'templates';
     $plugin_dirs[] = _PS_PARENT_THEME_DIR_.'plugins';
 }
@@ -36,14 +17,16 @@ $smarty->setTemplateDir($template_dirs);
 $smarty->addPluginsDir($plugin_dirs);
 
 $module_resources = array('theme' => _PS_THEME_DIR_.'modules/');
-if (_PS_PARENT_THEME_DIR_) {
+// @phpstan-ignore notIdentical.alwaysTrue
+if (_PS_PARENT_THEME_DIR_ !== '') {
     $module_resources['parent'] = _PS_PARENT_THEME_DIR_.'modules/';
 }
 $module_resources['modules'] = _PS_MODULE_DIR_;
 $smarty->registerResource('module', new SmartyResourceModule($module_resources));
 
 $parent_resources = array();
-if (_PS_PARENT_THEME_DIR_) {
+// @phpstan-ignore notIdentical.alwaysTrue
+if (_PS_PARENT_THEME_DIR_ !== '') {
     $parent_resources['parent'] = _PS_PARENT_THEME_DIR_.'templates/';
 }
 $smarty->registerResource('parent', new SmartyResourceParent($parent_resources));
@@ -55,22 +38,57 @@ smartyRegisterFunction($smarty, 'function', 'render', 'smartyRender');
 smartyRegisterFunction($smarty, 'function', 'form_field', 'smartyFormField');
 smartyRegisterFunction($smarty, 'block', 'widget_block', 'smartyWidgetBlock');
 
-function withWidget($params, callable $cb)
+function withWidget($params, callable $cb, $smarty)
 {
-    if (!isset($params['name'])) {
-        throw new Exception('Smarty helper `render_widget` expects at least the `name` parameter.');
+    // Check if name was provided
+    if (empty($params['name'])) {
+        if (_PS_MODE_DEV_) {
+            trigger_error(
+                sprintf(
+                    'When using {widget}, you must provide at least the `name` parameter. Template - %1$s',
+                    $smarty->source->filepath
+                ),
+                E_USER_NOTICE
+            );
+        }
+        return;
     }
 
+    // Get module name
     $moduleName = $params['name'];
     unset($params['name']);
 
+    // Try to load module
     $moduleInstance = Module::getInstanceByName($moduleName);
 
+    // If it's not installed, nothing to do here
+    if (empty($moduleInstance)) {
+        if (_PS_MODE_DEV_) {
+            trigger_error(
+                sprintf(
+                    'Module %1$s cannot be used as a widget, because it\'s not installed. Template - %2$s',
+                    $moduleName,
+                    $smarty->source->filepath
+                ),
+                E_USER_NOTICE
+            );
+        }
+        return;
+    }
+
+    // Check if this module supports widget interface
     if (!$moduleInstance instanceof PrestaShop\PrestaShop\Core\Module\WidgetInterface) {
-        throw new Exception(sprintf(
-            'Module `%1$s` is not a WidgetInterface.',
-            $moduleName
-        ));
+        if (_PS_MODE_DEV_) {
+            trigger_error(
+                sprintf(
+                    'Module `%1$s` cannot be used as a widget, because it\'s not a WidgetInterface. Template - %2$s',
+                    $moduleName,
+                    $smarty->source->filepath
+                ),
+                E_USER_NOTICE
+            );
+        }
+        return;
     }
 
     return $cb($moduleInstance, $params);
@@ -84,14 +102,31 @@ function smartyWidget($params, &$smarty)
             isset($params['hook']) ? $params['hook'] : null,
             $params
         );
-    });
+    }, $smarty);
 }
 
 function smartyRender($params, &$smarty)
 {
+    // Check if proper object was passed
+    if (empty($params['ui']) || !method_exists($params['ui'], 'render')) {
+        if (_PS_MODE_DEV_) {
+            trigger_error(
+                sprintf(
+                    'When using {render}, you must provide proper `ui` parameter with the form. Template - %1$s',
+                    $smarty->source->filepath
+                ),
+                E_USER_NOTICE
+            );
+        }
+        return;
+    }
+
     $ui = $params['ui'];
 
-    if (array_key_exists('file', $params)) {
+    // If specific template file was provided, we pass it along
+    if (!empty($params['file'])) {
+        // Ignoring the next line because PHPStan is not aware of the object passed
+        /** @phpstan-ignore-next-line */
         $ui->setTemplate($params['file']);
     }
 
@@ -137,7 +172,7 @@ function smartyWidgetBlock($params, $content, $smarty)
                 $smarty->assign($key, $value);
             }
             $backedUpVariablesStack[] = $backedUpVariables;
-        });
+        }, $smarty);
         // We don't display anything since the template is not rendered yet.
         return '';
     } else {
@@ -171,11 +206,19 @@ function smartyTranslate($params, $smarty)
     if (!isset($params['sprintf'])) {
         $params['sprintf'] = array();
     }
+
+    // fix inheritance template filename in case of includes from different cross sources between theme, modules, ...
+    $filename = $smarty->template_resource;
+    if (!isset($smarty->inheritance->sourceStack[0]) || $filename === $smarty->inheritance->sourceStack[0]->resource) {
+        $filename = $smarty->source->name;
+    }
+    $basename = basename($filename, '.tpl');
+
     if (!isset($params['d'])) {
         $params['d'] = null;
     }
 
-    if (!is_null($params['d'])) {
+    if (!empty($params['d'])) {
         if (isset($params['tags'])) {
             $backTrace = debug_backtrace();
 
@@ -209,15 +252,11 @@ function smartyTranslate($params, $smarty)
                 return $params['s'];
             }
         }
-    }
 
-    if (($translation = Context::getContext()->getTranslator()->trans($params['s'], $params['sprintf'], $params['d'])) !== $params['s']
-        && $params['mod'] === false) {
-        return $translation;
+        return Context::getContext()->getTranslator()->trans($params['s'], $params['sprintf'], $params['d']);
     }
 
     $string = str_replace('\'', '\\\'', $params['s']);
-    $basename = basename($smarty->source->name, '.tpl');
     $key = $basename.'_'.md5($string);
 
     if (isset($smarty->source) && (strpos($smarty->source->filepath, DIRECTORY_SEPARATOR.'override'.DIRECTORY_SEPARATOR) !== false)) {
@@ -225,7 +264,7 @@ function smartyTranslate($params, $smarty)
     }
 
     if ($params['mod']) {
-        return Translate::smartyPostProcessTranslation(
+        return Translate::postProcessTranslation(
             Translate::getModuleTranslation(
                 $params['mod'],
                 $params['s'],
@@ -236,7 +275,7 @@ function smartyTranslate($params, $smarty)
             $params
         );
     } elseif ($params['pdf']) {
-        return Translate::smartyPostProcessTranslation(
+        return Translate::postProcessTranslation(
             Translate::getPdfTranslation(
                 $params['s'],
                 $params['sprintf']
@@ -263,5 +302,5 @@ function smartyTranslate($params, $smarty)
         $msg = Translate::checkAndReplaceArgs($msg, $params['sprintf']);
     }
 
-    return Translate::smartyPostProcessTranslation($params['js'] ? $msg : Tools::safeOutput($msg), $params);
+    return Translate::postProcessTranslation($params['js'] ? $msg : Tools::safeOutput($msg), $params);
 }

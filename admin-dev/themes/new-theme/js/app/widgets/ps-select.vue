@@ -1,60 +1,73 @@
-<!--**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+<!--*
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *-->
 <template>
-  <div class="ps-select">
-    <select class="form-control" v-model="selected" @change="onChange">
-      <option value="default" selected>
+  <div
+    class="ps-select"
+    :id="itemId"
+  >
+    <select
+      class="form-control"
+      v-model="selected"
+      @change="onChange"
+    >
+      <option
+        value="default"
+        selected
+      >
         <slot />
       </option>
       <option
-        v-for="item in items"
-        :value="item[itemID]"
+        v-for="(item, index) in items"
+        :key="index"
+        :value="item[itemId]"
       >
-        {{item[itemName]}}
+        {{ item[itemName] }}
       </option>
     </select>
   </div>
 </template>
 
-<script>
-  export default {
-    props: ['items', 'itemID', 'itemName'],
+<script lang="ts">
+  import {defineComponent, PropType} from 'vue';
+
+  export default defineComponent({
+    props: {
+      items: {
+        type: Array as PropType<Array<Record<string, any>>>,
+        required: true,
+      },
+      itemId: {
+        type: String,
+        required: false,
+        default: '',
+      },
+      itemName: {
+        type: String,
+        required: false,
+        default: '',
+      },
+    },
     methods: {
-      onChange() {
+      onChange(): void {
         this.$emit('change', {
           value: this.selected,
-          itemID: this.itemID,
+          itemId: this.itemId,
         });
       },
     },
-    data: () => ({ selected: 'default' }),
-  };
+    data() {
+      return {
+        selected: 'default',
+      };
+    },
+  });
 </script>
 
-<style lang="sass" scoped>
-  @import "../../../scss/config/_settings.scss";
+<style lang="scss" scoped>
+  @import '~@scss/config/_settings.scss';
+
   .ps-select {
     position: relative;
     select {
@@ -63,12 +76,12 @@
     }
     &::after {
       content: "\E313";
-      font-family: 'Material Icons';
-      color: $gray-medium;
-      font-size: 20px;
+      font-family: var(--#{$cdk}font-family-material-icons);
+      color: var(--#{$cdk}primary-400);
+      font-size: var(--#{$cdk}size-20);
       position: absolute;
-      right: 5px;
-      top: 5px;
+      right: var(--#{$cdk}size-5);
+      top: var(--#{$cdk}size-5);
     }
   }
 </style>

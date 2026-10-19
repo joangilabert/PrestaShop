@@ -1,38 +1,20 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Form\ChoiceProvider;
 
 use PrestaShop\PrestaShop\Adapter\Country\CountryDataProvider;
+use PrestaShop\PrestaShop\Core\Form\FormChoiceAttributeProviderInterface;
+use PrestaShop\PrestaShop\Core\Form\FormChoiceFormatter;
 use PrestaShop\PrestaShop\Core\Form\FormChoiceProviderInterface;
 
 /**
  * Class CountryByIdChoiceProvider provides country choices with ID values.
  */
-final class CountryByIdChoiceProvider implements FormChoiceProviderInterface
+final class CountryByIdChoiceProvider implements FormChoiceProviderInterface, FormChoiceAttributeProviderInterface
 {
     /**
      * @var CountryDataProvider
@@ -45,12 +27,29 @@ final class CountryByIdChoiceProvider implements FormChoiceProviderInterface
     private $langId;
 
     /**
+     * @var array
+     */
+    private $countries;
+
+    /**
+     * @var int[]
+     */
+    private $dniCountriesId;
+
+    /**
+     * @var int[]
+     */
+    private $postcodeCountriesId;
+
+    /**
      * @param int $langId
      * @param CountryDataProvider $countryDataProvider
      */
     public function __construct(
         $langId,
-        CountryDataProvider $countryDataProvider
+        CountryDataProvider $countryDataProvider,
+        private string $psImageDir,
+        private string $psImageBaseUrl
     ) {
         $this->langId = $langId;
         $this->countryDataProvider = $countryDataProvider;
@@ -63,13 +62,71 @@ final class CountryByIdChoiceProvider implements FormChoiceProviderInterface
      */
     public function getChoices()
     {
-        $countries = $this->countryDataProvider->getCountries($this->langId);
-        $choices = [];
+        return FormChoiceFormatter::formatFormChoices(
+            $this->getCountries(),
+            'id_country',
+            'name'
+        );
+    }
+
+    /**
+     * @return array
+     */
+    public function getChoicesAttributes()
+    {
+        $countries = $this->getCountries();
+        $dniCountriesId = $this->getDniCountriesId();
+        $postcodeCountriesId = $this->getPostcodeCountriesId();
+        $choicesAttributes = [];
 
         foreach ($countries as $country) {
-            $choices[$country['name']] = $country['id_country'];
+            if (in_array($country['id_country'], $dniCountriesId)) {
+                $choicesAttributes[$country['name']]['need_dni'] = 1;
+            }
+            if (in_array($country['id_country'], $postcodeCountriesId)) {
+                $choicesAttributes[$country['name']]['need_postcode'] = 1;
+            }
+
+            $flagPath = 'flags/' . strtolower($country['iso_code']) . '.jpg';
+
+            if (file_exists($this->psImageDir . $flagPath)) {
+                $choicesAttributes[$country['name']]['data-logo'] = $this->psImageBaseUrl . $flagPath;
+            }
         }
 
-        return $choices;
+        return $choicesAttributes;
+    }
+
+    /**
+     * @return array
+     */
+    private function getCountries()
+    {
+        if (null === $this->countries) {
+            $this->countries = $this->countryDataProvider->getCountries($this->langId);
+        }
+
+        return $this->countries;
+    }
+
+    /**
+     * @return int[]
+     */
+    private function getDniCountriesId()
+    {
+        if (null === $this->dniCountriesId) {
+            $this->dniCountriesId = $this->countryDataProvider->getCountriesIdWhichNeedDni();
+        }
+
+        return $this->dniCountriesId;
+    }
+
+    private function getPostcodeCountriesId()
+    {
+        if (null === $this->postcodeCountriesId) {
+            $this->postcodeCountriesId = $this->countryDataProvider->getCountriesIdWhichNeedPostcode();
+        }
+
+        return $this->postcodeCountriesId;
     }
 }

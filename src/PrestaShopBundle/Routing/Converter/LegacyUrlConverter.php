@@ -1,34 +1,16 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Routing\Converter;
 
+use PrestaShopBundle\Routing\Converter\Exception\AlreadyConvertedException;
 use PrestaShopBundle\Routing\Converter\Exception\ArgumentException;
 use PrestaShopBundle\Routing\Converter\Exception\RouteNotFoundException;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Routing\Exception\ExceptionInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\RouterInterface;
 
@@ -89,11 +71,14 @@ final class LegacyUrlConverter
      *
      * @throws ArgumentException
      * @throws RouteNotFoundException
+     * @throws AlreadyConvertedException
      */
     public function convertByUrl($url)
     {
+        $this->checkAlreadyMatchingRoute($url);
+
         $parsedUrl = parse_url($url);
-        $parameters = array();
+        $parameters = [];
         if (isset($parsedUrl['query'])) {
             parse_str($parsedUrl['query'], $parameters);
         }
@@ -113,13 +98,29 @@ final class LegacyUrlConverter
      *
      * @throws ArgumentException
      * @throws RouteNotFoundException
+     * @throws AlreadyConvertedException
      */
     public function convertByRequest(Request $request)
     {
         $this->router->getContext()->fromRequest($request);
-        $parameters = array_merge($request->query->all(), $request->request->all());
+        $this->checkAlreadyMatchingRoute($request->getRequestUri());
 
-        return $this->convertByParameters($parameters);
+        // We can't use convertByParameters with the combined parameters, or the POST parameters will be added
+        // in the redirection URL, so we do check for the validity of parameters and the matching route based on
+        // all the parameters
+        $allParameters = $request->query->all() + $request->request->all();
+        if (empty($allParameters['controller'])) {
+            throw new ArgumentException('Missing required controller argument');
+        }
+
+        /** @var LegacyRoute $legacyRoute */
+        $legacyRoute = $this->findLegacyRouteNameByParameters($allParameters);
+
+        // But only query parameters are used to generate the new URL, so we clean them (remove controller, action, ...)
+        // the POST parameters will remain unchanged in the 308 redirection
+        $queryParameters = $this->convertLegacyParameters($request->query->all(), $legacyRoute);
+
+        return $this->router->generate($legacyRoute->getRouteName(), $queryParameters, UrlGeneratorInterface::ABSOLUTE_URL);
     }
 
     /**
@@ -133,7 +134,7 @@ final class LegacyUrlConverter
         $legacyAction = $this->getActionFromParameters($parameters);
 
         foreach ($legacyRoute->getRouteParameters() as $legacyParameter => $parameter) {
-            if (isset($parameters[$legacyParameter])) {
+            if (isset($parameters[$legacyParameter]) && !isset($parameters[$parameter])) {
                 $parameters[$parameter] = $parameters[$legacyParameter];
                 unset($parameters[$legacyParameter]);
             }
@@ -166,7 +167,7 @@ final class LegacyUrlConverter
     /**
      * @param array $parameters
      *
-     * @return null|string
+     * @return string|null
      */
     private function getActionFromParameters(array $parameters)
     {
@@ -176,9 +177,9 @@ final class LegacyUrlConverter
             $legacyAction = $parameters['action'];
         }
 
-        //Actions can be defined as simple query parameter (e.g: ?controller=AdminProducts&save)
+        // Actions can be defined as simple query parameter (e.g: ?controller=AdminProducts&save)
         if (null === $legacyAction) {
-            //We prioritize the actions defined in the migrated routes
+            // We prioritize the actions defined in the migrated routes
             $controllerActions = $this->legacyRouteProvider->getActionsByController($parameters['controller']);
             foreach ($parameters as $parameter => $value) {
                 if (in_array($parameter, $controllerActions)) {
@@ -189,17 +190,17 @@ final class LegacyUrlConverter
             }
         }
 
-        //Last chance if a non migrated action is present (note: a bit risky since any empty parameter can be
-        //interpreted as an action.. but some old link need this feature, ?controller=AdminModulesPositions&addToHook)
+        // Last chance if a non migrated action is present (note: a bit risky since any empty parameter can be
+        // interpreted as an action.. but some old link need this feature, ?controller=AdminModulesPositions&addToHook)
         if (null === $legacyAction) {
             foreach ($parameters as $parameter => $value) {
-                if ($value === '' || 1 === (int) $value) {
-                    //Avoid confusing an entity/row id with an action
+                if ($value === '' || $value === '1' || $value === 1 || $value === true) {
+                    // Avoid confusing an entity/row id with an action
                     // e.g.
                     //  create=1 is an action
                     //  id_product=1 is NOT an action
-                    if (false === strpos($parameter, 'id_')
-                        && false === strpos($parameter, '_id')) {
+                    if (!str_contains($parameter, 'id_')
+                        && !str_contains($parameter, '_id')) {
                         $legacyAction = $parameter;
 
                         break;
@@ -209,5 +210,25 @@ final class LegacyUrlConverter
         }
 
         return LegacyRoute::isIndexAction($legacyAction) ? 'index' : $legacyAction;
+    }
+
+    /**
+     * We check that the router doesn't match the url, if no exception is thrown
+     * then the url is already converted and we throw our own AlreadyConvertedException
+     *
+     * @param string $url
+     *
+     * @throws AlreadyConvertedException
+     */
+    private function checkAlreadyMatchingRoute($url)
+    {
+        try {
+            $urlPath = parse_url($url, PHP_URL_PATH);
+            if (!empty($urlPath)) {
+                $this->router->match($urlPath);
+                throw new AlreadyConvertedException(sprintf('%s is already a converted url', $url));
+            }
+        } catch (ExceptionInterface) {
+        }
     }
 }

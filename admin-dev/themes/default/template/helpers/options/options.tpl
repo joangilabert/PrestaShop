@@ -1,26 +1,6 @@
 {**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *}
 
 <div class="leadin">{block name="leadin"}{/block}</div>
@@ -78,7 +58,7 @@
 						<div class="col-lg-12">
 							<p class="help-block">
 								<strong>{l s='Check / Uncheck all'}</strong><br />
-								{l s='You are editing this page for a specific shop or group. Click "Yes" to check all fields, "No" to uncheck all.'}<br />
+								{l s='You are editing this page for a specific shop or group. Click "%yes_label%" to check all fields, "%no_label%" to uncheck all.' d='Admin.Design.Help' sprintf=['%yes_label%' => {l s='Yes' d='Admin.Global'}, '%no_label%' => {l s='No' d='Admin.Global'}]}<br />
  								{l s='If you check a field, change its value, and save, the multistore behavior will not apply to this shop (or group), for this particular parameter.'}
 							</p>
 						</div>
@@ -131,9 +111,9 @@
 									{if $field['type'] == 'select'}
 										<div class="col-lg-9">
 											{if $field['list']}
-												<select class="form-control fixed-width-xxl {if isset($field['class'])}{$field['class']}{/if}" name="{$key}"{if isset($field['js'])} onchange="{$field['js']}"{/if} id="{$key}" {if isset($field['size'])} size="{$field['size']}"{/if}>
+												<select class="form-control fixed-width-xxl {if isset($field['class'])}{$field['class']}{/if}" name="{$key}"{if isset($field['js'])} onchange="{$field['js']}"{/if} id="{$key}" {if isset($field['size'])} size="{$field['size']}"{/if} {if !empty($field['multiple'])} multiple="multiple"{/if}>
 													{foreach $field['list'] AS $k => $option}
-														<option value="{$option[$field['identifier']]}"{if $field['value'] == $option[$field['identifier']]} selected="selected"{/if}>{$option['name']}</option>
+														<option value="{$option[$field['identifier']]|escape:'html':'UTF-8'}"{if $field['value'] == $option[$field['identifier']]} selected="selected"{/if}>{$option['name']|escape:'html':'UTF-8'}</option>
 													{/foreach}
 												</select>
 											{elseif isset($input.empty_message)}
@@ -175,8 +155,12 @@
 												<p class="checkbox">
 													{strip}
 													<label class="col-lg-3" for="{$key}{$k}_on">
-														<input type="checkbox" name="{$key}" id="{$key}{$k}_on" value="{$k|intval}"{if $k == $field['value']} checked="checked"{/if}{if isset($field['js'][$k])} {$field['js'][$k]}{/if}/>
-													 	{$v}
+                            {if empty($field['multiple'])}
+														  <input type="checkbox" name="{$key}" id="{$key}{$k}_on" value="{$k|intval}"{if $k == $field['value']} checked="checked"{/if}{if isset($field['js'][$k])} {$field['js'][$k]}{/if}/>
+														{else}
+                              <input type="checkbox" name="{$key}[]" id="{$key}{$k}_on" value="{$k}"{if $field['value_multiple'][$k]} checked="checked"{/if} {if isset($field['disabled'][$k]) && $field['disabled'][$k]} disabled="disabled"{/if} {if isset($field['js'][$k])} {$field['js'][$k]}{/if}/>
+                            {/if}
+                            {$v}
 													</label>
 													{/strip}
 												</p>
@@ -184,7 +168,7 @@
 										</div>
 									{elseif $field['type'] == 'text'}
 										<div class="col-lg-9">{if isset($field['suffix'])}<div class="input-group{if isset($field.class)} {$field.class}{/if}">{/if}
-											<input class="form-control {if isset($field['class'])}{$field['class']}{/if}" type="{$field['type']}"{if isset($field['id'])} id="{$field['id']}"{/if} size="{if isset($field['size'])}{$field['size']|intval}{else}5{/if}" name="{$key}" value="{if isset($field['no_escape']) && $field['no_escape']}{$field['value']|escape:'UTF-8'}{else}{$field['value']|escape:'html':'UTF-8'}{/if}" {if isset($field['autocomplete']) && !$field['autocomplete']}autocomplete="off"{/if}/>
+											<input class="form-control {if isset($field['class'])}{$field['class']}{/if}" type="{$field['type']}"{if isset($field['id'])} id="{$field['id']}"{/if} size="{if isset($field['size'])}{$field['size']|intval}{else}5{/if}" name="{$key}" value="{if isset($field['no_escape']) && $field['no_escape']}{$field['value']}{else}{$field['value']|escape:'html':'UTF-8'}{/if}" {if isset($field['autocomplete']) && !$field['autocomplete']}autocomplete="off"{/if} {if isset($field['required']) && $field['required']} required="required"{/if}  {if !empty($field['disabled'])} disabled="disabled"{/if} />
 											{if isset($field['suffix'])}
 											<span class="input-group-addon">
 												{$field['suffix']|strval}
@@ -194,7 +178,7 @@
 										</div>
 									{elseif $field['type'] == 'password'}
 										<div class="col-lg-9">{if isset($field['suffix'])}<div class="input-group{if isset($field.class)} {$field.class}{/if}">{/if}
-											<input type="{$field['type']}"{if isset($field['id'])} id="{$field['id']}"{/if} size="{if isset($field['size'])}{$field['size']|intval}{else}5{/if}" name="{$key}" value=""{if isset($field['autocomplete']) && !$field['autocomplete']} autocomplete="off"{/if} />
+                      <input{if !empty($field['class'])} class="{$field['class']}"{/if} type="{$field['type']}"{if isset($field['id'])} id="{$field['id']}"{/if} size="{if isset($field['size'])}{$field['size']|intval}{else}5{/if}" name="{$key}" value=""{if isset($field['autocomplete']) && !$field['autocomplete']} autocomplete="off"{/if} />
 											{if isset($field['suffix'])}
 											<span class="input-group-addon">
 												{$field['suffix']|strval}
@@ -204,14 +188,14 @@
 										</div>
 									{elseif $field['type'] == 'textarea'}
 										<div class="col-lg-9">
-											<textarea class="{if isset($field['autoload_rte']) && $field['autoload_rte']}rte autoload_rte{else}textarea-autosize{/if}" name={$key}{if isset({$field['cols']})} cols="{$field['cols']}"{/if}{if isset({$field['rows']})} rows="{$field['rows']}"{/if}">{$field['value']|escape:'html':'UTF-8'}</textarea>
+											<textarea class="{if isset($field['autoload_rte']) && $field['autoload_rte']}rte autoload_rte{else}textarea-autosize{/if}" name="{$key}"{if isset($field['cols'])} cols="{$field['cols']}"{/if}{if isset($field['rows'])} rows="{$field['rows']}"{/if}>{$field['value']|escape:'html':'UTF-8'}</textarea>
 										</div>
 									{elseif $field['type'] == 'file'}
 										<div class="col-lg-9">{$field['file']}</div>
 									{elseif $field['type'] == 'color'}
 										<div class="col-lg-2">
 											<div class="input-group">
-												<input type="color" size="{$field['size']}" data-hex="true" {if isset($input.class)}class="{$field['class']}" {else}class="color mColorPickerInput"{/if} name="{$field['name']}" class="{if isset($field['class'])}{$field['class']}{/if}" value="{$field['value']|escape:'html':'UTF-8'}" />
+												<input type="color" size="{if isset($field['size'])}{$field['size']|intval}{else}5{/if}" data-hex="true" class="{if isset($field['class'])}{$field['class']}{else}color mColorPickerInput{/if}" name="{if isset($field['name'])}{$field['name']}{else}{$key}{/if}" value="{$field['value']|escape:'html':'UTF-8'}" />
 											</div>
 							            </div>
 									{elseif $field['type'] == 'price'}
@@ -287,7 +271,7 @@
 													</div>
 												{/foreach}
 												<script type="text/javascript">
-													$(document).ready(function() {
+													$(function() {
 														$(".textarea-autosize").autosize();
 													});
 												</script>
@@ -297,9 +281,9 @@
 												<div id="{$key}_{$language.id_lang}" style="display: {if $language.id_lang == $current_id_lang}block{else}none{/if};" class="col-lg-9">
 													<select name="{$key}_{$language.iso_code|upper}">
 														{foreach $field['list'] AS $k => $v}
-															<option value="{if isset($v.cast)}{$v.cast[$v[$field.identifier]]}{else}{$v[$field.identifier]}{/if}"
+															<option value="{if isset($v.cast)}{$v.cast[$v[$field.identifier]]|escape:'html':'UTF-8'}{else}{$v[$field.identifier]|escape:'html':'UTF-8'}{/if}"
 																{if $field['value'][$language.id_lang] == $v['name']} selected="selected"{/if}>
-																{$v['name']}
+																{$v['name']|escape:'html':'UTF-8'}
 															</option>
 														{/foreach}
 													</select>
@@ -328,7 +312,7 @@
 								{if $field['is_invisible']}
 								<div class="col-lg-9 col-lg-offset-3">
 									<p class="alert alert-warning row-margin-top">
-										{l s='You can\'t change the value of this configuration field in the context of this shop.'}
+										{l s='You can\'t change the value of this configuration field in this store\'s context.'}
 									</p>
 								</div>
 								{/if}
@@ -344,7 +328,7 @@
 				{if isset($categoryData['submit']) || isset($categoryData['buttons'])}
 					<div class="panel-footer">
 						{if isset($categoryData['submit']) && !empty($categoryData['submit'])}
-						<button type="{if isset($categoryData['submit']['type'])}{$categoryData['submit']['type']}{else}submit{/if}" {if isset($categoryData['submit']['id'])}id="{$categoryData['submit']['id']}"{/if} class="btn btn-default pull-right" name="{if isset($categoryData['submit']['name'])}{$categoryData['submit']['name']}{else}submitOptions{$table}{/if}"><i class="process-icon-{if isset($categoryData['submit']['imgclass'])}{$categoryData['submit']['imgclass']}{else}save{/if}"></i> {$categoryData['submit']['title']}</button>
+						<button type="{if isset($categoryData['submit']['type'])}{$categoryData['submit']['type']}{else}submit{/if}" {if isset($categoryData['submit']['id'])}id="{$categoryData['submit']['id']}"{/if} class="btn btn-primary pull-right" name="{if isset($categoryData['submit']['name'])}{$categoryData['submit']['name']}{else}submitOptions{$table}{/if}"><i class="process-icon-{if isset($categoryData['submit']['imgclass'])}{$categoryData['submit']['imgclass']}{else}save{/if}"></i> {$categoryData['submit']['title']}</button>
 						{/if}
 						{if isset($categoryData['buttons'])}
 						{foreach from=$categoryData['buttons'] item=btn key=k}
@@ -377,7 +361,7 @@
 	var pathCSS = '{$smarty.const._THEME_CSS_DIR_|addslashes}';
 	var ad = '{$ad|addslashes}';
 
-	$(document).ready(function(){
+	$(function(){
 		{block name="autoload_tinyMCE"}
 			tinySetup({
 				editor_selector :"autoload_rte"
@@ -387,3 +371,8 @@
 </script>
 {/if}
 {/block}
+{if $has_color_field}
+<script type="text/javascript">
+  $.fn.mColorPicker.defaults.imageFolder = baseDir + 'img/admin/';
+</script>
+{/if}

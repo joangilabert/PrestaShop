@@ -1,35 +1,14 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShopBundle\Service\DataProvider\Admin;
 
-use GuzzleHttp\Exception\RequestException;
-use PrestaShop\PrestaShop\Adapter\Module\Module as ApiModule;
-use PrestaShopBundle\Service\DataProvider\Marketplace\ApiClient;
-use Psr\Log\LoggerInterface;
+use PrestaShop\PrestaShop\Adapter\Module\Module;
+use PrestaShop\PrestaShop\Core\Module\ModuleCollection;
+use PrestaShop\PrestaShop\Core\Module\ModuleInterface;
 use stdClass;
 
 /**
@@ -37,118 +16,91 @@ use stdClass;
  */
 class CategoriesProvider
 {
-    const CATEGORY_OTHER = 'other';
-    const CATEGORY_OTHER_NAME = 'Other';
+    public const CATEGORY_OTHER = 'other';
+    public const CATEGORY_OTHER_NAME = 'Other';
 
-    const CATEGORY_THEME = 'theme_modules';
-    const CATEGORY_THEME_NAME = 'Theme modules';
-
-    const CATEGORY_MY_MODULES = 'my_modules';
-    const CATEGORY_MY_MODULES_NAME = 'My Modules';
-
-    private $apiClient;
-    private $logger;
-    private $modulesTheme;
-
-    public static $categories;
-    public static $categoriesFromApi;
-
-    public function __construct(ApiClient $apiClient, LoggerInterface $logger, array $addonsCategories, array $modulesTheme)
-    {
-        $this->apiClient = $apiClient;
-        $this->logger = $logger;
-        $this->modulesTheme = $modulesTheme;
-        // We now avoid calling the API. This data is loaded from a local YML file
-        self::$categoriesFromApi = empty($addonsCategories) ? null : $this->sortCategories($addonsCategories);
-    }
+    public const CATEGORY_THEME = 'theme_modules';
+    public const CATEGORY_THEME_NAME = 'Theme modules';
 
     /**
-     * Get categories from API.
-     *
-     * @return array
+     * @var array
      */
-    public function getCategories()
-    {
-        if (null === self::$categoriesFromApi) {
-            try {
-                self::$categoriesFromApi = $this->apiClient->getCategories();
-            } catch (RequestException $e) {
-                $this->logger->error('Modules categories could not be loaded from marketplace API');
-                self::$categoriesFromApi = [];
-            }
-        }
+    private $modulesTheme;
 
-        return self::$categoriesFromApi;
+    /**
+     * @var array
+     */
+    private $categories;
+
+    /**
+     * @var array
+     */
+    private $categoriesMenu;
+
+    /**
+     * @var object
+     */
+    private $categoriesFromSource;
+
+    public function __construct(array $addonsCategories, array $modulesTheme)
+    {
+        // List of modules (getModulesToEnable) present in the current theme's YML file
+        // We will use that to determine which modules will go to "Theme modules" category
+        $this->modulesTheme = $modulesTheme;
+
+        // A list of categories and subcategories we got from local YML file
+        // In the past, this was fetched from addons marketplace
+        $this->categoriesFromSource = $this->sortCategories($addonsCategories);
+        $this->categories = $this->initializeCategories($this->categoriesFromSource);
+    }
+
+    public function getCategories(): array
+    {
+        return $this->categories;
     }
 
     /**
      * Return the list of categories with the associated modules.
      *
-     * @param array|AddonsCollection the list of modules
+     * @param array|ModuleCollection $modules
      *
      * @return array the list of categories
      */
-    public function getCategoriesMenu($modules)
+    public function getCategoriesMenu($modules): array
     {
-        if (null === self::$categories) {
+        if (null === $this->categoriesMenu) {
             // The Root category is "Categories"
-            $categoriesListing = $this->getCategories();
-            $categories = $this->initializeCategories($categoriesListing);
-            foreach ($modules as $module) {
-                if (empty($categoriesListing)) {
-                    // No result from Addons, check module type
-                    $category = $this->findModuleType($module, $this->modulesTheme);
-                } else {
-                    $category = $this->findModuleCategory($module, $categories);
-                }
+            // Copy the original array
+            $categories = $this->categories;
 
+            // Now let's go through all modules, resolve their category and assign them to one
+            foreach ($modules as $module) {
+                $category = $this->findModuleCategory($module, $categories);
                 $categories['categories']->subMenu[$category]->modules[] = $module;
             }
 
-            // Clear custom categories if there is no module inside
-            foreach ([self::CATEGORY_THEME, self::CATEGORY_MY_MODULES] as $category) {
-                if (empty($categories['categories']->subMenu[$category]->modules)) {
-                    unset($categories['categories']->subMenu[$category]);
-                }
-            }
-
-            self::$categories = $categories;
+            $this->categoriesMenu = $categories;
         }
 
-        return self::$categories;
+        return $this->categoriesMenu;
     }
 
     /**
      * Initialize categories from API or if this one is empty,
      * use theme and my modules categories.
      *
-     * @param array|stdClass $categoriesListing Category listing
+     * @param object $categoriesListing Category listing
      *
-     * @return array
+     * @return array<string, stdClass>
      */
     private function initializeCategories($categoriesListing)
     {
+        // Create root category
         $categories = [
             'categories' => $this->createMenuObject('categories', 'Categories'),
         ];
 
-        if (empty($categoriesListing)) {
-            $categories['categories']->subMenu[self::CATEGORY_THEME] = $this->createMenuObject(
-                self::CATEGORY_THEME,
-                self::CATEGORY_THEME_NAME,
-                [],
-                self::CATEGORY_THEME
-            );
-            $categories['categories']->subMenu[self::CATEGORY_MY_MODULES] = $this->createMenuObject(
-                self::CATEGORY_MY_MODULES,
-                self::CATEGORY_MY_MODULES_NAME,
-                [],
-                self::CATEGORY_MY_MODULES
-            );
-
-            return $categories;
-        }
-
+        // Initialize basic set of categories from the YML
         foreach ($categoriesListing as $category) {
             $categories['categories']->subMenu[$category->name] = $this->createMenuObject(
                 $category->id_category,
@@ -158,12 +110,15 @@ class CategoriesProvider
             );
         }
 
+        // Initalize special category for theme modules
         $categories['categories']->subMenu[self::CATEGORY_THEME] = $this->createMenuObject(
             self::CATEGORY_THEME,
             self::CATEGORY_THEME_NAME,
             [],
             self::CATEGORY_THEME
         );
+
+        // And a fallback category for modules without a tab or if the tab is not found
         $categories['categories']->subMenu[self::CATEGORY_OTHER] = $this->createMenuObject(
             self::CATEGORY_OTHER,
             self::CATEGORY_OTHER_NAME,
@@ -177,13 +132,13 @@ class CategoriesProvider
     /**
      * Considering a category name, return his category parent name.
      *
-     * @param string the category
+     * @param string $categoryName
      *
-     * @return string the category
+     * @return string
      */
-    public function getParentCategory($categoryName)
+    public function getParentCategory(string $categoryName): string
     {
-        foreach ($this->getCategories() as $parentCategory) {
+        foreach ($this->categoriesFromSource as $parentCategory) {
             foreach ($parentCategory->categories as $childCategory) {
                 if ($childCategory->name === $categoryName) {
                     return $parentCategory->name;
@@ -197,88 +152,86 @@ class CategoriesProvider
     /**
      * Re-organize category data into a Menu item.
      *
-     * @param $menu
-     * @param $name
+     * @param string $menu
+     * @param string $name
      * @param array $moduleIds
-     * @param null $tab
+     * @param string $tab
      *
-     * @return object
+     * @return stdClass
      */
-    private function createMenuObject($menu, $name, $moduleIds = [], $tab = null)
+    private function createMenuObject(string $menu, string $name, array $moduleIds = [], ?string $tab = null): stdClass
     {
-        return (object) array(
+        return (object) [
             'tab' => $tab,
             'name' => $name,
             'refMenu' => $menu,
             'modules' => $moduleIds,
             'subMenu' => [],
-        );
-    }
-
-    /**
-     * Find module type.
-     *
-     * @param ApiModule $installedProduct Installed product
-     * @param array $modulesTheme Modules theme
-     */
-    private function findModuleType(ApiModule $installedProduct, array $modulesTheme)
-    {
-        if (in_array($installedProduct->attributes->get('name'), $modulesTheme)) {
-            return self::CATEGORY_THEME;
-        }
-
-        return self::CATEGORY_MY_MODULES;
+        ];
     }
 
     /**
      * Find module category.
      *
-     * @param ApiModule $installedProduct Installed product
+     * @param ModuleInterface $installedProduct Installed product
      * @param array $categories Available categories
      */
-    private function findModuleCategory(ApiModule $installedProduct, array $categories)
+    private function findModuleCategory(ModuleInterface $installedProduct, array $categories): string
     {
-        $moduleCategory = $installedProduct->attributes->get('categoryName');
-        $moduleCategoryParent = $this->getParentCategory($moduleCategory);
-        if (!isset($categories['categories']->subMenu[$moduleCategoryParent])) {
-            if (in_array($installedProduct->attributes->get('name'), $this->modulesTheme)) {
-                $moduleCategoryParent = self::CATEGORY_THEME;
-            } else {
-                $moduleCategoryParent = self::CATEGORY_OTHER;
-            }
+        // If the module is on a list of "modules to enable" in current theme's YML file, they get
+        // a hardcoded special category "Theme modules"
+        if (in_array($installedProduct->attributes->get('name'), $this->modulesTheme)) {
+            return self::CATEGORY_THEME;
         }
 
-        if (array_key_exists($moduleCategoryParent, $categories['categories']->subMenu)) {
-            return $moduleCategoryParent;
+        // Look it up by module tab attribute, as declared in the categories file
+        $moduleCategory = $this->getParentCategoryFromTabAttribute($installedProduct);
+        if (array_key_exists($moduleCategory, $categories['categories']->subMenu)) {
+            return $moduleCategory;
         }
 
-        return CategoriesProvider::CATEGORY_OTHER;
+        return self::CATEGORY_OTHER;
     }
 
     /**
      * Sort addons categories by order field.
      *
      * @param array $categories
+     *
+     * @return stdClass
      */
-    private function sortCategories(array $categories)
+    private function sortCategories(array $categories): stdClass
     {
         uasort(
             $categories,
             function ($a, $b) {
-                $a = !isset($a['order']) ? 0 : $a['order'];
-                $b = !isset($b['order']) ? 0 : $b['order'];
-
-                if ($a === $b) {
-                    return 0;
-                }
-
-                return ($a < $b) ? -1 : 1;
+                return ($a['order'] ?? 0) <=> ($b['order'] ?? 0);
             }
         );
 
         // Convert array to object to be consistent with current API call
-        $categories = json_decode(json_encode($categories));
+        return json_decode(json_encode($categories));
+    }
 
-        return $categories;
+    /**
+     * Try to find the parent category depending on the module's tab attribute.
+     * Note that it always return the parent category, even if the tab is deeper in the tree.
+     * For example, a module with analytics_stats will end up in administration category.
+     *
+     * @param ModuleInterface $module
+     *
+     * @return ?string
+     */
+    private function getParentCategoryFromTabAttribute(ModuleInterface $module): ?string
+    {
+        foreach ($this->categoriesFromSource as $parentCategory) {
+            foreach ($parentCategory->categories as $category) {
+                if (isset($category->tab) && $category->tab === $module->attributes->get('tab')) {
+                    return $parentCategory->name;
+                }
+            }
+        }
+
+        return null;
     }
 }

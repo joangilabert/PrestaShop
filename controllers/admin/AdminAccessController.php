@@ -1,28 +1,12 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
+
+use PrestaShop\PrestaShop\Core\FeatureFlag\FeatureFlagSettings;
+use PrestaShop\PrestaShop\Core\FeatureFlag\FeatureFlagStateCheckerInterface;
+use PrestaShopBundle\Service\Form\ImprovedB2bTabsToggler;
 
 /**
  * @property Profile $object
@@ -30,7 +14,7 @@
 class AdminAccessControllerCore extends AdminController
 {
     /** @var array : Black list of id_tab that do not have access */
-    public $accesses_black_list = array();
+    public $accesses_black_list = [];
 
     public function __construct()
     {
@@ -59,9 +43,15 @@ class AdminAccessControllerCore extends AdminController
         $profiles = Profile::getProfiles($this->context->language->id);
         $tabs = Tab::getTabs($this->context->language->id);
 
-        $accesses = array();
+        $accesses = [];
         foreach ($profiles as $profile) {
             $accesses[$profile['id_profile']] = Profile::getProfileAccesses($profile['id_profile']);
+        }
+
+        $isImprovedB2BEnabled = false;
+        if ($this->getContainer()->has(FeatureFlagStateCheckerInterface::class)) {
+            $featureFlagChecker = $this->get(FeatureFlagStateCheckerInterface::class);
+            $isImprovedB2BEnabled = $featureFlagChecker->isEnabled(FeatureFlagSettings::FEATURE_FLAG_IMPROVED_B2B);
         }
 
         // Deleted id_tab that do not have access
@@ -75,17 +65,20 @@ class AdminAccessControllerCore extends AdminController
                 if ($tab['id_tab'] == (int) $id_tab) {
                     unset($tabs[$key]);
                 }
+                if (!$isImprovedB2BEnabled && in_array($tab['class_name'], ImprovedB2bTabsToggler::TAB_CLASS_NAMES, true)) {
+                    unset($tabs[$key]);
+                }
             }
         }
 
-        $modules = array();
+        $modules = [];
         foreach ($profiles as $profile) {
             $modules[$profile['id_profile']] = Module::getModulesAccessesByIdProfile($profile['id_profile']);
-            uasort($modules[$profile['id_profile']], array($this, 'sortModuleByName'));
+            uasort($modules[$profile['id_profile']], [$this, 'sortModuleByName']);
         }
 
-        $this->fields_form = array('');
-        $this->tpl_form_vars = array(
+        $this->fields_form = [''];
+        $this->tpl_form_vars = [
             'profiles' => $profiles,
             'accesses' => $accesses,
             'id_tab_parentmodule' => (int) Tab::getIdFromClassName('AdminParentModules'),
@@ -94,12 +87,12 @@ class AdminAccessControllerCore extends AdminController
             'current_profile' => (int) $current_profile,
             'admin_profile' => (int) _PS_ADMIN_PROFILE_,
             'access_edit' => $this->access('edit'),
-            'perms' => array('view', 'add', 'edit', 'delete'),
-            'id_perms' => array('view' => 0, 'add' => 1, 'edit' => 2, 'delete' => 3, 'all' => 4),
+            'perms' => ['view', 'add', 'edit', 'delete'],
+            'id_perms' => ['view' => 0, 'add' => 1, 'edit' => 2, 'delete' => 3, 'all' => 4],
             'modules' => $modules,
             'link' => $this->context->link,
             'employee_profile_id' => (int) $this->context->employee->id_profile,
-        );
+        ];
 
         return parent::renderForm();
     }
@@ -119,9 +112,9 @@ class AdminAccessControllerCore extends AdminController
 
         $this->content .= $this->renderForm();
 
-        $this->context->smarty->assign(array(
+        $this->context->smarty->assign([
             'content' => $this->content,
-        ));
+        ]);
     }
 
     public function initToolbarTitle()
@@ -138,23 +131,23 @@ class AdminAccessControllerCore extends AdminController
     public function ajaxProcessUpdateAccess()
     {
         if (_PS_MODE_DEMO_) {
-            throw new PrestaShopException($this->trans('This functionality has been disabled.', array(), 'Admin.Notifications.Error'));
+            throw new PrestaShopException($this->trans('This functionality has been disabled.', [], 'Admin.Notifications.Error'));
         }
         if ($this->access('edit') != '1') {
-            throw new PrestaShopException($this->trans('You do not have permission to edit this.', array(), 'Admin.Notifications.Error'));
+            throw new PrestaShopException($this->trans('You do not have permission to edit this.', [], 'Admin.Notifications.Error'));
         }
 
         if (Tools::isSubmit('submitAddAccess')) {
             $access = new Access();
             $perm = Tools::getValue('perm');
-            if (!in_array($perm, array('view', 'add', 'edit', 'delete', 'all'))) {
+            if (!in_array($perm, ['view', 'add', 'edit', 'delete', 'all'])) {
                 throw new PrestaShopException('permission does not exist');
             }
 
-            $enabled = (int) Tools::getValue('enabled');
+            $enabled = (bool) Tools::getValue('enabled');
             $id_tab = (int) Tools::getValue('id_tab');
             $id_profile = (int) Tools::getValue('id_profile');
-            $addFromParent = (int) Tools::getValue('addFromParent');
+            $addFromParent = (bool) Tools::getValue('addFromParent');
 
             die($access->updateLgcAccess((int) $id_profile, $id_tab, $perm, $enabled, $addFromParent));
         }
@@ -163,20 +156,20 @@ class AdminAccessControllerCore extends AdminController
     public function ajaxProcessUpdateModuleAccess()
     {
         if (_PS_MODE_DEMO_) {
-            throw new PrestaShopException($this->trans('This functionality has been disabled.', array(), 'Admin.Notifications.Error'));
+            throw new PrestaShopException($this->trans('This functionality has been disabled.', [], 'Admin.Notifications.Error'));
         }
         if ($this->access('edit') != '1') {
-            throw new PrestaShopException($this->trans('You do not have permission to edit this.', array(), 'Admin.Notifications.Error'));
+            throw new PrestaShopException($this->trans('You do not have permission to edit this.', [], 'Admin.Notifications.Error'));
         }
 
         if (Tools::isSubmit('changeModuleAccess')) {
             $access = new Access();
             $perm = Tools::getValue('perm');
-            $enabled = (int) Tools::getValue('enabled');
+            $enabled = (bool) Tools::getValue('enabled');
             $id_module = (int) Tools::getValue('id_module');
             $id_profile = (int) Tools::getValue('id_profile');
 
-            if (!in_array($perm, array('view', 'configure', 'uninstall'))) {
+            if (!in_array($perm, ['view', 'configure', 'uninstall'])) {
                 throw new PrestaShopException('permission does not exist');
             }
 
@@ -194,9 +187,18 @@ class AdminAccessControllerCore extends AdminController
         return (isset($_GET['id_profile']) && !empty($_GET['id_profile']) && is_numeric($_GET['id_profile'])) ? (int) $_GET['id_profile'] : 1;
     }
 
-    protected function sortModuleByName($a, $b)
+    /**
+     * @param array $a module data
+     * @param array $b module data
+     *
+     * @return int
+     */
+    protected function sortModuleByName(array $a, array $b)
     {
-        return strnatcmp($a['name'], $b['name']);
+        $moduleAName = isset($a['name']) ? $a['name'] : null;
+        $moduleBName = isset($b['name']) ? $b['name'] : null;
+
+        return strnatcmp($moduleAName, $moduleBName);
     }
 
     /**
@@ -209,10 +211,10 @@ class AdminAccessControllerCore extends AdminController
         return $tabsTree;
     }
 
-    protected function getChildrenTab(array &$tabs, $id_parent = 0)
+    protected function getChildrenTab(array &$tabs, int $id_parent = 0)
     {
         $children = [];
-        foreach ($tabs as &$tab) {
+        foreach ($tabs as $tab) {
             $id = $tab['id_tab'];
 
             if ($tab['id_parent'] == $id_parent) {

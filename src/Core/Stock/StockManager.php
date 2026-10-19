@@ -1,27 +1,7 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 namespace PrestaShop\PrestaShop\Core\Stock;
@@ -32,13 +12,16 @@ use Configuration;
 use Context;
 use DateTime;
 use Employee;
+use Exception;
 use Mail;
 use Pack;
 use PrestaShop\PrestaShop\Adapter\LegacyContext as ContextAdapter;
-use PrestaShop\PrestaShop\Adapter\Product\ProductDataProvider;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use PrestaShop\PrestaShop\Adapter\SymfonyContainer;
+use PrestaShop\PrestaShop\Core\Mutation\MutationTracker;
+use PrestaShopBundle\Entity\MutationAction;
 use PrestaShopBundle\Entity\StockMvt;
+use PrestaShopException;
 use Product;
 use StockAvailable;
 
@@ -47,6 +30,15 @@ use StockAvailable;
  */
 class StockManager
 {
+    /**
+     * The tracker is optional because this class is still instantiated without the
+     * container in some legacy paths (e.g. OrderHistory); no mutation is recorded there.
+     */
+    public function __construct(
+        private readonly ?MutationTracker $mutationTracker = null,
+    ) {
+    }
+
     /**
      * This will update a Pack quantity and will decrease the quantity of containing Products if needed.
      *
@@ -96,7 +88,7 @@ class StockManager
 
     /**
      * This will decrease (if needed) Packs containing this product
-     * (with the right declination) if there is not enough product in stocks.
+     * (with the right combination) if there is not enough product in stocks.
      *
      * @param Product $product A product object to update its quantity
      * @param int $id_product_attribute The product attribute to update
@@ -127,7 +119,7 @@ class StockManager
 
             // How many packs can be made with the remaining product stocks
             $quantity_by_pack = $pack->pack_item_quantity;
-            $max_pack_quantity = max(array(0, floor($stock_available->quantity / $quantity_by_pack)));
+            $max_pack_quantity = max([0, floor($stock_available->quantity / $quantity_by_pack)]);
 
             $stock_available_pack = $stockManager->getStockAvailableByProduct($pack, null, $id_shop);
             if ($stock_available_pack->quantity > $max_pack_quantity) {
@@ -140,17 +132,17 @@ class StockManager
     }
 
     /**
-     * Will update Product available stock int he given declinaison. If product is a Pack, could decrease the sub products.
+     * Will update Product available stock int he given combination. If product is a Pack, could decrease the sub products.
      * If Product is contained in a Pack, Pack could be decreased or not (only if sub product stocks become not sufficient).
      *
      * @param Product $product The product to update its stockAvailable
-     * @param int $id_product_attribute The declinaison to update (null if not)
+     * @param int|null $id_product_attribute The combination to update (null if not)
      * @param int $delta_quantity The quantity change (positive or negative)
      * @param int|null $id_shop Optional
      * @param bool $add_movement Optional
      * @param array $params Optional
      */
-    public function updateQuantity($product, $id_product_attribute, $delta_quantity, $id_shop = null, $add_movement = false, $params = array())
+    public function updateQuantity($product, $id_product_attribute, $delta_quantity, $id_shop = null, $add_movement = false, $params = [])
     {
         /** @TODO We should call the needed classes with the Symfony dependency injection instead of the Homemade Service Locator */
         $serviceLocator = new ServiceLocator();
@@ -186,11 +178,13 @@ class StockManager
 
         $hookManager->exec(
             'actionUpdateQuantity',
-            array(
+            [
                 'id_product' => $product->id,
                 'id_product_attribute' => $id_product_attribute,
                 'quantity' => $stockAvailable->quantity,
-            )
+                'delta_quantity' => $delta_quantity,
+                'id_shop' => $id_shop,
+            ]
         );
 
         if ($this->checkIfMustSendLowStockAlert($product, $id_product_attribute, $stockAvailable->quantity)) {
@@ -275,8 +269,8 @@ class StockManager
      * @param int $id_product_attribute
      * @param int $newQuantity
      *
-     * @throws \Exception
-     * @throws \PrestaShopException
+     * @throws Exception
+     * @throws PrestaShopException
      */
     protected function sendLowStockAlert($product, $id_product_attribute, $newQuantity)
     {
@@ -284,12 +278,12 @@ class StockManager
         $idShop = (int) $context->shop->id;
         $idLang = (int) $context->language->id;
         $configuration = Configuration::getMultiple(
-            array(
+            [
                 'MA_LAST_QTIES',
                 'PS_STOCK_MANAGEMENT',
                 'PS_SHOP_EMAIL',
                 'PS_SHOP_NAME',
-            ),
+            ],
             null,
             null,
             $idShop
@@ -301,85 +295,103 @@ class StockManager
         } else {
             $lowStockThreshold = $product->low_stock_threshold;
         }
-        $templateVars = array(
+        $templateVars = [
             '{qty}' => $newQuantity,
+            '{product_id}' => $product->id,
+            '{product_attribute_id}' => $id_product_attribute,
+            '{product_reference}' => $product->reference,
             '{last_qty}' => $lowStockThreshold,
             '{product}' => $productName,
-        );
-        // get emails on employees who have right to run stock page
-        $emails = array();
-        $employees = Employee::getEmployees();
-        foreach ($employees as $employeeData) {
+        ];
+
+        // send email to every employee who have permission for this
+        foreach (Employee::getEmployees() as $employeeData) {
             $employee = new Employee($employeeData['id_employee']);
+
             if (Access::isGranted('ROLE_MOD_TAB_ADMINSTOCKMANAGEMENT_READ', $employee->id_profile)) {
-                $emails[] = $employee->email;
+                $templateVars['{firstname}'] = $employee->firstname;
+                $templateVars['{lastname}'] = $employee->lastname;
+
+                Mail::Send(
+                    $idLang,
+                    'productoutofstock',
+                    Mail::l('Product out of stock', $idLang),
+                    $templateVars,
+                    $employee->email,
+                    null,
+                    (string) $configuration['PS_SHOP_EMAIL'],
+                    (string) $configuration['PS_SHOP_NAME'],
+                    null,
+                    null,
+                    __DIR__ . '/mails/',
+                    false,
+                    $idShop
+                );
             }
-        }
-        // Send 1 email by merchant mail, because Mail::Send doesn't work with an array of recipients
-        foreach ($emails as $email) {
-            Mail::Send(
-                $idLang,
-                'productoutofstock',
-                Mail::l('Product out of stock', $idLang),
-                $templateVars,
-                $email,
-                null,
-                (string) $configuration['PS_SHOP_EMAIL'],
-                (string) $configuration['PS_SHOP_NAME'],
-                null,
-                null,
-                dirname(__FILE__) . '/mails/',
-                false,
-                $idShop
-            );
         }
     }
 
     /**
      * Public method to save a Movement.
      *
-     * @param $productId
-     * @param $productAttributeId
-     * @param $deltaQuantity
+     * @param int $productId
+     * @param int $productAttributeId
+     * @param int $deltaQuantity
      * @param array $params
      *
      * @return bool
      */
-    public function saveMovement($productId, $productAttributeId, $deltaQuantity, $params = array())
+    public function saveMovement($productId, $productAttributeId, $deltaQuantity, $params = [])
     {
-        if ($deltaQuantity != 0) {
-            $stockMvt = $this->prepareMovement($productId, $productAttributeId, $deltaQuantity, $params);
-
-            if ($stockMvt) {
-                $sfContainer = SymfonyContainer::getInstance();
-                if (!is_null($sfContainer)) {
-                    $stockMvtRepository = $sfContainer->get('prestashop.core.api.stock_movement.repository');
-
-                    return $stockMvtRepository->saveStockMvt($stockMvt);
-                }
-            }
+        if ($deltaQuantity == 0) {
+            return false;
         }
 
-        return false;
+        $stockMvt = $this->prepareMovement($productId, $productAttributeId, $deltaQuantity, $params);
+        if (!$stockMvt) {
+            return false;
+        }
+
+        $sfContainer = SymfonyContainer::getInstance();
+        if (null === $sfContainer) {
+            return false;
+        }
+
+        $stockMvtRepository = $sfContainer->get('prestashop.core.api.stock_movement.repository');
+        $stockMovementId = $stockMvtRepository->saveStockMvt($stockMvt);
+
+        if ($stockMovementId) {
+            // Records which API client created the movement (no-op when the request is not
+            // authenticated with an API client), since StockMvt has no api client relation
+            $this->mutationTracker?->addMutationForApiClient('stock_mvt', (int) $stockMovementId, MutationAction::CREATE);
+        }
+
+        return $stockMovementId;
     }
 
     /**
      * Prepare a Movement for registration.
      *
-     * @param $productId
-     * @param $productAttributeId
-     * @param $deltaQuantity
+     * @param int $productId
+     * @param int $productAttributeId
+     * @param int $deltaQuantity
      * @param array $params
      *
      * @return bool|StockMvt
      */
-    private function prepareMovement($productId, $productAttributeId, $deltaQuantity, $params = array())
+    private function prepareMovement($productId, $productAttributeId, $deltaQuantity, $params = [])
     {
-        $product = (new ProductDataProvider())->getProductInstance($productId);
+        $product = new Product($productId);
 
         if ($product->id) {
+            $combinationAdapter = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Adapter\\Combination');
+
+            if ($productAttributeId > 0 && !$combinationAdapter->existsInDatabase((int) $productAttributeId)) {
+                return false;
+            }
+
             $stockManager = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Adapter\\StockManager');
-            $stockAvailable = $stockManager->getStockAvailableByProduct($product, $productAttributeId);
+            $stockAvailable = $stockManager->getStockAvailableByProduct($product, $productAttributeId, $params['id_shop'] ?? null);
 
             if ($stockAvailable->id) {
                 $stockMvt = new StockMvt();
@@ -394,18 +406,16 @@ class StockManager
                     $stockMvt->setIdStockMvtReason((int) $params['id_stock_mvt_reason']);
                 }
 
-                if (!empty($params['id_supply_order'])) {
-                    $stockMvt->setIdSupplyOrder((int) $params['id_supply_order']);
-                }
-
                 $stockMvt->setSign($deltaQuantity >= 1 ? 1 : -1);
                 $stockMvt->setPhysicalQuantity(abs($deltaQuantity));
 
                 $stockMvt->setDateAdd(new DateTime());
 
                 $employee = (new ContextAdapter())->getContext()->employee;
-                if (!empty($employee)) {
-                    $stockMvt->setIdEmployee($employee->id);
+                // The context may hold an employee without an id (e.g. when the stock movement is
+                // triggered outside the back office, like from the Admin API), keep the default 0.
+                if (!empty($employee) && !empty($employee->id)) {
+                    $stockMvt->setIdEmployee((int) $employee->id);
                     $stockMvt->setEmployeeFirstname($employee->firstname);
                     $stockMvt->setEmployeeLastname($employee->lastname);
                 }

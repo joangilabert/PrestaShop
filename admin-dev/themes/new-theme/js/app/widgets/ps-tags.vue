@@ -1,34 +1,25 @@
-<!--**
- * 2007-2018 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+<!--*
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  *-->
 <template>
-  <div class="tags-input search-input search d-flex flex-wrap" :class="{ 'search-with-icon': hasIcon }" @click="focus()">
+  <div
+    class="tags-input search-input search d-flex flex-wrap"
+    :class="{ 'search-with-icon': hasIcon }"
+    @click="focus()"
+  >
     <div class="tags-wrapper">
-      <span v-for="(tag, index) in tags" class="tag">{{ tag }}<i class="material-icons" @click="close(index)">close</i></span>
+      <span
+        v-for="(tag, index) in tags"
+        :key="index"
+        class="tag"
+      >{{ tag }}<i
+        class="material-icons"
+        @click="close(index)"
+      >close</i></span>
     </div>
     <input
-      ref = "tags"
+      ref="tags"
       :placeholder="placeholderToDisplay"
       type="text"
       v-model="tag"
@@ -37,27 +28,43 @@
       @keydown.enter="add(tag)"
       @keydown.delete.stop="remove()"
       :size="inputSize"
-    />
+    >
   </div>
 </template>
 
-<script>
+<script lang="ts">
+  import {defineComponent} from 'vue';
 
-  export default {
-    props: ['tags', 'placeholder', 'hasIcon'],
+  export default defineComponent({
+    props: {
+      tags: {
+        type: Array,
+        required: false,
+        default: () => ([]),
+      },
+      placeholder: {
+        type: String,
+        required: false,
+        default: '',
+      },
+      hasIcon: {
+        type: Boolean,
+        required: false,
+      },
+    },
     computed: {
-      inputSize() {
+      inputSize(): number {
         return !this.tags.length && this.placeholder ? this.placeholder.length : 0;
       },
-      placeholderToDisplay() {
+      placeholderToDisplay(): string {
         return this.tags.length ? '' : this.placeholder;
       },
     },
     methods: {
       onKeyUp() {
-        this.$emit('typing', this.$refs.tags.value);
+        this.$emit('typing', (<VTagsInput> this.$refs.tags).value);
       },
-      add(tag) {
+      add(tag: string): void {
         if (tag) {
           this.tags.push(tag.trim());
           this.tag = '';
@@ -65,22 +72,22 @@
           this.$emit('tagChange', this.tag);
         }
       },
-      close(index) {
+      close(index: number): void {
         const tagName = this.tags[index];
         this.tags.splice(index, 1);
         this.$emit('tagChange', tagName);
       },
-      remove() {
-        if (this.tags.length && !this.tag.length) {
+      remove(): void {
+        if (this.tags && this.tags.length && !this.tag.length) {
           const tagName = this.tags[this.tags.length - 1];
           this.tags.pop();
           this.$emit('tagChange', tagName);
         }
       },
-      focus() {
-        this.$refs.tags.focus();
+      focus(): void {
+        (<HTMLInputElement> this.$refs.tags).focus();
       },
     },
-    data: () => ({ tag: null }),
-  };
+    data: () => ({tag: ''}),
+  });
 </script>

@@ -1,43 +1,23 @@
 <?php
 /**
- * 2007-2018 PrestaShop.
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * https://opensource.org/licenses/OSL-3.0
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    PrestaShop SA <contact@prestashop.com>
- * @copyright 2007-2018 PrestaShop SA
- * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
+ * For the full copyright and license information, please view the
+ * docs/licenses/LICENSE.txt file that was distributed with this source code.
  */
 
 /**
- * Class UpgraderCore.
+ * @deprecated since 9.2.0, will be removed in 10.0.0
  */
 class UpgraderCore
 {
-    const DEFAULT_CHECK_VERSION_DELAY_HOURS = 24;
+    public const DEFAULT_CHECK_VERSION_DELAY_HOURS = 24;
     public $rss_version_link;
     public $rss_md5file_link_dir;
     /**
      * @var bool contains true if last version is not installed
      */
     protected $need_upgrade = false;
-    protected $changed_files = array();
-    protected $missing_files = array();
+    protected $changed_files = [];
+    protected $missing_files = [];
 
     public $version_name;
     public $version_num;
@@ -50,6 +30,7 @@ class UpgraderCore
     public $autoupgrade_module;
     public $autoupgrade_last_version;
     public $autoupgrade_module_link;
+    public $desc;
     public $changelog;
     public $md5;
 
@@ -128,7 +109,7 @@ class UpgraderCore
         // if we use the autoupgrade process, we will never refresh it
         // except if no check has been done before
         if ($force || ($lastCheck < time() - (3600 * Upgrader::DEFAULT_CHECK_VERSION_DELAY_HOURS))) {
-            libxml_set_streams_context(@stream_context_create(array('http' => array('timeout' => 3))));
+            libxml_set_streams_context(@stream_context_create(['http' => ['timeout' => 3]]));
             if ($feed = @simplexml_load_file($this->rss_version_link)) {
                 $this->version_name = (string) $feed->version->name;
                 $this->version_num = (string) $feed->version->num;
@@ -140,7 +121,7 @@ class UpgraderCore
                 $this->autoupgrade_last_version = (string) $feed->autoupgrade_last_version;
                 $this->autoupgrade_module_link = (string) $feed->autoupgrade_module_link;
                 $this->desc = (string) $feed->desc;
-                $configLastVersion = array(
+                $configLastVersion = [
                     'name' => $this->version_name,
                     'num' => $this->version_num,
                     'link' => $this->link,
@@ -151,7 +132,7 @@ class UpgraderCore
                     'autoupgrade_module_link' => $this->autoupgrade_module_link,
                     'changelog' => $this->changelog,
                     'desc' => $this->desc,
-                );
+                ];
                 if (class_exists('Configuration')) {
                     Configuration::updateValue('PS_LAST_VERSION', serialize($configLastVersion));
                     Configuration::updateValue('PS_LAST_VERSION_CHECK', time());
@@ -166,7 +147,7 @@ class UpgraderCore
         if (version_compare(_PS_VERSION_, $this->version_num, '<')) {
             $this->need_upgrade = true;
 
-            return array('name' => $this->version_name, 'link' => $this->link);
+            return ['name' => $this->version_name, 'link' => $this->link];
         } else {
             return false;
         }
@@ -175,7 +156,7 @@ class UpgraderCore
     /**
      * load the last version informations stocked in base.
      *
-     * @return Upgrader
+     * @return $this
      */
     public function loadFromConfig()
     {
@@ -225,7 +206,7 @@ class UpgraderCore
     public function getChangedFilesList()
     {
         if (is_array($this->changed_files) && count($this->changed_files) == 0) {
-            libxml_set_streams_context(@stream_context_create(array('http' => array('timeout' => 3))));
+            libxml_set_streams_context(@stream_context_create(['http' => ['timeout' => 3]]));
             $checksum = @simplexml_load_file($this->rss_md5file_link_dir . _PS_VERSION_ . '.xml');
             if ($checksum == false) {
                 $this->changed_files = false;
@@ -273,11 +254,11 @@ class UpgraderCore
     }
 
     /**
-     * @param $node
+     * @param SimpleXMLElement $node
      * @param array $currentPath
      * @param int $level
      */
-    protected function browseXmlAndCompare($node, &$currentPath = array(), $level = 1)
+    protected function browseXmlAndCompare($node, &$currentPath = [], $level = 1)
     {
         foreach ($node as $key => $child) {
             /** @var SimpleXMLElement $child */
